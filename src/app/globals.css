@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply text-gray-800;
+  }
+
+  /* 隱藏滾動條但保留功能 */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@layer components {
+  /* 訊息氣泡 */
+  .bubble-user {
+    @apply bg-primary-600 text-white rounded-2xl rounded-br-sm px-4 py-3 max-w-xs ml-auto;
+  }
+
+  .bubble-ai {
+    @apply bg-gray-100 text-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 max-w-xs;
+  }
+
+  /* 按鈕 */
+  .btn-primary {
+    @apply bg-primary-600 text-white rounded-xl px-6 py-3 font-medium
+           hover:bg-primary-700 active:scale-95 transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-600 border border-primary-300 rounded-xl px-6 py-3 font-medium
+           hover:bg-primary-50 active:scale-95 transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply text-gray-500 rounded-xl px-4 py-2 font-medium
+           hover:bg-gray-100 active:scale-95 transition-all duration-150;
+  }
+
+  /* 輸入框 */
+  .input-field {
+    @apply w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
+           focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent
+           placeholder:text-gray-400 transition-all;
+  }
+
+  /* 卡片 */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-4;
+  }
+
+  /* 頁首 */
+  .page-header {
+    @apply sticky top-0 bg-white border-b border-gray-100 px-4 py-3 z-10;
+  }
+}
+
+/* 打字動畫 */
+.typing-dot {
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
