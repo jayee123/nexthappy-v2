@@ -844,33 +844,11 @@ export default function ChatPage() {
             </button>
           </div>
 
-          <UsageChip />
+          {/* Action buttons */}
+          <div className="flex items-center gap-1 shrink-0">
+            <UsageChip />
 
-          {/* Action buttons — v1.3.7b 縮 gap/padding */}
-          <div className="flex items-center gap-0 shrink-0 pl-0.5">
-            {/* 文字 / 語音切換 */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-              <button
-                onClick={switchToText}
-                title="文字模式"
-                className={`px-1 py-0.5 rounded-md text-xs font-medium transition-all ${
-                  !voiceMode ? 'bg-white shadow-sm text-gray-800' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                💬
-              </button>
-              <button
-                onClick={switchToVoice}
-                title="語音模式"
-                className={`px-1 py-0.5 rounded-md text-xs font-medium transition-all ${
-                  voiceMode ? 'bg-white shadow-sm text-primary-600' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                🎙️
-              </button>
-            </div>
-
-            {/* v1.3.5 PDF 匯出 — v1.3.7：consultant tab 永遠顯示 icon（無主題時 disabled）*/}
+            {/* PDF 匯出 — v1.3.7：consultant tab 永遠顯示 icon（無主題時 disabled）*/}
             {(() => {
               let convId: string | undefined | null = null;
               let titleHint = '匯出對話為 PDF';
