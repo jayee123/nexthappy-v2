@@ -53,10 +53,13 @@ export interface UserUsageInfo {
   messages_limit: number;
   messages_remaining: number;
   cost_twd_estimated: number;
-  /** 是否處於試用期、true = 用 trial 額度 */
   is_trial: boolean;
-  /** trial 到期日（若是 trial）*/
   trial_expires_at: string | null;
+  has_payment_method: boolean;
+  auto_renewal: boolean;
+  pending_downgrade_plan: PlanTier | null;
+  subscription_renews_at: string | null;
+  cancelled_at: string | null;
 }
 
 /**
@@ -65,10 +68,9 @@ export interface UserUsageInfo {
  * 該月還沒 row → 自動建一筆 zero quota（lazy init）
  */
 export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
-  // 抓 user 方案 + trial 資訊
   const { data: user, error: userError } = await supabaseAdmin
     .from('users')
-    .select('id, current_plan, trial_started_at')
+    .select('id, current_plan, trial_started_at, payment_method_token, auto_renewal, pending_downgrade_plan, subscription_renews_at, cancelled_at')
     .eq('id', userId)
     .single();
 
@@ -126,6 +128,11 @@ export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
     cost_twd_estimated: Number(quota.cost_twd_estimated || 0),
     is_trial,
     trial_expires_at,
+    has_payment_method: !!user.payment_method_token,
+    auto_renewal: user.auto_renewal ?? false,
+    pending_downgrade_plan: (user.pending_downgrade_plan as PlanTier) ?? null,
+    subscription_renews_at: user.subscription_renews_at ?? null,
+    cancelled_at: user.cancelled_at ?? null,
   };
 }
 
@@ -165,6 +172,11 @@ export async function checkQuotaAvailable(userId: string): Promise<QuotaCheckRes
         cost_twd_estimated: 0,
         is_trial: false,
         trial_expires_at: null,
+        has_payment_method: false,
+        auto_renewal: false,
+        pending_downgrade_plan: null,
+        subscription_renews_at: null,
+        cancelled_at: null,
       },
     };
   }
