@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -43,7 +43,15 @@ type ModalState =
   | { type: 'retention' }
   | null;
 
-export default function BillingPage() {
+export default function BillingPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-6 lg:p-8 text-gray-400">載入中...</div>}>
+      <BillingPage />
+    </Suspense>
+  );
+}
+
+function BillingPage() {
   const searchParams = useSearchParams();
   const [me, setMe] = useState<BillingMe | null>(null);
   const [plans, setPlans] = useState<PlanSpec[]>([]);
