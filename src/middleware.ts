@@ -34,6 +34,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // API routes 不做 redirect，各自處理 401
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
   // 檢查登入狀態
   const session = request.cookies.get('happy_session');
   if (!session) {
