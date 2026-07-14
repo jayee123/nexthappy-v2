@@ -28,6 +28,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # Vercel
 .vercel
@@ -36,3 +37,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.vercel-check
+
+# Test artifacts
+/test-results/
+/playwright-report/

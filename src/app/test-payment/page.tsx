@@ -5,7 +5,7 @@ import { useState } from 'react'
 type PlanTier = 'basic' | 'advanced' | 'premium'
 
 const PLANS: { tier: PlanTier; label: string; price: number }[] = [
-  { tier: 'basic', label: 'Basic 啟動', price: 299 },
+  { tier: 'basic', label: 'Basic 啟動', price: 10 },
   { tier: 'advanced', label: 'Advanced 深化', price: 699 },
   { tier: 'premium', label: 'Premium 整合', price: 1888 },
 ]
@@ -31,30 +31,17 @@ export default function TestPaymentPage() {
 
       const data = await res.json()
 
-      if (!res.ok) {
-        addLog(`bind-card 失敗: ${data.error}`)
+      if (!res.ok || data.error || !data.payUrl) {
+        addLog(`bind-card 失敗: ${data.error || `HTTP ${res.status}`}`)
         setLoading(false)
         return
       }
 
-      addLog(`bind-card 成功: action=${data.action}`)
-      addLog(`transactionId=${data.transactionId}`)
-      addLog('建立 form 跳轉到紅陽...')
+      addLog(`bind-card 成功: transactionId=${data.transactionId}`)
+      addLog(`導向紅陽支付頁: ${data.payUrl}`)
 
-      const form = document.createElement('form')
-      form.method = 'POST'
-      form.action = data.action
-
-      for (const [key, value] of Object.entries(data.params)) {
-        const input = document.createElement('input')
-        input.type = 'hidden'
-        input.name = key
-        input.value = String(value)
-        form.appendChild(input)
-      }
-
-      document.body.appendChild(form)
-      form.submit()
+      // SunPay 首次付款：直接導向 pay_code 支付頁輸入卡號
+      window.location.href = data.payUrl
     } catch (err) {
       addLog(`錯誤: ${err}`)
       setLoading(false)
@@ -106,7 +93,7 @@ export default function TestPaymentPage() {
       <h2>Step 1: 綁卡 (bind-card → 紅陽)</h2>
       <p>選一個方案，會跳轉到紅陽測試頁面綁卡</p>
       <p style={{ color: '#c60', fontSize: 12 }}>
-        測試卡號: 4907060600015601 / 到期: 12/28 / CVV: 123
+        測試卡號: 4938-1701-8888-8994 / 到期: 12/28 / CVV: 541
       </p>
       <div style={{ display: 'flex', gap: 8 }}>
         {PLANS.map((p) => (

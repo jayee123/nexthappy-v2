@@ -146,6 +146,8 @@ export function buildBindingFormParams(
     note2: '',
     Card_Type: '2',
     userID: input.userId,
+    paymentToken: '',
+    paymentData: '',
     Term: term,
     TdReturnURL: input.callbackUrl,
     ChkValue: chkValueBinding(config.merchantId, config.password, mn, term),
@@ -224,11 +226,29 @@ export async function chargeToken(
   }
 
   const passcodeBody = await passcodeRes.json()
-  const passcodeDecrypted = decrypt(
-    passcodeBody.passcodeData,
-    config.encKey,
-    config.encIv,
-  ) as { passcode: string }
+
+  if (!passcodeBody.passcodeData) {
+    return {
+      success: false,
+      errcode: passcodeBody.errcode || 'NO_PASSCODE',
+      errmsg: passcodeBody.errmsg || `Passcode API 無回傳 passcodeData: ${JSON.stringify(passcodeBody)}`,
+    }
+  }
+
+  let passcodeDecrypted: { passcode: string }
+  try {
+    passcodeDecrypted = decrypt(
+      passcodeBody.passcodeData,
+      config.encKey,
+      config.encIv,
+    ) as { passcode: string }
+  } catch (err) {
+    return {
+      success: false,
+      errcode: 'DECRYPT_FAIL',
+      errmsg: `Passcode 解密失敗: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
 
   // Stage B: execute payment
   const paymentData = {
@@ -273,11 +293,29 @@ export async function chargeToken(
   }
 
   const paymentBody = await paymentRes.json()
-  const result = decrypt(
-    paymentBody.transactionResult,
-    config.encKey,
-    config.encIv,
-  ) as { errcode: string; errmsg: string; paymentString?: string }
+
+  if (!paymentBody.transactionResult) {
+    return {
+      success: false,
+      errcode: paymentBody.errcode || 'NO_RESULT',
+      errmsg: paymentBody.errmsg || `Payment API 無回傳 transactionResult: ${JSON.stringify(paymentBody)}`,
+    }
+  }
+
+  let result: { errcode: string; errmsg: string; paymentString?: string }
+  try {
+    result = decrypt(
+      paymentBody.transactionResult,
+      config.encKey,
+      config.encIv,
+    ) as { errcode: string; errmsg: string; paymentString?: string }
+  } catch (err) {
+    return {
+      success: false,
+      errcode: 'DECRYPT_FAIL',
+      errmsg: `Payment 解密失敗: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
 
   if (result.paymentString) {
     return {

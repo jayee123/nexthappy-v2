@@ -2,9 +2,47 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionFromRequest } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, PURCHASABLE_PLANS, type PlanTier } from '@/lib/billing/plans'
-import { getHongyangConfig, chargeToken, decrypt, generateOrderNo } from '@/lib/payment/hongyang'
+import { getHongyangConfig, chargeToken, decrypt, generateOrderNo, type HongyangConfig } from '@/lib/payment/hongyang'
 
 type CheckoutAction = 'subscribe' | 'upgrade' | 'downgrade' | 'cancel'
+
+interface ResolvedToken {
+  paymentToken: string
+  verificationCode: string
+  tokenExpiryDate: string
+}
+
+function resolveTokenFields(encryptedToken: string, config: HongyangConfig): ResolvedToken | null {
+  let raw: Record<string, unknown>
+  try {
+    raw = decrypt(encryptedToken, config.encKey, config.encIv)
+  } catch {
+    return null
+  }
+
+  if (raw.paymentToken) {
+    return {
+      paymentToken: String(raw.paymentToken),
+      verificationCode: String(raw.verificationCode || ''),
+      tokenExpiryDate: String(raw.tokenExpiryDate || ''),
+    }
+  }
+
+  if (raw.tokenData && typeof raw.tokenData === 'string') {
+    try {
+      const inner = decrypt(raw.tokenData, config.encKey, config.encIv)
+      return {
+        paymentToken: String(inner.paymentToken || ''),
+        verificationCode: String(inner.verificationCode || ''),
+        tokenExpiryDate: String(inner.tokenExpiryDate || ''),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
 
 const VALID_ACTIONS: CheckoutAction[] = ['subscribe', 'upgrade', 'downgrade', 'cancel']
 
@@ -137,21 +175,34 @@ async function handleSubscribeOrUpgradeFromTrial(
   const plan = PLANS[targetTier]
   const orderNo = generateOrderNo(user.id)
 
-  const tokenInfo = decrypt(
-    user.payment_method_token,
-    config.encKey,
-    config.encIv,
-  ) as { tokenData: string; buysafeno: string }
+  const resolved = resolveTokenFields(user.payment_method_token, config)
+  if (!resolved || !resolved.paymentToken) {
+    return NextResponse.json({
+      success: false,
+      needsBindCard: true,
+      message: '綁卡資訊不完整或已失效，請重新綁卡',
+      tier: targetTier,
+    })
+  }
 
-  const result = await chargeToken(config, {
-    userId: user.id,
-    paymentToken: tokenInfo.tokenData,
-    verificationCode: tokenInfo.buysafeno,
-    tokenExpiryDate: '',
-    amount: plan.price_twd,
-    orderNo,
-    orderInfo: `${plan.label}:月訂閱`,
-  })
+  let result: Awaited<ReturnType<typeof chargeToken>>
+  try {
+    result = await chargeToken(config, {
+      userId: user.id,
+      paymentToken: resolved.paymentToken,
+      verificationCode: resolved.verificationCode,
+      tokenExpiryDate: resolved.tokenExpiryDate,
+      amount: plan.price_twd,
+      orderNo,
+      orderInfo: `${plan.label}:月訂閱`,
+    })
+  } catch (err) {
+    console.error('[checkout] chargeToken threw:', err)
+    return NextResponse.json({
+      success: false,
+      message: '金流扣款請求失敗，請稍後再試',
+    })
+  }
 
   await supabaseAdmin.from('payment_transactions').insert({
     user_id: user.id,
@@ -259,21 +310,34 @@ async function handleUpgrade(
   const config = getHongyangConfig()
   const orderNo = generateOrderNo(user.id)
 
-  const tokenInfo = decrypt(
-    user.payment_method_token,
-    config.encKey,
-    config.encIv,
-  ) as { tokenData: string; buysafeno: string }
+  const resolved = resolveTokenFields(user.payment_method_token, config)
+  if (!resolved || !resolved.paymentToken) {
+    return NextResponse.json({
+      success: false,
+      needsBindCard: true,
+      message: '綁卡資訊不完整或已失效，請重新綁卡',
+      tier: targetTier,
+    })
+  }
 
-  const result = await chargeToken(config, {
-    userId: user.id,
-    paymentToken: tokenInfo.tokenData,
-    verificationCode: tokenInfo.buysafeno,
-    tokenExpiryDate: '',
-    amount: diffAmount,
-    orderNo,
-    orderInfo: `升級差額 ${PLANS[currentPlan].label}→${PLANS[targetTier].label}`,
-  })
+  let result: Awaited<ReturnType<typeof chargeToken>>
+  try {
+    result = await chargeToken(config, {
+      userId: user.id,
+      paymentToken: resolved.paymentToken,
+      verificationCode: resolved.verificationCode,
+      tokenExpiryDate: resolved.tokenExpiryDate,
+      amount: diffAmount,
+      orderNo,
+      orderInfo: `升級差額 ${PLANS[currentPlan].label}→${PLANS[targetTier].label}`,
+    })
+  } catch (err) {
+    console.error('[checkout] chargeToken threw:', err)
+    return NextResponse.json({
+      success: false,
+      message: '金流扣款請求失敗，請稍後再試',
+    })
+  }
 
   await supabaseAdmin.from('payment_transactions').insert({
     user_id: user.id,

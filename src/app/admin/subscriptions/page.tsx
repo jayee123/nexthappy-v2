@@ -7,7 +7,20 @@ interface Transaction {
   amount: number
   status: string
   transaction_type: string
+  errcode: string | null
+  errmsg: string | null
+  esafe_no: string | null
+  order_no: string | null
   created_at: string
+}
+
+interface TokenInfo {
+  bound: boolean
+  token_life: string | null
+  bound_at: string | null
+  token_key_masked: string | null
+  customer_name: string | null
+  customer_phone: string | null
 }
 
 interface SubUser {
@@ -21,6 +34,7 @@ interface SubUser {
   cancelled_at: string | null
   pending_downgrade_plan: string | null
   trial_started_at: string | null
+  token_info: TokenInfo
   recent_transactions: Transaction[]
 }
 
@@ -68,6 +82,17 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('zh-TW')
 }
 
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString('zh-TW', { hour12: false })
+}
+
+// token_life：YYYYMMDD → YYYY/MM/DD
+function formatTokenLife(life: string | null): string {
+  if (!life || life.length !== 8) return life || '-'
+  return `${life.slice(0, 4)}/${life.slice(4, 6)}/${life.slice(6, 8)}`
+}
+
 export default function AdminSubscriptionsPage() {
   const [users, setUsers] = useState<SubUser[]>([])
   const [counts, setCounts] = useState<Counts>({ total: 0, trial: 0, active: 0, cancelled: 0 })
@@ -105,7 +130,7 @@ export default function AdminSubscriptionsPage() {
   return (
     <div className="p-6 max-w-6xl">
       <h1 className="text-2xl font-bold text-gray-800 mb-1">💳 訂閱管理</h1>
-      <p className="text-sm text-gray-500 mb-6">查看用戶訂閱狀態與付款紀錄</p>
+      <p className="text-sm text-gray-500 mb-6">查看用戶訂閱狀態、付款紀錄與已綁定的 Token</p>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         {FILTERS.map((f) => {
@@ -148,9 +173,9 @@ export default function AdminSubscriptionsPage() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 font-medium text-gray-600">用戶</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">方案</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">訂閱開始</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">下次扣款</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">自動續約</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Token</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">備註</th>
               </tr>
             </thead>
@@ -171,7 +196,6 @@ export default function AdminSubscriptionsPage() {
                         {PLAN_LABELS[u.current_plan] || u.current_plan}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(u.subscription_started_at || u.trial_started_at)}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(u.subscription_renews_at)}</td>
                     <td className="px-4 py-3">
                       {u.auto_renewal ? (
@@ -180,41 +204,82 @@ export default function AdminSubscriptionsPage() {
                         <span className="text-gray-400">✗ 否</span>
                       )}
                     </td>
+                    <td className="px-4 py-3">
+                      {u.token_info?.bound ? (
+                        <span className="text-green-600" title={u.token_info.token_key_masked || ''}>🔒 已綁定</span>
+                      ) : (
+                        <span className="text-gray-400">— 未綁</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {u.pending_downgrade_plan && `待降→${PLAN_LABELS[u.pending_downgrade_plan]}`}
                       {u.cancelled_at && `取消於 ${formatDate(u.cancelled_at)}`}
                     </td>
                   </tr>
-                  {expandedUser === u.id && u.recent_transactions.length > 0 && (
-                    <tr key={`${u.id}-tx`}>
-                      <td colSpan={6} className="px-4 py-3 bg-gray-50">
-                        <div className="text-xs font-medium text-gray-500 mb-2">最近付款紀錄</div>
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-gray-400">
-                              <th className="text-left py-1">類型</th>
-                              <th className="text-left py-1">方案</th>
-                              <th className="text-right py-1">金額</th>
-                              <th className="text-left py-1">狀態</th>
-                              <th className="text-left py-1">時間</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {u.recent_transactions.map((tx, i) => (
-                              <tr key={i} className="border-t border-gray-100">
-                                <td className="py-1">{TX_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</td>
-                                <td className="py-1">{PLAN_LABELS[tx.plan_tier] || tx.plan_tier}</td>
-                                <td className="py-1 text-right">NT${tx.amount}</td>
-                                <td className="py-1">
-                                  <span className={tx.status === 'success' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-500' : 'text-yellow-600'}>
-                                    {tx.status}
-                                  </span>
-                                </td>
-                                <td className="py-1 text-gray-400">{formatDate(tx.created_at)}</td>
+                  {expandedUser === u.id && (
+                    <tr key={`${u.id}-detail`}>
+                      <td colSpan={6} className="px-4 py-4 bg-gray-50">
+                        {/* Token 資料 */}
+                        <div className="mb-4">
+                          <div className="text-xs font-medium text-gray-500 mb-2">🔒 已儲存的 Token 資料</div>
+                          {u.token_info?.bound ? (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs bg-white rounded-lg border border-gray-200 p-3">
+                              <div>
+                                <div className="text-gray-400">Token Key（遮罩）</div>
+                                <div className="font-mono text-gray-700">{u.token_info.token_key_masked || '-'}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400">綁定時間</div>
+                                <div className="text-gray-700">{formatDateTime(u.token_info.bound_at)}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400">卡片/Token 到期</div>
+                                <div className="text-gray-700">{formatTokenLife(u.token_info.token_life)}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400">續扣消費者姓名/電話</div>
+                                <div className="text-gray-700">{u.token_info.customer_name || '(用帳號名)'} / {u.token_info.customer_phone || '(預設)'}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">尚未綁定信用卡 Token</div>
+                          )}
+                        </div>
+
+                        {/* 付款紀錄 */}
+                        <div className="text-xs font-medium text-gray-500 mb-2">💳 付款紀錄（最近 10 筆）</div>
+                        {u.recent_transactions.length > 0 ? (
+                          <table className="w-full text-xs bg-white rounded-lg border border-gray-200">
+                            <thead>
+                              <tr className="text-gray-400 border-b border-gray-100">
+                                <th className="text-left px-2 py-1.5">類型</th>
+                                <th className="text-right px-2 py-1.5">金額</th>
+                                <th className="text-left px-2 py-1.5">狀態</th>
+                                <th className="text-left px-2 py-1.5">錯誤碼</th>
+                                <th className="text-left px-2 py-1.5">紅陽交易編號</th>
+                                <th className="text-left px-2 py-1.5">時間</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {u.recent_transactions.map((tx, i) => (
+                                <tr key={i} className="border-t border-gray-50">
+                                  <td className="px-2 py-1.5">{TX_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}</td>
+                                  <td className="px-2 py-1.5 text-right">NT${tx.amount}</td>
+                                  <td className="px-2 py-1.5">
+                                    <span className={tx.status === 'success' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-500' : 'text-yellow-600'}>
+                                      {tx.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-1.5 text-gray-500">{tx.errcode || '-'}</td>
+                                  <td className="px-2 py-1.5 font-mono text-gray-500">{tx.esafe_no || '-'}</td>
+                                  <td className="px-2 py-1.5 text-gray-400">{formatDateTime(tx.created_at)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="text-xs text-gray-400">無付款紀錄</div>
+                        )}
                       </td>
                     </tr>
                   )}

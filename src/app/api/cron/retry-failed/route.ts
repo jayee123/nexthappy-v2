@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, type PlanTier } from '@/lib/billing/plans'
-import { chargeToken, decrypt, generateOrderNo, getHongyangConfig } from '@/lib/payment/hongyang'
+import {
+  getSunpayConfig,
+  requestSubsequentPayment,
+  generateOrderNo,
+  unpackToken,
+  type StoredToken,
+} from '@/lib/payment/sunpay'
 
 const RETRY_DELAY_HOURS = [24, 48, 72]
 
@@ -30,14 +36,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ retried: 0, succeeded: 0, exhausted: 0 })
   }
 
-  const config = getHongyangConfig()
+  const config = getSunpayConfig()
   let succeeded = 0
   let exhausted = 0
 
   for (const retry of pendingRetries) {
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('id, current_plan, payment_method_token, subscription_renews_at')
+      .select('id, name, email, current_plan, payment_method_token, subscription_renews_at')
       .eq('id', retry.user_id)
       .single()
 
@@ -61,16 +67,13 @@ export async function GET(request: NextRequest) {
       continue
     }
 
-    let tokenInfo: { tokenData: string; buysafeno: string }
+    let stored: StoredToken
     try {
-      tokenInfo = decrypt(user.payment_method_token, config.encKey, config.encIv) as {
-        tokenData: string
-        buysafeno: string
-      }
+      stored = unpackToken(user.payment_method_token, process.env.ENCRYPTION_KEY!)
     } catch {
       await supabaseAdmin
         .from('payment_retries')
-        .update({ resolved: true, last_error: 'decrypt_failed', updated_at: now.toISOString() })
+        .update({ resolved: true, last_error: 'unpack_failed', updated_at: now.toISOString() })
         .eq('id', retry.id)
       exhausted++
       continue
@@ -78,24 +81,27 @@ export async function GET(request: NextRequest) {
 
     const orderNo = generateOrderNo(user.id)
 
-    const result = await chargeToken(config, {
-      userId: user.id,
-      paymentToken: tokenInfo.tokenData,
-      verificationCode: tokenInfo.buysafeno,
-      tokenExpiryDate: '',
-      amount: plan.price_twd,
+    const RENEWAL_AMOUNT = 5
+    const result = await requestSubsequentPayment(config, {
+      email: user.email,
+      amount: RENEWAL_AMOUNT,
+      orderInfo: `${plan.label} 重試扣款 #${retry.retry_count + 1}`,
+      // 沿用綁卡時的消費者姓名/電話（續扣無支付頁可輸入），退回帳號名稱
+      phone: stored.customerPhone || '0900000000',
+      name: stored.customerName || user.name || 'User',
+      saveCardToken: stored.saveCardToken,
       orderNo,
-      orderInfo: `${plan.label}:重試扣款 #${retry.retry_count + 1}`,
+      tokenKey: stored.tokenKey,
     })
 
     await supabaseAdmin.from('payment_transactions').insert({
       user_id: user.id,
       plan_tier: tier,
-      amount: plan.price_twd,
+      amount: RENEWAL_AMOUNT,
       order_no: orderNo,
-      esafe_no: result.esafeNo || null,
-      errcode: result.errcode,
-      errmsg: result.errmsg,
+      esafe_no: null,
+      errcode: result.code,
+      errmsg: result.msg,
       status: result.success ? 'success' : 'failed',
       transaction_type: 'retry',
       idempotency_key: `retry_${retry.id}_${retry.retry_count + 1}`,
@@ -128,7 +134,7 @@ export async function GET(request: NextRequest) {
           .update({
             resolved: true,
             retry_count: newCount,
-            last_error: `${result.errcode}: ${result.errmsg}`,
+            last_error: `${result.code}: ${result.msg}`,
             updated_at: now.toISOString(),
           })
           .eq('id', retry.id)
@@ -151,7 +157,7 @@ export async function GET(request: NextRequest) {
             after: {
               plan: 'cancelled',
               retries: newCount,
-              last_error: result.errmsg,
+              last_error: result.msg,
               source: 'cron',
             },
           },
@@ -171,7 +177,7 @@ export async function GET(request: NextRequest) {
           .update({
             retry_count: newCount,
             next_retry_at: nextRetryAt.toISOString(),
-            last_error: `${result.errcode}: ${result.errmsg}`,
+            last_error: `${result.code}: ${result.msg}`,
             updated_at: now.toISOString(),
           })
           .eq('id', retry.id)
