@@ -2,47 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionFromRequest } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, PURCHASABLE_PLANS, type PlanTier } from '@/lib/billing/plans'
-import { getHongyangConfig, chargeToken, decrypt, generateOrderNo, type HongyangConfig } from '@/lib/payment/hongyang'
+import { nextChargeAt } from '@/lib/billing/subscription-cycle'
+
+// 訂閱變更端點：subscribe / upgrade / downgrade / cancel
+//
+// ★ 試用測試模式（客戶指定）：每日定額 $5 token 扣款、與方案級別無關。
+//   - subscribe：沒 token → 導向 $1 綁卡（bind-card 首次付款）；已有 token → 直接重新啟用（不扣款）
+//   - upgrade：免費即時切換方案（不收差額，每日 $5 不變）
+//   - downgrade：預約至下個扣款週期生效（本期不變、不扣款）
+//   - cancel：停用自動續約，服務到期日前有效
+//
+// 舊的 esafe hongyang 扣款/解密已全數移除，token 走新的 SunPay 系統（bind-card / callback / cron）。
 
 type CheckoutAction = 'subscribe' | 'upgrade' | 'downgrade' | 'cancel'
-
-interface ResolvedToken {
-  paymentToken: string
-  verificationCode: string
-  tokenExpiryDate: string
-}
-
-function resolveTokenFields(encryptedToken: string, config: HongyangConfig): ResolvedToken | null {
-  let raw: Record<string, unknown>
-  try {
-    raw = decrypt(encryptedToken, config.encKey, config.encIv)
-  } catch {
-    return null
-  }
-
-  if (raw.paymentToken) {
-    return {
-      paymentToken: String(raw.paymentToken),
-      verificationCode: String(raw.verificationCode || ''),
-      tokenExpiryDate: String(raw.tokenExpiryDate || ''),
-    }
-  }
-
-  if (raw.tokenData && typeof raw.tokenData === 'string') {
-    try {
-      const inner = decrypt(raw.tokenData, config.encKey, config.encIv)
-      return {
-        paymentToken: String(inner.paymentToken || ''),
-        verificationCode: String(inner.verificationCode || ''),
-        tokenExpiryDate: String(inner.tokenExpiryDate || ''),
-      }
-    } catch {
-      return null
-    }
-  }
-
-  return null
-}
 
 const VALID_ACTIONS: CheckoutAction[] = ['subscribe', 'upgrade', 'downgrade', 'cancel']
 
@@ -96,12 +68,12 @@ export async function POST(request: NextRequest) {
     if (currentPlan !== 'cancelled' && currentPlan !== 'trial') {
       return NextResponse.json({ error: '已有訂閱，請用升級/降級' }, { status: 400 })
     }
-    return handleSubscribeOrUpgradeFromTrial(request, user, targetTier)
+    return handleActivate(request, user, targetTier)
   }
 
   if (action === 'upgrade') {
     if (currentPlan === 'trial') {
-      return handleSubscribeOrUpgradeFromTrial(request, user, targetTier)
+      return handleActivate(request, user, targetTier)
     }
     if (TIER_RANK[targetTier] <= TIER_RANK[currentPlan]) {
       return NextResponse.json({ error: '目標方案不高於目前方案' }, { status: 400 })
@@ -157,12 +129,14 @@ async function handleCancel(
   })
 }
 
-async function handleSubscribeOrUpgradeFromTrial(
+// 首次訂閱 / 從 trial / 取消後重訂：沒 token 就導向綁卡；有 token 直接啟用（試用模式不即時扣款）
+async function handleActivate(
   request: NextRequest,
   user: { id: string; payment_method_token: string | null; current_plan: string },
   targetTier: PlanTier,
 ) {
   if (!user.payment_method_token) {
+    // 交由前端 handleBindCard → bind-card 首次付款（$1 綁卡）
     return NextResponse.json({
       success: false,
       needsBindCard: true,
@@ -171,63 +145,9 @@ async function handleSubscribeOrUpgradeFromTrial(
     })
   }
 
-  const config = getHongyangConfig()
   const plan = PLANS[targetTier]
-  const orderNo = generateOrderNo(user.id)
-
-  const resolved = resolveTokenFields(user.payment_method_token, config)
-  if (!resolved || !resolved.paymentToken) {
-    return NextResponse.json({
-      success: false,
-      needsBindCard: true,
-      message: '綁卡資訊不完整或已失效，請重新綁卡',
-      tier: targetTier,
-    })
-  }
-
-  let result: Awaited<ReturnType<typeof chargeToken>>
-  try {
-    result = await chargeToken(config, {
-      userId: user.id,
-      paymentToken: resolved.paymentToken,
-      verificationCode: resolved.verificationCode,
-      tokenExpiryDate: resolved.tokenExpiryDate,
-      amount: plan.price_twd,
-      orderNo,
-      orderInfo: `${plan.label}:月訂閱`,
-    })
-  } catch (err) {
-    console.error('[checkout] chargeToken threw:', err)
-    return NextResponse.json({
-      success: false,
-      message: '金流扣款請求失敗，請稍後再試',
-    })
-  }
-
-  await supabaseAdmin.from('payment_transactions').insert({
-    user_id: user.id,
-    plan_tier: targetTier,
-    amount: plan.price_twd,
-    order_no: orderNo,
-    esafe_no: result.esafeNo || null,
-    errcode: result.errcode,
-    errmsg: result.errmsg,
-    status: result.success ? 'success' : 'failed',
-    transaction_type: user.current_plan === 'trial' ? 'bind_card' : 'renewal',
-    idempotency_key: `subscribe_${user.id}_${orderNo}`,
-  })
-
-  if (!result.success) {
-    return NextResponse.json({
-      success: false,
-      message: `扣款失敗：${result.errmsg}`,
-      errcode: result.errcode,
-    })
-  }
-
   const now = new Date()
-  const renewsAt = new Date(now)
-  renewsAt.setMonth(renewsAt.getMonth() + 1)
+  const renewsAt = nextChargeAt(now) // 試用模式：隔 24h 起每天 token 扣款
 
   await supabaseAdmin
     .from('users')
@@ -242,123 +162,36 @@ async function handleSubscribeOrUpgradeFromTrial(
     })
     .eq('id', user.id)
 
-  const auditAction = user.current_plan === 'trial'
-    ? 'subscription.upgrade_from_trial'
-    : 'subscription.resubscribe'
-
   await supabaseAdmin.from('admin_audit_logs').insert({
     admin_user_id: null,
-    action: auditAction,
+    action: 'subscription.activate',
     target_type: 'user',
     target_id: user.id,
     changes: {
       before: { plan: user.current_plan },
-      after: { plan: targetTier, amount: plan.price_twd, source: 'user' },
+      after: { plan: targetTier, next_charge: renewsAt.toISOString(), source: 'user' },
     },
     ip_address: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     user_agent: request.headers.get('user-agent') || 'unknown',
   })
 
-  console.log(`[checkout] subscribe success: user=${user.id} plan=${targetTier}`)
+  console.log(`[checkout] activate: user=${user.id} plan=${targetTier} (已有 token，未即時扣款)`)
 
   return NextResponse.json({
     success: true,
-    message: `訂閱 ${plan.label} 成功！下次扣款日：${renewsAt.toLocaleDateString('zh-TW')}`,
+    message: `已啟用 ${plan.label}，下次扣款日：${renewsAt.toLocaleDateString('zh-TW')}`,
     plan: targetTier,
     renewsAt: renewsAt.toISOString(),
   })
 }
 
+// 升級：試用模式免費即時切換（不收差額，每日 $5 不變，續扣日不變）
 async function handleUpgrade(
   request: NextRequest,
-  user: { id: string; current_plan: string; payment_method_token: string | null; subscription_renews_at: string | null },
+  user: { id: string; current_plan: string; payment_method_token: string | null },
   targetTier: PlanTier,
 ) {
-  if (!user.payment_method_token) {
-    return NextResponse.json({
-      success: false,
-      needsBindCard: true,
-      message: '請先綁定信用卡',
-      tier: targetTier,
-    })
-  }
-
   const currentPlan = user.current_plan as PlanTier
-  const oldPrice = PLANS[currentPlan].price_twd
-  const newPrice = PLANS[targetTier].price_twd
-
-  const now = new Date()
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  const renewDate = user.subscription_renews_at ? new Date(user.subscription_renews_at) : now
-  const remainingDays = Math.max(0, Math.ceil((renewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-
-  const diffAmount = Math.round((newPrice - oldPrice) / daysInMonth * remainingDays)
-
-  if (diffAmount <= 0) {
-    await supabaseAdmin
-      .from('users')
-      .update({ current_plan: targetTier, pending_downgrade_plan: null })
-      .eq('id', user.id)
-
-    return NextResponse.json({
-      success: true,
-      message: `已升級至 ${PLANS[targetTier].label}，下月起扣新價格`,
-      chargedAmount: 0,
-    })
-  }
-
-  const config = getHongyangConfig()
-  const orderNo = generateOrderNo(user.id)
-
-  const resolved = resolveTokenFields(user.payment_method_token, config)
-  if (!resolved || !resolved.paymentToken) {
-    return NextResponse.json({
-      success: false,
-      needsBindCard: true,
-      message: '綁卡資訊不完整或已失效，請重新綁卡',
-      tier: targetTier,
-    })
-  }
-
-  let result: Awaited<ReturnType<typeof chargeToken>>
-  try {
-    result = await chargeToken(config, {
-      userId: user.id,
-      paymentToken: resolved.paymentToken,
-      verificationCode: resolved.verificationCode,
-      tokenExpiryDate: resolved.tokenExpiryDate,
-      amount: diffAmount,
-      orderNo,
-      orderInfo: `升級差額 ${PLANS[currentPlan].label}→${PLANS[targetTier].label}`,
-    })
-  } catch (err) {
-    console.error('[checkout] chargeToken threw:', err)
-    return NextResponse.json({
-      success: false,
-      message: '金流扣款請求失敗，請稍後再試',
-    })
-  }
-
-  await supabaseAdmin.from('payment_transactions').insert({
-    user_id: user.id,
-    plan_tier: targetTier,
-    amount: diffAmount,
-    order_no: orderNo,
-    esafe_no: result.esafeNo || null,
-    errcode: result.errcode,
-    errmsg: result.errmsg,
-    status: result.success ? 'success' : 'failed',
-    transaction_type: 'upgrade_diff',
-    idempotency_key: `upgrade_${user.id}_${orderNo}`,
-    metadata: { from: currentPlan, to: targetTier, remainingDays, daysInMonth },
-  })
-
-  if (!result.success) {
-    return NextResponse.json({
-      success: false,
-      message: `差額扣款失敗：${result.errmsg}`,
-    })
-  }
 
   await supabaseAdmin
     .from('users')
@@ -372,18 +205,18 @@ async function handleUpgrade(
     target_id: user.id,
     changes: {
       before: { plan: currentPlan },
-      after: { plan: targetTier, diff_amount: diffAmount, source: 'user' },
+      after: { plan: targetTier, diff_amount: 0, mode: 'trial_free_switch', source: 'user' },
     },
     ip_address: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     user_agent: request.headers.get('user-agent') || 'unknown',
   })
 
-  console.log(`[checkout] upgrade: user=${user.id} ${currentPlan}→${targetTier} diff=$${diffAmount}`)
+  console.log(`[checkout] upgrade: user=${user.id} ${currentPlan}→${targetTier} (試用模式免費切換)`)
 
   return NextResponse.json({
     success: true,
-    message: `已升級至 ${PLANS[targetTier].label}，收取差額 NT$${diffAmount}`,
-    chargedAmount: diffAmount,
+    message: `已升級至 ${PLANS[targetTier].label}（試用期不收差額，每日扣款不變）`,
+    chargedAmount: 0,
   })
 }
 
@@ -398,13 +231,13 @@ async function handleDowngrade(
 
   const effectiveDate = user.subscription_renews_at
     ? new Date(user.subscription_renews_at).toLocaleDateString('zh-TW')
-    : '下月 1 號'
+    : '下個扣款週期'
 
   console.log(`[checkout] downgrade pending: user=${user.id} ${user.current_plan}→${targetTier} effective=${effectiveDate}`)
 
   return NextResponse.json({
     success: true,
-    message: `降級將在 ${effectiveDate} 生效，本月方案不變`,
+    message: `降級將在 ${effectiveDate} 生效，本期方案不變`,
     pendingPlan: targetTier,
     effectiveDate,
   })

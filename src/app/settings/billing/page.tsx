@@ -456,9 +456,9 @@ function BillingPage() {
                 <div className="bg-orange-50 border-l-4 border-orange-400 p-3 mb-4 text-sm text-gray-700">
                   <p className="font-medium mb-1">升級說明</p>
                   <ul className="text-xs space-y-1 text-gray-600">
-                    <li>系統將立即收取差額（按剩餘天數比例計算）</li>
+                    <li>試用期升級不收差額，立即切換方案</li>
                     <li>升級立即生效，您將獲得新方案的完整權限</li>
-                    <li>下個月起自動依新方案價格 NT${targetPlan.price_twd} 扣款</li>
+                    <li>維持每日自動扣款，續扣日不變</li>
                   </ul>
                 </div>
               )}
@@ -476,11 +476,11 @@ function BillingPage() {
 
               {modal.action === 'subscribe' && !me.has_payment_method && (
                 <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 text-sm text-gray-700">
-                  <p className="font-medium mb-1">首次訂閱</p>
+                  <p className="font-medium mb-1">首次訂閱（試用）</p>
                   <ul className="text-xs space-y-1 text-gray-600">
                     <li>您將被導向安全的紅陽金流頁面綁定信用卡</li>
-                    <li>本次收取 NT${targetPlan.price_twd}，方案立即啟用</li>
-                    <li>下個月起每月自動扣款 NT${targetPlan.price_twd}</li>
+                    <li>綁卡僅收取 NT$1 驗證，方案立即啟用</li>
+                    <li>隔天起每日自動扣款 NT$5</li>
                   </ul>
                 </div>
               )}
@@ -503,8 +503,8 @@ function BillingPage() {
                   }`}
                 >
                   {actionLoading ? '處理中...' :
-                   modal.action === 'subscribe' ? (me.has_payment_method ? '確認扣款' : '前往綁卡付款') :
-                   isUpgrade ? '確認扣款並升級' : '確認預約變更'}
+                   modal.action === 'subscribe' ? (me.has_payment_method ? '確認啟用' : '前往綁卡') :
+                   isUpgrade ? '確認升級' : '確認預約變更'}
                 </button>
               </div>
             </div>
