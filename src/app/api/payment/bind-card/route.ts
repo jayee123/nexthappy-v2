@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionFromRequest } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, PURCHASABLE_PLANS, type PlanTier } from '@/lib/billing/plans'
+import { BIND_AMOUNT_TWD } from '@/lib/billing/subscription-cycle'
 import { getSunpayConfig, requestFirstPayment, generateOrderNo } from '@/lib/payment/sunpay'
 
 export async function POST(request: NextRequest) {
@@ -46,13 +47,16 @@ async function handle(request: NextRequest) {
   const plan = PLANS[targetTier]
   const config = getSunpayConfig()
 
+  // 試用測試模式：首刷只收 $1（卡片驗證），不是方案月費。隔天起每天用 token 扣 $5。
+  const bindAmount = BIND_AMOUNT_TWD
+
   // 建立 pending 交易（callback 會用 order_no 對應回來）
   const { data: tx, error: txError } = await supabaseAdmin
     .from('payment_transactions')
     .insert({
       user_id: user.id,
       plan_tier: targetTier,
-      amount: plan.price_twd,
+      amount: bindAmount,
       order_no: '__pending__',
       status: 'pending',
       transaction_type: 'bind_card',
@@ -76,8 +80,8 @@ async function handle(request: NextRequest) {
   // SunPay 代碼首次付款 → 取得支付頁 URL（pay_code）
   const result = await requestFirstPayment(config, {
     email: user.email,
-    amount: plan.price_twd,
-    orderInfo: `${plan.label} 月訂閱`,
+    amount: bindAmount,
+    orderInfo: `${plan.label} 試用綁卡`,
     saveCardToken: user.id, // 特店自訂卡片識別碼（後續扣款用同一組）
     phone: '0900000000', // TODO: 若 users 表有電話則帶入
     name: user.name || 'User',

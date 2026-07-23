@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, type PlanTier } from '@/lib/billing/plans'
+import { DAILY_CHARGE_TWD, nextChargeAt } from '@/lib/billing/subscription-cycle'
 import {
   getSunpayConfig,
   requestSubsequentPayment,
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     const orderNo = generateOrderNo(user.id)
 
-    const RENEWAL_AMOUNT = 5
+    const RENEWAL_AMOUNT = DAILY_CHARGE_TWD
     const result = await requestSubsequentPayment(config, {
       email: user.email,
       amount: RENEWAL_AMOUNT,
@@ -108,8 +109,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (result.success) {
-      const nextRenewal = new Date(now)
-      nextRenewal.setMonth(nextRenewal.getMonth() + 1)
+      const nextRenewal = nextChargeAt(now) // 試用測試模式：下次扣款隔 24h
 
       await supabaseAdmin
         .from('payment_retries')

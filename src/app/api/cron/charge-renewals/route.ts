@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, type PlanTier } from '@/lib/billing/plans'
+import { DAILY_CHARGE_TWD, nextChargeAt } from '@/lib/billing/subscription-cycle'
 import {
   getSunpayConfig,
   requestSubsequentPayment,
@@ -61,11 +62,11 @@ export async function GET(request: NextRequest) {
       continue
     }
 
-    const RENEWAL_AMOUNT = 5
+    const RENEWAL_AMOUNT = DAILY_CHARGE_TWD
     const result = await requestSubsequentPayment(config, {
       email: user.email,
       amount: RENEWAL_AMOUNT,
-      orderInfo: `${plan.label} 月續扣`,
+      orderInfo: `${plan.label} 每日扣款`,
       // 沿用綁卡時的消費者姓名/電話（續扣無支付頁可輸入），退回帳號名稱
       phone: stored.customerPhone || '0900000000',
       name: stored.customerName || user.name || 'User',
@@ -92,8 +93,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (result.success) {
-      const nextRenewal = new Date(now)
-      nextRenewal.setMonth(nextRenewal.getMonth() + 1)
+      const nextRenewal = nextChargeAt(now) // 試用測試模式：下次扣款隔 24h
 
       await supabaseAdmin
         .from('users')
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
         changes: {
           after: {
             plan: effectiveTier,
-            amount: plan.price_twd,
+            amount: RENEWAL_AMOUNT,
             next_renewal: nextRenewal.toISOString(),
             source: 'cron',
           },
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         user_agent: 'vercel-cron',
       })
 
-      console.log(`[cron:charge-renewals] success: user=${user.id} plan=${effectiveTier} amount=${plan.price_twd}`)
+      console.log(`[cron:charge-renewals] success: user=${user.id} plan=${effectiveTier} amount=${RENEWAL_AMOUNT}`)
       charged++
     } else {
       const nextRetryAt = new Date(now)

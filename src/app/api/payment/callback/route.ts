@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSunpayConfig, parseCallback, packToken } from '@/lib/payment/sunpay'
 import { type PlanTier } from '@/lib/billing/plans'
+import { nextChargeAt } from '@/lib/billing/subscription-cycle'
 
 // SunPay 代碼授權 CallBack：紅陽以背景 POST {web, send_time, rsamsg, check_value}
 // 到本網址。解密+驗簽後處理付款、儲存 token，回傳純文字 "success"。
@@ -115,9 +116,9 @@ export async function POST(request: NextRequest) {
       console.warn('[callback] success but no token_key returned', { td })
     }
 
+    // 試用測試模式：首刷不當作收費、綁卡當天不扣，隔 24h 起每天用 token 扣 $5。
     const now = new Date()
-    const renewsAt = new Date(now)
-    renewsAt.setMonth(renewsAt.getMonth() + 1)
+    const renewsAt = nextChargeAt(now)
 
     const updates: Record<string, unknown> = {
       current_plan: resolvedTier,
