@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -59,7 +59,6 @@ function BillingPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -117,31 +116,17 @@ function BillingPage() {
         body: JSON.stringify({ tier }),
       });
       const data = await res.json();
-      if (!data.success) {
+      if (!res.ok || !data.success || !data.payUrl) {
         setToast({ type: 'error', msg: data.error || '建立交易失敗' });
         return;
       }
-      submitToEsafe(data.action, data.params);
+      // 新版 SunPay：直接導向紅陽付款頁（pay_code）輸入卡號
+      window.location.href = data.payUrl;
     } catch {
       setToast({ type: 'error', msg: '網路錯誤，請重試' });
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const submitToEsafe = (action: string, params: Record<string, string>) => {
-    const form = formRef.current;
-    if (!form) return;
-    form.action = action;
-    form.innerHTML = '';
-    for (const [key, value] of Object.entries(params)) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    }
-    form.submit();
   };
 
   const handleCheckout = async (action: string, targetTier?: PlanTier) => {
@@ -237,9 +222,6 @@ function BillingPage() {
 
   return (
     <div className="p-4 lg:p-8 max-w-5xl mx-auto">
-      {/* Hidden form for esafe redirect */}
-      <form ref={formRef} method="POST" className="hidden" />
-
       <Link href="/chat" className="text-sm text-primary-600 hover:underline">
         &larr; 回對話
       </Link>
