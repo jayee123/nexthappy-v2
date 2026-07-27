@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
 type PlanTier = 'trial' | 'basic' | 'advanced' | 'premium' | 'cancelled';
 
@@ -31,6 +31,23 @@ interface SubscriptionItem {
   messages_remaining: number;
   cost_twd_this_month: number;
   created_at: string;
+  token_info: {
+    bound: boolean;
+    token_life: string | null;
+    bound_at: string | null;
+    token_key_masked: string | null;
+    customer_name: string | null;
+    customer_phone: string | null;
+  };
+  recent_transactions: {
+    plan_tier: string;
+    amount: number;
+    status: string;
+    transaction_type: string;
+    errcode: string | null;
+    esafe_no: string | null;
+    created_at: string;
+  }[];
 }
 
 const PLAN_META: Record<PlanTier, { label: string; cls: string }> = {
@@ -71,6 +88,9 @@ export default function AdminSubscriptionsPage() {
 
   // Action target
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Token / 交易明細展開的 user
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 400);
@@ -200,6 +220,7 @@ export default function AdminSubscriptionsPage() {
                   <th className="text-left px-3 py-2 font-medium text-gray-600 w-32">試用 / 續訂</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600 w-32">本月用量</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">成本</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600 w-24">Token</th>
                   <th className="text-right px-3 py-2 font-medium text-gray-600 w-48">動作</th>
                 </tr>
               </thead>
@@ -209,8 +230,11 @@ export default function AdminSubscriptionsPage() {
                   const usagePct = s.plan_monthly_messages > 0
                     ? Math.min(100, Math.round((s.messages_used_this_month / s.plan_monthly_messages) * 100))
                     : 0;
+                  const tk = s.token_info;
+                  const isExpanded = expandedUser === s.user_id;
                   return (
-                    <tr key={s.user_id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <Fragment key={s.user_id}>
+                    <tr className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-3 py-2.5">
                         <div className="text-gray-800 text-sm">{s.name || s.email.split('@')[0]}</div>
                         <div className="text-xs text-gray-400">{s.email}</div>
@@ -247,6 +271,16 @@ export default function AdminSubscriptionsPage() {
                       <td className="px-3 py-2.5 text-right text-xs tabular-nums text-gray-700">
                         NT$ {s.cost_twd_this_month.toFixed(2)}
                       </td>
+                      <td className="px-3 py-2.5 text-xs">
+                        <button
+                          onClick={() => setExpandedUser(isExpanded ? null : s.user_id)}
+                          className={`inline-flex items-center gap-1 ${tk.bound ? 'text-green-600' : 'text-gray-400'}`}
+                          title={tk.token_key_masked || ''}
+                        >
+                          {tk.bound ? '🔒 已綁' : '— 未綁'}
+                          <span className="text-gray-300">{isExpanded ? '▲' : '▼'}</span>
+                        </button>
+                      </td>
                       <td className="px-3 py-2.5 text-right text-xs">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
                           <select
@@ -278,6 +312,54 @@ export default function AdminSubscriptionsPage() {
                         </div>
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={7} className="px-4 py-3">
+                          {tk.bound ? (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+                              <div><div className="text-gray-400">Token Key（遮罩）</div><div className="font-mono text-gray-700">{tk.token_key_masked || '—'}</div></div>
+                              <div><div className="text-gray-400">綁定時間</div><div className="text-gray-700">{formatTime(tk.bound_at)}</div></div>
+                              <div><div className="text-gray-400">卡片到期</div><div className="text-gray-700">{tk.token_life || '—'}</div></div>
+                              <div><div className="text-gray-400">續扣姓名/電話</div><div className="text-gray-700">{tk.customer_name || '(帳號名)'} / {tk.customer_phone || '(預設)'}</div></div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 mb-2">尚未綁定信用卡 Token</div>
+                          )}
+                          <div className="text-xs font-medium text-gray-500 mb-1">💳 付款紀錄（最近 {s.recent_transactions.length} 筆）</div>
+                          {s.recent_transactions.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-[11px] bg-white border border-gray-200 rounded">
+                                <thead className="text-gray-400">
+                                  <tr>
+                                    <th className="text-left px-2 py-1">類型</th>
+                                    <th className="text-right px-2 py-1">金額</th>
+                                    <th className="text-left px-2 py-1">狀態</th>
+                                    <th className="text-left px-2 py-1">錯誤碼</th>
+                                    <th className="text-left px-2 py-1">紅陽編號</th>
+                                    <th className="text-left px-2 py-1">時間</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {s.recent_transactions.map((tx, i) => (
+                                    <tr key={i} className="border-t border-gray-100">
+                                      <td className="px-2 py-1">{tx.transaction_type}</td>
+                                      <td className="px-2 py-1 text-right tabular-nums">NT${tx.amount}</td>
+                                      <td className={`px-2 py-1 ${tx.status === 'success' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-500' : 'text-amber-600'}`}>{tx.status}</td>
+                                      <td className="px-2 py-1 text-gray-500">{tx.errcode || '—'}</td>
+                                      <td className="px-2 py-1 font-mono text-gray-500">{tx.esafe_no || '—'}</td>
+                                      <td className="px-2 py-1 text-gray-400">{formatTime(tx.created_at)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-400">無付款紀錄</div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

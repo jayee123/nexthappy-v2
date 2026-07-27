@@ -16,7 +16,53 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PLANS, type PlanTier } from '@/lib/billing/plans';
+import { unpackToken } from '@/lib/payment/sunpay';
 import type { ApiResponse } from '@/types';
+
+// 遮罩 token_key：只露頭尾 4 碼（後台驗證用，不外洩完整 token）
+function maskToken(tokenKey: string): string {
+  if (tokenKey.length <= 8) return '****';
+  return `${tokenKey.slice(0, 4)}****${tokenKey.slice(-4)}`;
+}
+
+interface TokenInfo {
+  bound: boolean;
+  token_life: string | null;
+  bound_at: string | null;
+  token_key_masked: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+}
+
+interface TxRow {
+  user_id: string;
+  plan_tier: string;
+  amount: number;
+  status: string;
+  transaction_type: string;
+  errcode: string | null;
+  esafe_no: string | null;
+  created_at: string;
+}
+
+// 從加密的 payment_method_token 解出可安全顯示的 metadata
+function buildTokenInfo(packed: string | null | undefined): TokenInfo {
+  const empty = { bound: false, token_life: null, bound_at: null, token_key_masked: null, customer_name: null, customer_phone: null };
+  if (!packed) return empty;
+  try {
+    const t = unpackToken(packed, process.env.ENCRYPTION_KEY!);
+    return {
+      bound: true,
+      token_life: t.tokenLife || null,
+      bound_at: t.boundAt || null,
+      token_key_masked: t.tokenKey ? maskToken(t.tokenKey) : null,
+      customer_name: t.customerName || null,
+      customer_phone: t.customerPhone || null,
+    };
+  } catch {
+    return { ...empty, bound: true, token_key_masked: '(解密失敗)' };
+  }
+}
 
 interface SubscriptionListItem {
   user_id: string;
@@ -35,6 +81,8 @@ interface SubscriptionListItem {
   messages_remaining: number;
   cost_twd_this_month: number;
   created_at: string;
+  token_info: TokenInfo;
+  recent_transactions: Omit<TxRow, 'user_id'>[];
 }
 
 const VALID_PLANS: PlanTier[] = ['trial', 'basic', 'advanced', 'premium', 'cancelled'];
@@ -58,7 +106,7 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin
       .from('users')
       .select(
-        'id, email, name, current_plan, trial_started_at, subscription_started_at, subscription_renews_at, auto_renewal, cancelled_at, created_at'
+        'id, email, name, current_plan, trial_started_at, subscription_started_at, subscription_renews_at, auto_renewal, cancelled_at, created_at, payment_method_token'
       )
       .order('created_at', { ascending: false })
       .limit(limit + 1);
@@ -114,6 +162,20 @@ export async function GET(request: NextRequest) {
       });
     });
 
+    // 抓最近付款交易（給 token / 扣款檢視）
+    const { data: txRaw } = await supabaseAdmin
+      .from('payment_transactions')
+      .select('user_id, plan_tier, amount, status, transaction_type, errcode, esafe_no, created_at')
+      .in('user_id', userIds)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    const txByUser = new Map<string, Omit<TxRow, 'user_id'>[]>();
+    ((txRaw || []) as TxRow[]).forEach(({ user_id, ...tx }) => {
+      const list = txByUser.get(user_id) || [];
+      list.push(tx);
+      txByUser.set(user_id, list);
+    });
+
     const subscriptions: SubscriptionListItem[] = pageUsers.map(u => {
       const plan = u.current_plan as PlanTier;
       const planSpec = PLANS[plan];
@@ -145,6 +207,8 @@ export async function GET(request: NextRequest) {
         messages_remaining: Math.max(0, planSpec.monthly_messages - used),
         cost_twd_this_month: cost,
         created_at: u.created_at,
+        token_info: buildTokenInfo((u as { payment_method_token?: string | null }).payment_method_token),
+        recent_transactions: (txByUser.get(u.id) || []).slice(0, 10),
       };
     });
 
