@@ -3,6 +3,17 @@
 @tailwind utilities;
 
 @layer base {
+  /* v1.5.x：Pearl 漸層 CSS 變數（guideline §5 + index.html 實測抓的精確色）
+     Pearl 有兩種漸層、依用途分開：
+     - --pearl-gradient        (button gradient) — 深色 punchy、給 CTA 按鈕
+     - --pearl-gradient-soft   (user-bubble gradient) — 柔和淺橘、給大面積色塊
+     單色 #dc7440 在大面積會太剛強 */
+  :root {
+    --pearl-gradient: linear-gradient(135deg, #f2a160, #dc7440 52%, #b95a37);
+    --pearl-gradient-hover: linear-gradient(135deg, #dc7440, #b95a37 52%, #9a4523);
+    --pearl-gradient-soft: linear-gradient(135deg, #f6bf8e 0%, #e9955e 58%, #d47548 100%);
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -22,20 +33,43 @@
 }
 
 @layer components {
-  /* 訊息氣泡 */
+  /* v1.5.x：大面積色塊用 Pearl 漸層（guideline §5「按鈕漸層」）
+     單色 #dc7440 在大面積會顯得過於突兀、Steve 6/29 反饋 Pearl 圖比較柔和
+     漸層帶來立體感 + 溫暖過渡、跟 progress bar 三色橘漸層呼應但角度不同 */
+
+  /* 訊息氣泡 — user bubble 用 SOFT 版漸層（Pearl guideline §10「使用者泡泡可以用柔和橘色漸層」）*/
   .bubble-user {
-    @apply bg-primary-600 text-white rounded-2xl rounded-br-sm px-4 py-3 max-w-xs ml-auto;
+    @apply text-white rounded-2xl rounded-br-sm px-4 py-3 max-w-xs ml-auto;
+    background: var(--pearl-gradient-soft);
   }
 
+  /* AI bubble — v1.5.x Pearl 白底 + 淡橘邊（跟 Pearl 的 --soft #fffdfb 一致、輕盈不壓迫） */
   .bubble-ai {
-    @apply bg-gray-100 text-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 max-w-xs;
+    @apply text-[#5f554f] rounded-2xl rounded-bl-sm px-4 py-3 max-w-xs;
+    background: #fffdfb;
+    border: 1px solid rgba(52, 34, 26, 0.07);
   }
 
   /* 按鈕 */
   .btn-primary {
-    @apply bg-primary-600 text-white rounded-xl px-6 py-3 font-medium
-           hover:bg-primary-700 active:scale-95 transition-all duration-150
+    @apply text-white rounded-xl px-6 py-3 font-medium
+           active:scale-95 transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--pearl-gradient);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--pearl-gradient-hover);
+  }
+
+  /* Pearl utility 兩種漸層 */
+  .bg-pearl-gradient {
+    background: var(--pearl-gradient);         /* 深色 punchy、CTA 按鈕 */
+  }
+  .bg-pearl-gradient:hover {
+    background: var(--pearl-gradient-hover);
+  }
+  .bg-pearl-gradient-soft {
+    background: var(--pearl-gradient-soft);    /* 柔和、大面積 banner / bubble */
   }
 
   .btn-secondary {

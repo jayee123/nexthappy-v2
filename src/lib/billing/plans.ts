@@ -55,7 +55,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
     label: 'Basic 啟動',
     tagline: '開啟你的幸福練習旅程',
     monthly_messages: 80,
-    price_twd: 10,
+    price_twd: 299,
     suitable_for: '剛開始接觸練習的人',
     features: [
       '🌱 開始進行基本練習與引導式對話',

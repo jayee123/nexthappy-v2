@@ -240,22 +240,23 @@ export default function SettingsPage() {
 
         {/* Hint */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 leading-relaxed">
-          提醒：若你在 21 天練習或諮詢中發現原本設的 MBTI 不太符合自己、可以隨時來這裡更新。小羽下次對話會自動用新值、不需要重新開始。
+          💡 <span className="font-medium">提醒：</span>若你在 21 天練習或諮詢中發現原本設的 MBTI 不太符合自己、可以隨時來這裡更新。小羽下次對話會自動用新值、不需要重新開始。
         </div>
 
-        {/* Links */}
-        <div className="flex flex-col gap-2 pt-2">
+        {/* 其他 — 使用說明回看（v1.5.x 新增）*/}
+        <div className="pt-4 border-t border-gray-200">
+          <h2 className="text-xs text-gray-500 mb-2 px-1">其他</h2>
           <Link
             href="/welcome?next=/settings"
-            className="text-sm text-primary-600 hover:underline text-center"
+            className="block bg-white border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
           >
-            回看使用說明
-          </Link>
-          <Link
-            href="/settings/billing"
-            className="text-sm text-primary-600 hover:underline text-center"
-          >
-            訂閱方案管理
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-800">📖 使用說明</div>
+                <div className="text-xs text-gray-500 mt-0.5">再看一次產品 5 頁導引</div>
+              </div>
+              <span className="text-gray-300 text-lg">›</span>
+            </div>
           </Link>
         </div>
       </div>

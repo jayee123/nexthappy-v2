@@ -30,6 +30,8 @@ interface JourneyDetail {
   user_mbti_self: string | null;
   round_number: number | null;
   round_label: string | null;
+  goal_statement: string | null;
+  initial_problem: string | null;
   partner_nickname: string | null;
   mbti_partner: string | null;
   relationship_type: string;
@@ -164,10 +166,28 @@ export default function AdminJourneyDetailPage() {
           </div>
         </div>
 
-        {detail.round_label && (
-          <div className="mb-4">
-            <div className="text-xs text-gray-400 mb-1">本輪目標</div>
-            <div className="text-gray-700 text-sm">{detail.round_label}</div>
+        {/* v1.4.x：本輪資訊三欄、區分「標籤」「改善目標」「初始情境」
+            （之前只顯示 round_label、team member 把真正內容寫在 goal_statement / initial_problem 看不到） */}
+        {(detail.round_label || detail.goal_statement || detail.initial_problem) && (
+          <div className="mb-4 space-y-3 bg-gray-50 border border-gray-100 rounded-lg p-3">
+            {detail.round_label && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">📛 本輪標籤（round_label）</div>
+                <div className="text-gray-700 text-sm">{detail.round_label}</div>
+              </div>
+            )}
+            {detail.goal_statement && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">🎯 改善目標（goal_statement）</div>
+                <div className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{detail.goal_statement}</div>
+              </div>
+            )}
+            {detail.initial_problem && (
+              <div>
+                <div className="text-xs text-gray-400 mb-1">💭 最近最困擾情境（initial_problem）</div>
+                <div className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{detail.initial_problem}</div>
+              </div>
+            )}
           </div>
         )}
 

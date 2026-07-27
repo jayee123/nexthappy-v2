@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const MBTI_TYPES = [
   'INTJ', 'INTP', 'ENTJ', 'ENTP',
@@ -39,14 +40,22 @@ export default function OnboardingPage() {
 
   const steps = [
     {
-      title: '認識小羽',
+      title: '認識小羽老師',
       subtitle: '你的 AI 關係教練',
       content: (
         <div className="text-center py-6">
-          <div className="w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-5xl">🕊️</span>
+          {/* v1.5.x: 小羽老師頭像（取代 🕊️）— 7/26 放大填滿圓框、不留白邊 */}
+          <div className="w-28 h-28 bg-white rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden shadow-md border border-[#f6bf8e]/30">
+            <Image
+              src="/images/logo/avatar-xiaoyu.png"
+              alt="小羽老師"
+              width={112}
+              height={112}
+              priority
+              className="w-full h-full object-cover"
+            />
           </div>
-          <h3 className="text-lg font-bold text-gray-800 mb-3">嗨！我是小羽</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-3">嗨！我是小羽老師</h3>
           <p className="text-gray-600 leading-relaxed">
             我會用 MBTI + 觀察、陪你看清你跟對方的差異、找到能說、能做、能改變的方式。
           </p>
@@ -88,8 +97,8 @@ export default function OnboardingPage() {
                 onClick={() => update('mbti_confidence', conf)}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
                   form.mbti_confidence === conf
-                    ? 'bg-gray-700 text-white'
-                    : 'bg-gray-100 text-gray-500'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-primary-50'
                 }`}
               >
                 {conf === 'low' ? '不太確定' : conf === 'medium' ? '大概是' : '很確定'}
@@ -153,7 +162,10 @@ export default function OnboardingPage() {
         return;
       }
 
-      router.push('/chat');
+      // v1.5.x: 完成 light onboarding 後、預設進諮詢模式
+      // 理由：新用戶帶卡點來、要立刻被接住（§0.6 Empowerment + §5.4 HOOK）
+      // 諮詢模式對話中、AI 會 soft sell 引流到 21 天練習
+      router.push('/chat?tab=consultant');
     } catch {
       setError('網路錯誤、請稍後再試');
     } finally {

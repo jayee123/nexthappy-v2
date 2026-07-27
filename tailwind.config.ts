@@ -9,18 +9,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // v1.5.x：primary 從藍紫 (#5b4fff) → Pearl 粉橘系（一步全站粉橘化、對齊 Pearl 設計）
+        // Pearl 官方指定色（GUIDELINE §5）：
+        //   --orange: #dc7440       → primary-600（主 CTA）
+        //   --orange-deep: #b95a37  → primary-700（hover / 深色）
+        //   --orange-soft: #f6bf8e  → primary-300（淡色 accent）
+        // 其餘 50-200、400-500、800-950 按邏輯漸層補完
+        //
+        // 原藍紫值保留於 git history、可 revert
         primary: {
-          50: '#f0f0ff',
-          100: '#e4e4ff',
-          200: '#cbccff',
-          300: '#a5a5ff',
-          400: '#7b73ff',
-          500: '#5b4fff',
-          600: '#4c35f5',
-          700: '#4025e0',
-          800: '#3620b5',
-          900: '#2d1d8f',
-          950: '#1c0f60',
+          50:  '#fff7ed',  // 超淡背景
+          100: '#ffedd5',  // chip 底、卡片淡底
+          200: '#fed7aa',  // 邊框、subtle accent
+          300: '#f6bf8e',  // Pearl orange-soft（淡橘）
+          400: '#f2a160',  // 淡橘與主色之間
+          500: '#e78b54',  // 三色橘漸層中段、hover-lighter
+          600: '#dc7440',  // ⭐ Pearl orange 主 CTA
+          700: '#b95a37',  // Pearl orange-deep（hover / active）
+          800: '#9a4523',  // 深咖啡橘
+          900: '#7c3517',  // 最深咖啡橘
+          950: '#4a1c0b',  // 極深、文字強調
         },
         accent: {
           orange: '#F97316',

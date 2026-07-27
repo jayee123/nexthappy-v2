@@ -4,20 +4,6 @@
   "devCommand": "next dev",
   "installCommand": "npm install",
   "regions": ["sin1"],
-  "crons": [
-    {
-      "path": "/api/cron/expire-trials",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/charge-renewals",
-      "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/cron/retry-failed",
-      "schedule": "0 5 * * *"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",

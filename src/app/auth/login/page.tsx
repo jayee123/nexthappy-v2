@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState(process.env.NODE_ENV === 'development' ? 'jeff@milkidea.com' : '');
-  const [password, setPassword] = useState(process.env.NODE_ENV === 'development' ? 'test1234' : '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -49,9 +50,17 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <div className="bg-primary-600 text-white px-6 pt-12 pb-8 text-center">
-        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-          <span className="text-3xl">🕊️</span>
+      <div className="bg-pearl-gradient-soft text-white px-6 pt-12 pb-8 text-center">
+        {/* v1.5.x: Pearl Logo（火焰鳳凰）取代 🕊️ dove emoji */}
+        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 overflow-hidden shadow-md">
+          <Image
+            src="/images/logo/logo-icon.png"
+            alt="羽升幸福養成學苑"
+            width={56}
+            height={56}
+            priority
+            className="object-contain"
+          />
         </div>
         <h1 className="text-xl font-bold">羽升幸福養成學苑</h1>
         <p className="text-primary-200 text-sm mt-1">21天幸福關係練習</p>

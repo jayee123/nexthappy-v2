@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// v1.5.x: /welcome 加入公開路徑（首次訪客的 6 頁產品導引、未登入也要看得到）
+// /images 加入公開路徑保險（Cover 圖等靜態素材、next/image 雖然走 /_next/image 但直接路徑也放行）
 const PUBLIC_PATHS = [
   '/auth/login',
   '/auth/register',
@@ -35,6 +37,7 @@ export function middleware(request: NextRequest) {
   }
 
   // API routes 不做 redirect，各自處理 401
+  // （紅陽付款 callback 等 server-to-server 呼叫無 session cookie，缺此放行會被導向登入頁而失敗）
   if (pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
@@ -46,9 +49,9 @@ export function middleware(request: NextRequest) {
     // 原因：Vercel edge 做 TLS termination，request.url 在 serverless function 裡
     //      會是 http://（內部 proxy scheme），導致使用者被踢到 http 版登入頁
     //      nextUrl 會尊重 x-forwarded-proto header，產生正確的 https URL
-    const welcomeUrl = request.nextUrl.clone();
-    welcomeUrl.pathname = '/welcome';
-    return NextResponse.redirect(welcomeUrl);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/auth/login';
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

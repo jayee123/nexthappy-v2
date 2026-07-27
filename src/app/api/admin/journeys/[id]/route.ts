@@ -29,6 +29,8 @@ interface JourneyDetail {
   user_mbti_self: string | null;
   round_number: number | null;
   round_label: string | null;
+  goal_statement: string | null;
+  initial_problem: string | null;
   partner_nickname: string | null;
   mbti_partner: string | null;
   relationship_type: string;
@@ -65,7 +67,7 @@ export async function GET(
     // 1. Fetch journey + user
     const { data: journey, error: journeyError } = await supabaseAdmin
       .from('journeys')
-      .select('id, user_id, round_number, round_label, partner_nickname, mbti_partner, relationship_type, current_day, is_active, created_at, users!inner(email, name, mbti_self)')
+      .select('id, user_id, round_number, round_label, goal_statement, initial_problem, partner_nickname, mbti_partner, relationship_type, current_day, is_active, created_at, users!inner(email, name, mbti_self)')
       .eq('id', journeyId)
       .single();
 
@@ -141,6 +143,8 @@ export async function GET(
       user_mbti_self: userObj?.mbti_self || null,
       round_number: journey.round_number,
       round_label: journey.round_label,
+      goal_statement: journey.goal_statement,
+      initial_problem: journey.initial_problem,
       partner_nickname: journey.partner_nickname,
       mbti_partner: journey.mbti_partner,
       relationship_type: journey.relationship_type,

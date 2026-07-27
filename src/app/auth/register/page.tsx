@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,6 +39,9 @@ export default function RegisterPage() {
         return;
       }
 
+      // v1.5.x: 註冊成功 → 直接進 /onboarding（light: MBTI + 暱稱）
+      // /welcome 5 頁導引已在 register 之前看過（root / → /welcome → /auth/register）
+      // 註冊後不用再看一次、直接進 onboarding 設定即可
       router.push('/onboarding');
     } catch {
       setError('網路錯誤，請稍後再試');
@@ -48,9 +52,17 @@ export default function RegisterPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="bg-primary-600 text-white px-6 pt-12 pb-8 text-center">
-        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-          <span className="text-3xl">🕊️</span>
+      <div className="bg-pearl-gradient-soft text-white px-6 pt-12 pb-8 text-center">
+        {/* v1.5.x: Pearl Logo（火焰鳳凰）取代 🕊️ dove emoji */}
+        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 overflow-hidden shadow-md">
+          <Image
+            src="/images/logo/logo-icon.png"
+            alt="羽升幸福養成學苑"
+            width={56}
+            height={56}
+            priority
+            className="object-contain"
+          />
         </div>
         <h1 className="text-xl font-bold">開始你的幸福旅程</h1>
         <p className="text-primary-200 text-sm mt-1">輸入邀請碼，加入21天練習</p>

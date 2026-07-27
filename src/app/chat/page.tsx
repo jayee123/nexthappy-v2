@@ -11,11 +11,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import UsageChip from '@/components/UsageChip';
+import MarkdownMessage, { stripMarkdown } from '@/components/MarkdownMessage';
 import Image from 'next/image';
+// v1.5.x: Pearl 設計把 📄 emoji 換成 proper Download icon
+import { Download } from 'lucide-react';
 import type { TodayInfo, Journey, ChatMessage } from '@/types';
 import { useRealtimeVoice, type VoiceMessage } from '@/hooks/useRealtimeVoice';
 import Sidebar from '@/components/Sidebar';
-import UsageChip from '@/components/UsageChip';
 
 // ────────────────────────────────────────────────
 // 型別
@@ -47,7 +50,7 @@ function isAITriggerPrompt(msg: ChatMessage): boolean {
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-1 px-4 py-3 bg-gray-100 rounded-2xl rounded-bl-sm w-16">
+    <div className="flex gap-1 px-4 py-3 bg-[#fffdfb] border border-[#38261e]/10 rounded-2xl rounded-bl-sm w-16">
       <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot" />
       <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot" />
       <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot" />
@@ -58,19 +61,36 @@ function TypingIndicator() {
 function MessageBubble({ message, tab }: { message: ExtendedChatMessage; tab: ActiveTab }) {
   const isUser = message.role === 'user';
   const isVoice = message.source === 'voice';
-  const icon = tab === 'consultant' ? '🤝' : (isVoice ? '🎙️' : '🕊️');
+  // v1.5.x: AI 對話（練習 + 諮詢）都用 Pearl Logo icon（小羽品牌一致）、語音用 🎙️
+  const useLogo = !isUser && !isVoice;
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-slide-up`}>
       {!isUser && (
-        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 overflow-hidden">
-          <span className="text-sm">{icon}</span>
+        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 overflow-hidden border border-[#f6bf8e]/30">
+          {useLogo ? (
+            <Image
+              src="/images/logo/avatar-xiaoyu.png"
+              alt="小羽老師"
+              width={32}
+              height={32}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-sm">🎙️</span>
+          )}
         </div>
       )}
       <div className={isUser ? 'bubble-user' : 'bubble-ai'}>
         {isVoice && !isUser && (
           <p className="text-[10px] text-primary-400 mb-0.5 font-medium">語音對話</p>
         )}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        {/* v1.5.x 7/26：AI 訊息渲染 markdown（封測發現用戶看不懂裸露的 ** 和 >）
+            User 自己打的字維持純文字、不渲染（用戶不會寫 markdown、渲染反而吃掉他打的符號） */}
+        {isUser ? (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <MarkdownMessage content={message.content} />
+        )}
       </div>
     </div>
   );
@@ -278,11 +298,36 @@ function CompleteDayModal({
 export default function ChatPage() {
   const router = useRouter();
 
+  // v1.5.x: 讀 ?journey_id URL param（sidebar 歷史 rounds 點過來會帶）
+  // 若有值 → 目前在看已完成 journey 的唯讀模式、fetch today API 帶 journey_id
+  const [viewingJourneyId, setViewingJourneyId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const jid = params.get('journey_id');
+    if (jid) setViewingJourneyId(jid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── 共用狀態 ──────────────────────────────────
   const [todayData, setTodayData] = useState<TodayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>('practice');
+
+  // v1.5.x: 支援 ?tab=consultant query param 設初始 tab（給 /welcome 完成後導入諮詢模式用）
+  // 用 useEffect + window.location.search 避免 useSearchParams 引入 Suspense 強制 wrap 整個 page
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'consultant') {
+      setActiveTab('consultant');
+    }
+    // 只在 mount 跑一次、之後 tab 切換由用戶手動操作
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [voiceMode, setVoiceMode] = useState(false);
+  // v1.4.x：tab ℹ️ tooltip 開關（防 cross-tab 誤解、in-context 教學）
+  const [tabTooltip, setTabTooltip] = useState<null | 'practice' | 'consultant'>(null);
 
   // ── 21天練習 狀態 ───────────────────────────
   const [practiceMessages, setPracticeMessages] = useState<ExtendedChatMessage[]>([]);
@@ -324,6 +369,14 @@ export default function ChatPage() {
 
   useEffect(() => { scrollToBottom(); }, [practiceMessages, consultantMessages, scrollToBottom]);
 
+  // v1.4.x：點頁面其他地方關掉 tab tooltip
+  useEffect(() => {
+    if (!tabTooltip) return;
+    function onDocClick() { setTabTooltip(null); }
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [tabTooltip]);
+
   // ── 語音 Hook（共用，切換 tab 時斷線） ─────────
 
   const handleVoiceTranscript = useCallback((msg: VoiceMessage) => {
@@ -357,7 +410,8 @@ export default function ChatPage() {
     setActiveTab(tab);
   }, [activeTab, voice]);
 
-  // 文字/語音切換
+  // 文字/語音切換（v1.4.x Phase 1：UI 切換 toggle 暫拿掉、Phase 2 加回時 uncomment chat header 那段即可）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const switchToText = useCallback(() => {
     if (voice.isConnected || voice.isConnecting) {
       voice.disconnect();
@@ -370,6 +424,7 @@ export default function ChatPage() {
     setVoiceMode(false);
   }, [voice, activeTab]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const switchToVoice = useCallback(() => {
     setVoiceMode(true);
   }, []);
@@ -379,7 +434,11 @@ export default function ChatPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await fetch('/api/day/today');
+        // v1.5.x: 若在看歷史 journey、帶 journey_id 給 API
+        const url = viewingJourneyId
+          ? `/api/day/today?journey_id=${viewingJourneyId}`
+          : '/api/day/today';
+        const res = await fetch(url);
         if (res.status === 401) { router.push('/auth/login'); return; }
 
         const json = await res.json();
@@ -417,7 +476,7 @@ export default function ChatPage() {
     }
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [router, viewingJourneyId]);
 
   async function triggerPracticeOpening(data: TodayData) {
     if (!data.today) return; // v1.3.2b: trier user 沒 journey、不觸發 opening
@@ -478,6 +537,15 @@ export default function ChatPage() {
     }
   }
 
+  // ── v1.5.x：新的 21 天練習輪次（跳去 /onboarding/practice 建 journey）─────────
+  //
+  // Pearl 事件（7/16）發現：Day 21 完成後 journey.is_active=false、
+  // 用戶前台看不到入口開新一輪、也看不到歷史 → 需要 top nav「+」按鈕直接引導
+
+  function startNewPracticeRound() {
+    router.push('/onboarding/practice');
+  }
+
   // ── v1.3.3c：新主題（sidebar + 按鈕觸發）─────────
 
   function startNewConsultantTopic() {
@@ -494,21 +562,31 @@ export default function ChatPage() {
 
   // ── v1.3.3d：切換 Day（sidebar Day grid + chat header arrows）─────────
 
-  async function switchToDay(targetDay: number) {
+  /**
+   * 切換到某一天的歷史對話。
+   * @param targetDay  Day 0-21
+   * @param journeyId  v1.5.x 7/26：有值 = 看歷史輪次的那天（sidebar 歷史任務展開後點的）
+   *                   undefined = 當前 active journey
+   */
+  async function switchToDay(targetDay: number, journeyId?: string) {
     if (!todayData?.journey || practiceStreaming) return;
     const currentDayN = todayData.today?.day_number ?? 0;
 
-    // 點當前 Day = 回到互動模式
-    if (targetDay === currentDayN) {
+    // 點「當前輪次的當前 Day」= 回到互動模式
+    if (!journeyId && targetDay === currentDayN) {
       setViewingDay(null);
       setViewingDayInfo(null);
       setViewingDayMessages([]);
+      setViewingJourneyId(null);
       setSidebarCollapsed(true);
       return;
     }
 
     try {
-      const res = await fetch(`/api/day/${targetDay}`);
+      const url = journeyId
+        ? `/api/day/${targetDay}?journey_id=${journeyId}`
+        : `/api/day/${targetDay}`;
+      const res = await fetch(url);
       if (!res.ok) {
         const err = await res.json();
         console.error('[switchToDay]', err);
@@ -520,6 +598,7 @@ export default function ChatPage() {
 
       setViewingDay(targetDay);
       setViewingDayInfo(data.today);
+      setViewingJourneyId(journeyId ?? null);
       const msgs = (data.today.conversation?.messages as ExtendedChatMessage[] | undefined) || [];
       setViewingDayMessages(
         msgs.filter(m => !isAITriggerPrompt(m)).map(m => ({
@@ -776,6 +855,7 @@ export default function ChatPage() {
         journey={journey}
         currentDay={today?.day_number ?? null}
         viewingDay={viewingDay}
+        viewingJourneyId={viewingJourneyId}
         currentTopicId={currentTopicId}
         onSwitchTopic={switchConsultantTopic}
         onNewTopic={startNewConsultantTopic}
@@ -819,36 +899,135 @@ export default function ChatPage() {
               </svg>
             </button>
           )}
+          {/* v1.5.x: 練習 tab 也加「+」按鈕 — 開新 21 天輪次（跳 /onboarding/practice） */}
+          {activeTab === 'practice' && (
+            <button
+              onClick={startNewPracticeRound}
+              title="開始新一輪 21 天練習"
+              className="w-6 h-6 shrink-0 rounded-md bg-primary-600 text-white hover:bg-primary-700 flex items-center justify-center"
+              aria-label="開始新一輪 21 天練習"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          )}
 
-          {/* Tab 切換列 — 占主寬度 */}
+          {/* Tab 切換列 — 占主寬度（v1.4.x：每 tab 帶 ℹ️ tooltip 防 cross-tab 誤解） */}
           <div className="flex flex-1 min-w-0">
-            <button
-              onClick={() => switchTab('practice')}
-              className={`flex-1 py-1.5 text-xs font-medium transition-all border-b-2 whitespace-nowrap ${
-                activeTab === 'practice'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              🌱 21天練習
-            </button>
-            <button
-              onClick={() => switchTab('consultant')}
-              className={`flex-1 py-1.5 text-xs font-medium transition-all border-b-2 whitespace-nowrap ${
-                activeTab === 'consultant'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              🤝 我卡住，幫我拆
-            </button>
+            {/* 21 天練習 tab + info */}
+            <div className="flex-1 relative">
+              <button
+                onClick={() => switchTab('practice')}
+                className={`w-full py-1.5 text-xs font-medium transition-all border-b-2 whitespace-nowrap inline-flex items-center justify-center gap-1 ${
+                  activeTab === 'practice'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                21天練習
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="說明：21 天練習是什麼"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTabTooltip(t => (t === 'practice' ? null : 'practice'));
+                  }}
+                  onMouseEnter={() => setTabTooltip('practice')}
+                  onMouseLeave={() => setTabTooltip(t => (t === 'practice' ? null : t))}
+                  className="inline-flex items-center text-gray-400 hover:text-gray-600 cursor-help"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </button>
+              {tabTooltip === 'practice' && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-60 bg-gray-900 text-white text-[11px] rounded-lg shadow-xl p-3 leading-relaxed text-left pointer-events-auto"
+                >
+                  <div className="font-semibold text-sm mb-1">🌱 21 天刻意練習</div>
+                  <div className="text-gray-200">
+                    跟固定對象（onboarding 設定的）用 21 天循序漸進練好溝通。
+                  </div>
+                  <div className="text-gray-300 mt-1.5">
+                    <span className="text-gray-400">適合：</span>長期想改善一段關係
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-700 text-amber-300 text-[10.5px]">
+                    ⚠️ 跟「我卡住」對話獨立、AI 不互通
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 我卡住 tab + info */}
+            <div className="flex-1 relative">
+              <button
+                onClick={() => switchTab('consultant')}
+                className={`w-full py-1.5 text-xs font-medium transition-all border-b-2 whitespace-nowrap inline-flex items-center justify-center gap-1 ${
+                  activeTab === 'consultant'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                我卡住，幫我拆
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="說明：我卡住是什麼"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTabTooltip(t => (t === 'consultant' ? null : 'consultant'));
+                  }}
+                  onMouseEnter={() => setTabTooltip('consultant')}
+                  onMouseLeave={() => setTabTooltip(t => (t === 'consultant' ? null : t))}
+                  className="inline-flex items-center text-gray-400 hover:text-gray-600 cursor-help"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+              </button>
+              {tabTooltip === 'consultant' && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-60 bg-gray-900 text-white text-[11px] rounded-lg shadow-xl p-3 leading-relaxed text-left pointer-events-auto"
+                >
+                  <div className="font-semibold text-sm mb-1">🤝 我卡住、幫我拆</div>
+                  <div className="text-gray-200">
+                    處理當下急需解決的單一情境、可以是任何對象、任何問題。
+                  </div>
+                  <div className="text-gray-300 mt-1.5">
+                    <span className="text-gray-400">適合：</span>「現在這件事該怎麼辦？」
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-700 text-amber-300 text-[10.5px]">
+                    ⚠️ 跟「21 天練習」對話獨立、AI 不互通
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 shrink-0">
-            <UsageChip />
+          {/* Action buttons — v1.3.7b 縮 gap/padding */}
+          <div className="flex items-center gap-0 shrink-0 pl-0.5">
+            {/* v1.4.x（Phase 1）：文字 / 語音切換暫拿掉、Phase 2 重新接入時恢復
+                Phase 1 只開放文字模式、voiceMode state 保留 default=false
+                註：switchToText / switchToVoice 函數保留、Phase 2 直接 uncomment 即可 */}
+            {/*
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              <button onClick={switchToText} title="文字模式" ...>💬</button>
+              <button onClick={switchToVoice} title="語音模式" ...>🎙️</button>
+            </div>
+            */}
 
-            {/* PDF 匯出 — v1.3.7：consultant tab 永遠顯示 icon（無主題時 disabled）*/}
+            {/* v1.3.5 PDF 匯出 — v1.3.7：consultant tab 永遠顯示 icon（無主題時 disabled）*/}
             {(() => {
               let convId: string | undefined | null = null;
               let titleHint = '匯出對話為 PDF';
@@ -875,12 +1054,13 @@ export default function ChatPage() {
                   onClick={() => convId && window.open(`/export/conversation/${convId}?autoprint=1`, '_blank')}
                   title={titleHint}
                   disabled={disabled}
-                  className={`text-xs px-1 py-1 rounded-lg ${
+                  className={`px-1.5 py-1 rounded-lg ${
                     disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'
                   }`}
                   aria-label={titleHint}
                 >
-                  📄
+                  {/* v1.5.x: Pearl 設計把 📄 emoji 換成 lucide-react <Download />（下載動作更明確） */}
+                  <Download size={14} strokeWidth={2} />
                 </button>
               );
             })()}
@@ -896,6 +1076,9 @@ export default function ChatPage() {
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </Link>
+
+            {/* Phase 1A：訂閱用量 chip（進入 /settings/billing） */}
+            <UsageChip />
 
             {/* v1.3.7c: 進度/登出 — mobile icon-only、sm 以上才顯示文字（mobile 防截字）*/}
             <Link
@@ -968,16 +1151,21 @@ export default function ChatPage() {
                 ▶
               </button>
             </div>
-            {/* 知識卡片（collapsible、default 收合）*/}
+            {/* 知識卡片（collapsible、default 收合）— v1.5.x Pearl cream 底
+                7/26：課程內容也含 markdown、展開時渲染。
+                收合時用 stripMarkdown 純文字（markdown 會產生多個 block 元素、line-clamp 會失效）*/}
             {today?.course.knowledge_point && (
-              <div className="mt-2 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
-                <p
-                  className={`text-xs text-gray-600 leading-relaxed whitespace-pre-wrap ${
-                    knowledgeExpanded ? '' : 'line-clamp-2'
-                  }`}
-                >
-                  {today.course.knowledge_point}
-                </p>
+              <div className="mt-2 bg-[#fbfaf8] rounded-xl p-2.5 border border-[#f6bf8e]/25">
+                {knowledgeExpanded ? (
+                  <MarkdownMessage
+                    content={today.course.knowledge_point}
+                    className="!text-xs text-[#5a4530]"
+                  />
+                ) : (
+                  <p className="text-xs text-[#5a4530] leading-relaxed line-clamp-2">
+                    {stripMarkdown(today.course.knowledge_point)}
+                  </p>
+                )}
                 {today.course.knowledge_point.length > 60 && (
                   <button
                     onClick={() => setKnowledgeExpanded(v => !v)}
@@ -1023,8 +1211,15 @@ export default function ChatPage() {
               ))}
               {practiceTyping && (
                 <div className="flex justify-start">
-                  <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                    <span className="text-sm">🕊️</span>
+                  {/* v1.5.x: typing avatar 也用小羽頭像 */}
+                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 overflow-hidden border border-[#f6bf8e]/30">
+                    <Image
+                      src="/images/logo/avatar-xiaoyu.png"
+                      alt="小羽老師"
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <TypingIndicator />
                 </div>
@@ -1057,11 +1252,18 @@ export default function ChatPage() {
         {/* 諮詢師訊息 */}
         {activeTab === 'consultant' && (
           <>
-            {/* 歡迎卡片（無訊息時） */}
+            {/* 歡迎卡片（無訊息時）*/}
             {consultantMessages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
-                <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center">
-                  <span className="text-3xl">🤝</span>
+                {/* v1.5.x: 諮詢歡迎卡片 avatar 也用小羽頭像 */}
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center overflow-hidden border border-[#f6bf8e]/30 shadow-sm">
+                  <Image
+                    src="/images/logo/avatar-xiaoyu.png"
+                    alt="小羽老師"
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <h3 className="font-semibold text-gray-700">幸福關係諮詢師</h3>
                 <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
@@ -1074,8 +1276,15 @@ export default function ChatPage() {
             ))}
             {consultantTyping && (
               <div className="flex justify-start">
-                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                  <span className="text-sm">🤝</span>
+                {/* v1.5.x: 諮詢 typing avatar 也用小羽頭像 */}
+                <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1 overflow-hidden border border-[#f6bf8e]/30">
+                  <Image
+                    src="/images/logo/avatar-xiaoyu.png"
+                    alt="小羽老師"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <TypingIndicator />
               </div>
@@ -1119,13 +1328,17 @@ export default function ChatPage() {
       ) : activeTab === 'practice' ? (
         /* 21天練習文字輸入 */
         <div className="border-t border-gray-100 bg-white px-4 py-3">
-          {/* v1.3.3d：read-only banner、看歷史 Day 時顯示 + disable input */}
+          {/* v1.3.3d：read-only banner、看歷史 Day 時顯示 + disable input
+              v1.5.x 7/26：看「歷史輪次」時額外標明是哪一輪、避免用戶以為看的是當前任務 */}
           {viewingDay !== null && (
-            <div className="mb-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700 flex items-center justify-between">
-              <span>📖 正在看 Day {viewingDay} 歷史紀錄（唯讀）</span>
+            <div className="mb-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700 flex items-center justify-between gap-2">
+              <span className="truncate">
+                📖 正在看{viewingJourneyId && <span className="font-medium">歷史任務的 </span>}
+                Day {viewingDay} 紀錄（唯讀）
+              </span>
               <button
                 onClick={() => switchToDay(today?.day_number ?? 0)}
-                className="text-orange-600 hover:text-orange-800 font-medium ml-2 underline"
+                className="text-orange-600 hover:text-orange-800 font-medium ml-2 underline shrink-0"
               >
                 回當前 Day
               </button>
@@ -1143,7 +1356,12 @@ export default function ChatPage() {
                 ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
               }}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                // v1.5.x 7/26 fix：中文輸入法（IME）組字中按 Enter 是「確認選字」、不該送出。
+                //   舊版沒擋 → IME commit 造成的 onChange 晚一步觸發、把已清空的 input 又寫回文字，
+                //   結果訊息送出了但輸入框沒清空（Steve 7/26 回報）。
+                //   isComposing / keyCode 229 是判斷 IME 組字中的標準做法（229 給舊瀏覽器 fallback）。
+                const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+                if (e.key === 'Enter' && !e.shiftKey && !composing) {
                   e.preventDefault();
                   sendPracticeMessage(practiceInput);
                 }
@@ -1156,7 +1374,7 @@ export default function ChatPage() {
             <button
               onClick={() => sendPracticeMessage(practiceInput)}
               disabled={!practiceInput.trim() || practiceStreaming || viewingDay !== null}
-              className="bg-primary-500 text-white w-10 h-10 rounded-full shrink-0 flex items-center justify-center hover:bg-primary-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="text-white w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-pearl-gradient hover:opacity-90 disabled:!bg-gray-200 disabled:!bg-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all"
               title="送出"
               aria-label="送出"
             >
@@ -1168,7 +1386,7 @@ export default function ChatPage() {
             {!completedToday && (
               <button
                 onClick={() => setShowCompleteModal(true)}
-                className="btn-secondary px-3 h-10 text-xs shrink-0 border-gray-200"
+                className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity"
                 title="完成今日"
               >
                 完成
@@ -1176,30 +1394,10 @@ export default function ChatPage() {
             )}
             {completedToday && (
               <Link href="/progress">
-                <button className="btn-secondary px-3 h-10 text-xs shrink-0">Done</button>
+                <button className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity">Done</button>
               </Link>
             )}
-            {/* ⚠️ DEV-ONLY：production 不顯示。測試完 21 天後刪掉這整段 + /api/dev/advance-day */}
-            {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production' && completedToday && today && (
-              <button
-                onClick={async () => {
-                  if (!today) return; // v1.3.2b: TypeScript narrowing 不過 async closure、補一次防呆
-                  if (!confirm('強制推進到 Day ' + (today.day_number + 1) + '？（dev 測試用）')) return;
-                  const res = await fetch('/api/dev/advance-day', { method: 'POST' });
-                  const json = await res.json();
-                  if (res.ok) {
-                    alert(json.message);
-                    window.location.reload();
-                  } else {
-                    alert('失敗：' + (json.error || '未知錯誤'));
-                  }
-                }}
-                className="btn-secondary px-3 py-2.5 text-xs shrink-0 border-orange-200 text-orange-600"
-                title="Dev 測試：強制推進到下一天"
-              >
-                ⏭ Dev
-              </button>
-            )}
+            {/* v1.5.x 7/16：DEV-ONLY「⏭ Dev」按鈕已刪除（Pearl + Steve 都完成 21 天測試、任務完成）*/}
           </div>
         </div>
       ) : (
@@ -1230,7 +1428,9 @@ export default function ChatPage() {
                 ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
               }}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                // v1.5.x 7/26 fix：同 practice tab — IME 組字中按 Enter 不送出（見上方註解）
+                const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+                if (e.key === 'Enter' && !e.shiftKey && !composing) {
                   e.preventDefault();
                   sendConsultantMessage(consultantInput);
                 }
@@ -1242,7 +1442,7 @@ export default function ChatPage() {
             <button
               onClick={() => sendConsultantMessage(consultantInput)}
               disabled={!consultantInput.trim() || consultantStreaming}
-              className="bg-primary-500 text-white w-10 h-10 rounded-full shrink-0 flex items-center justify-center hover:bg-primary-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="text-white w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-pearl-gradient hover:opacity-90 disabled:!bg-gray-200 disabled:!bg-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all"
               title="送出"
               aria-label="送出"
             >

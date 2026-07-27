@@ -36,17 +36,23 @@ export async function GET(
       );
     }
 
-    // 取 active journey
-    const { data: journey } = await supabaseAdmin
+    // v1.5.x 7/26：支援 ?journey_id=xxx 查歷史輪次的 Day N
+    //   用途：sidebar「歷史任務」展開後、點任一 Day 回溯前幾輪的對話
+    //   安全：一律加 .eq('user_id', session.userId)、防跨用戶偷看
+    const journeyId = new URL(request.url).searchParams.get('journey_id');
+
+    const journeyQuery = supabaseAdmin
       .from('journeys')
       .select('*')
-      .eq('user_id', session.userId)
-      .eq('is_active', true)
-      .maybeSingle();
+      .eq('user_id', session.userId);
+
+    const { data: journey } = journeyId
+      ? await journeyQuery.eq('id', journeyId).maybeSingle()
+      : await journeyQuery.eq('is_active', true).maybeSingle();
 
     if (!journey) {
       return NextResponse.json<ApiResponse>(
-        { data: null, error: '找不到 active 旅程', timestamp: new Date().toISOString() },
+        { data: null, error: journeyId ? '找不到指定旅程' : '找不到 active 旅程', timestamp: new Date().toISOString() },
         { status: 404 }
       );
     }

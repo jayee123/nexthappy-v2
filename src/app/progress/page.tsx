@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { ProgressStats, DailyRecord } from '@/types';
 
+// v1.5.x: Pearl 三色橘漸層（跟 progress bar 一致）
+const PEARL_GRADIENT = 'linear-gradient(135deg, #f7c399 0%, #e78b54 62%, #cf6e43 100%)';
+
 function DayCell({ dayNum, record, current }: {
   dayNum: number;
   record?: DailyRecord;
@@ -19,15 +22,16 @@ function DayCell({ dayNum, record, current }: {
     <div
       className={`aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all ${
         isCompleted
-          ? 'bg-primary-600 text-white shadow-md'
+          ? 'text-white shadow-md'
           : isCurrent
-          ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-400'
+          ? 'bg-orange-100 text-orange-700 ring-2 ring-orange-400'
           : isPast && !isCompleted
-          ? 'bg-red-50 text-red-400'
+          ? 'bg-red-50/40 text-red-400/70'
           : isFuture
           ? 'bg-gray-50 text-gray-300'
           : 'bg-gray-100 text-gray-400'
       }`}
+      style={isCompleted ? { background: PEARL_GRADIENT } : undefined}
     >
       {dayNum}
     </div>
@@ -62,7 +66,7 @@ export default function ProgressPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto" />
+          <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mx-auto" />
         </div>
       </div>
     );
@@ -81,9 +85,9 @@ export default function ProgressPage() {
     <div className="flex flex-col min-h-screen">
       {/* Header */}
       <div className="page-header flex items-center justify-between">
-        <h1 className="font-bold text-gray-800 text-base">我的進度</h1>
+        <h1 className="font-bold text-[#38261e] text-base">我的進度</h1>
         <div className="flex gap-2">
-          <Link href="/chat" className="text-xs text-primary-600 font-medium px-3 py-1 rounded-lg hover:bg-primary-50">
+          <Link href="/chat" className="text-xs text-orange-600 font-medium px-3 py-1 rounded-lg hover:bg-orange-50">
             返回今日
           </Link>
           <button
@@ -99,22 +103,25 @@ export default function ProgressPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Progress Bar */}
+        {/* Progress Bar — Pearl 三色橘漸層 */}
         <div className="px-4 py-4 border-b border-gray-100">
           <div className="flex justify-between text-sm text-gray-500 mb-2">
             <span>Day {current_day} / 21</span>
-            <span className="font-medium text-primary-600">{stats.completion_rate}%</span>
+            <span className="font-medium text-orange-600">{stats.completion_rate}%</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary-600 rounded-full transition-all duration-500"
-              style={{ width: `${stats.completion_rate}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${stats.completion_rate}%`,
+                background: PEARL_GRADIENT,
+              }}
             />
           </div>
         </div>
 
-        {/* Journey Info */}
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 space-y-1">
+        {/* Journey Info — Pearl cream 底色 #fbfaf8 */}
+        <div className="px-4 py-3 bg-[#fbfaf8] border-b border-gray-100 space-y-1">
           <p className="text-xs text-gray-500">關係類型：{
             journey.relationship_type === 'couple' ? '情侶' :
             journey.relationship_type === 'parent_child' ? '親子' : '職場'
@@ -125,43 +132,47 @@ export default function ProgressPage() {
           )}
         </div>
 
-        {/* Stats */}
+        {/* Stats — Pearl 暖色系（已完成/總積分 orange、徽章 amber） */}
         <div className="grid grid-cols-3 gap-3 px-4 py-4 border-b border-gray-100">
-          <div className="text-center p-3 bg-primary-50 rounded-2xl">
-            <p className="text-2xl font-bold text-primary-700">{completed_days}</p>
+          <div className="text-center p-3 bg-orange-50 rounded-2xl">
+            <p className="text-2xl font-bold text-orange-700">{completed_days}</p>
             <p className="text-xs text-gray-500 mt-1">已完成</p>
           </div>
           <div className="text-center p-3 bg-orange-50 rounded-2xl">
             <p className="text-2xl font-bold text-orange-600">{total_points}</p>
             <p className="text-xs text-gray-500 mt-1">總積分</p>
           </div>
-          <div className="text-center p-3 bg-yellow-50 rounded-2xl">
-            <p className="text-2xl font-bold text-yellow-600">{achievements.length}</p>
+          <div className="text-center p-3 bg-amber-50 rounded-2xl">
+            <p className="text-2xl font-bold text-amber-700">{achievements.length}</p>
             <p className="text-xs text-gray-500 mt-1">徽章</p>
           </div>
         </div>
 
-        {/* Achievements */}
-        {achievements.length > 0 && (
-          <div className="px-4 py-4 border-b border-gray-100">
-            <h2 className="font-bold text-gray-700 mb-3">徽章</h2>
+        {/* Achievements — v1.5.x：拿掉 conditional、無徽章顯示空狀態（Pearl 設計） */}
+        <div className="px-4 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-[#38261e] mb-3">徽章</h2>
+          {achievements.length > 0 ? (
             <div className="space-y-2">
               {achievements.map(a => (
-                <div key={a.id} className="flex items-center justify-between bg-yellow-50 rounded-xl px-4 py-3">
+                <div key={a.id} className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">🏅</span>
-                    <span className="text-sm font-medium text-yellow-800">{a.badge_name}</span>
+                    <span className="text-sm font-medium text-amber-800">{a.badge_name}</span>
                   </div>
-                  <span className="text-xs font-bold text-yellow-600">+{a.points} 分</span>
+                  <span className="text-xs font-bold text-amber-700">+{a.points} 分</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-amber-50/50 border border-amber-100 rounded-xl px-4 py-6 text-center text-sm text-[#7d6f68]">
+              還沒有徽章、繼續練習可獲得 ✨
+            </div>
+          )}
+        </div>
 
         {/* 21-Day Calendar */}
         <div className="px-4 py-4">
-          <h2 className="font-bold text-gray-700 mb-3">21 天日曆</h2>
+          <h2 className="font-bold text-[#38261e] mb-3">21 天日曆</h2>
           <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: 21 }, (_, i) => i + 1).map(day => (
               <DayCell
@@ -176,11 +187,11 @@ export default function ProgressPage() {
           {/* Legend */}
           <div className="mt-4 flex gap-4 text-xs text-gray-500">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-primary-600 rounded" />
+              <div className="w-3 h-3 rounded" style={{ background: PEARL_GRADIENT }} />
               <span>完成</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-primary-100 ring-2 ring-primary-400 rounded" />
+              <div className="w-3 h-3 bg-orange-100 ring-2 ring-orange-400 rounded" />
               <span>今天</span>
             </div>
             <div className="flex items-center gap-1">
@@ -190,23 +201,43 @@ export default function ProgressPage() {
           </div>
         </div>
 
-        {/* Emotion Trend */}
-        {daily_records.filter(r => r.emotion_score).length > 0 && (
-          <div className="px-4 pb-4">
-            <h2 className="font-bold text-gray-700 mb-3">情緒趨勢</h2>
-            <div className="flex items-end gap-1 h-20">
-              {daily_records.filter(r => r.emotion_score).map(r => (
-                <div key={r.day_number} className="flex-1 flex flex-col items-center">
-                  <div
-                    className="w-full bg-primary-400 rounded-t"
-                    style={{ height: `${((r.emotion_score || 5) / 10) * 100}%` }}
-                  />
-                  <span className="text-xs text-gray-400 mt-1">{r.day_number}</span>
-                </div>
-              ))}
+        {/* Emotion Trend — v1.5.x：拿掉 conditional、無資料顯示空狀態（Pearl 設計）
+            7/26 fix：bar 從 % height → pixel height（父容器無高度、% 沒基準、bar 消失）
+            改用 pixel + min 4px 保證有極小可見度、chart 高度改 h-24 (96px) 給 bar 更充足空間 */}
+        <div className="px-4 pb-4">
+          <h2 className="font-bold text-[#38261e] mb-3">情緒趨勢</h2>
+          {daily_records.filter(r => r.emotion_score).length > 0 ? (
+            <div>
+              <div className="flex items-end gap-1 h-24">
+                {daily_records
+                  .filter(r => r.emotion_score)
+                  .sort((a, b) => a.day_number - b.day_number)
+                  .map(r => {
+                    const score = r.emotion_score || 5;
+                    // score 1-10 → bar 高度 8-80px（min 8px 保證看得到、max 80 留 label 空間）
+                    const barPx = Math.max(8, Math.round((score / 10) * 80));
+                    return (
+                      <div key={r.day_number} className="flex-1 flex flex-col items-center justify-end">
+                        <div
+                          className="w-full rounded-t bg-gradient-to-t from-orange-500 to-orange-300"
+                          style={{ height: `${barPx}px` }}
+                          title={`Day ${r.day_number}：心情 ${score}/10`}
+                        />
+                        <span className="text-[10px] text-gray-400 mt-1">{r.day_number}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 text-center">
+                心情分數 1-10、hover 看每天分數
+              </p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-orange-50/40 border border-orange-100 rounded-xl px-4 py-6 text-center text-sm text-[#7d6f68]">
+              還沒有資料、練習幾天後會顯示 📈
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

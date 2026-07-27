@@ -4,7 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { getSessionFromRequest } from '@/lib/auth';
 import { buildContextData, buildSystemPrompt } from '@/lib/ai/buildContext';
 import { addPoints, POINT_RULES } from '@/lib/points';
+import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
 import type { ChatMessage, ContextType } from '@/types';
+
+const MODEL_NAME = 'claude-sonnet-4-5';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -37,6 +40,17 @@ export async function POST(request: NextRequest) {
 
     if (!checkRateLimit(session.userId)) {
       return NextResponse.json({ error: '今日對話次數已達上限（50次），明天再繼續吧！' }, { status: 429 });
+    }
+
+    // Phase 1A：訂閱方案額度檢查（BILLING_ENFORCEMENT=false 時永遠通過）
+    const quotaCheck = await checkQuotaAvailable(session.userId);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json({
+        error: quotaCheck.user_message || '已達使用上限',
+        quota_exceeded: true,
+        quota_reason: quotaCheck.reason,
+        usage: quotaCheck.usage,
+      }, { status: 429 });
     }
 
     const body = await request.json();
@@ -97,7 +111,7 @@ export async function POST(request: NextRequest) {
     }));
 
     const stream = await anthropic.messages.stream({
-      model: 'claude-sonnet-4-5',
+      model: MODEL_NAME,
       max_tokens: 1500,
       system: systemPrompt,
       messages: anthropicMessages,
@@ -155,6 +169,24 @@ export async function POST(request: NextRequest) {
 
           // 加入 AI 諮詢積分
           await addPoints(journey.id, POINT_RULES.AI_CONSULT);
+
+          // Phase 1A：精準 token usage tracking
+          try {
+            const finalMsg = await stream.finalMessage();
+            const inputTokens = finalMsg.usage?.input_tokens ?? 0;
+            const outputTokens = finalMsg.usage?.output_tokens ?? 0;
+            // recordUsage fail-soft（不阻塞、log 失敗）
+            recordUsage({
+              userId: session.userId,
+              conversationId: convRecord?.id ?? null,
+              contextType: context_type,
+              model: MODEL_NAME,
+              inputTokens,
+              outputTokens,
+            }).catch(err => console.error('[ai/chat] recordUsage failed:', err));
+          } catch (err) {
+            console.error('[ai/chat] usage tracking failed:', err);
+          }
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();

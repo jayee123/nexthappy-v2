@@ -53,6 +53,10 @@ const KNOWN_ACTIONS: { value: string; label: string }[] = [
   { value: 'invite.revoke', label: '停用邀請碼' },
   { value: 'spec.view', label: '查看規格文件' },
   { value: 'prompts.view', label: '查看 AI Prompt 程式碼' },
+  { value: 'subscription.update', label: '更新訂閱資料' },
+  { value: 'subscription.change_plan', label: '改訂閱方案' },
+  { value: 'subscription.start_trial', label: '啟動試用' },
+  { value: 'subscription.cancel', label: '取消訂閱' },
 ];
 
 const ACTION_LABEL = new Map(KNOWN_ACTIONS.map(a => [a.value, a.label]));

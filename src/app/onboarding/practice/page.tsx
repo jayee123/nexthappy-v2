@@ -135,8 +135,8 @@ export default function PracticeOnboardingPage() {
                 onClick={() => update('mbti_confidence', conf)}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
                   form.mbti_confidence === conf
-                    ? 'bg-gray-700 text-white'
-                    : 'bg-gray-100 text-gray-500'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-primary-50'
                 }`}
               >
                 {conf === 'low' ? '不太確定' : conf === 'medium' ? '大概是' : '很確定'}

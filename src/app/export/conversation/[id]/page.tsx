@@ -16,6 +16,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
+import MarkdownMessage from '@/components/MarkdownMessage';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -161,7 +163,7 @@ export default function ExportConversationPage() {
         </div>
         <button
           onClick={() => window.print()}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700"
+          className="bg-pearl-gradient text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
         >
           🖨️ 列印 / 存 PDF
         </button>
@@ -170,9 +172,16 @@ export default function ExportConversationPage() {
       <div className="max-w-[760px] mx-auto px-8 py-8">
         {/* Header card */}
         <div className="header-card mb-6 pb-4 border-b-2 border-gray-200">
-          <div className="flex items-center gap-2 text-xs text-indigo-600 font-semibold mb-1">
-            <span>🕊️</span>
-            <span>羽升幸福關係練習</span>
+          {/* v1.5.x: Pearl Logo（完整版含文字）替代原本 🕊️ + 「羽升幸福關係練習」 */}
+          <div className="mb-2">
+            <Image
+              src="/images/logo/logo-full.png"
+              alt="羽升幸福養成學院"
+              width={280}
+              height={91}
+              priority
+              className="object-contain"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 leading-tight mt-2">
             {title}
@@ -208,18 +217,31 @@ export default function ExportConversationPage() {
                 className={`msg-bubble flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center mr-2 shrink-0 text-sm">
-                    {isPractice ? '🕊️' : '🤝'}
+                  <div className="w-7 h-7 rounded-full bg-white border border-[#f6bf8e]/30 flex items-center justify-center mr-2 shrink-0 overflow-hidden">
+                    {/* v1.5.x: 諮詢 + 練習 AI 都用小羽頭像（品牌統一） */}
+                    <Image
+                      src="/images/logo/avatar-xiaoyu.png"
+                      alt="小羽老師"
+                      width={28}
+                      height={28}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
+                {/* v1.5.x 7/26：AI 訊息渲染 markdown（跟 chat 泡泡一致）
+                    print={true} 拿掉背景色只留左邊線、避免瀏覽器列印濾掉背景造成引言區塊消失 */}
                 <div
-                  className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                  className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
                     msg.role === 'user'
-                      ? 'bg-indigo-100 text-gray-800 rounded-br-sm'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                      ? 'bg-orange-100 text-gray-800 rounded-br-sm whitespace-pre-wrap'
+                      : 'bg-[#fffdfb] border border-[#38261e]/10 text-gray-800 rounded-bl-sm'
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === 'user' ? (
+                    msg.content
+                  ) : (
+                    <MarkdownMessage content={msg.content} print />
+                  )}
                 </div>
               </div>
             ))

@@ -1,103 +1,144 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin/requireAdmin'
-import { supabaseAdmin } from '@/lib/supabase'
+// 放置路徑：src/app/api/admin/usage/route.ts
+//
+// Phase 1A：admin 用量 / 成本 analytics
+//
+// GET /api/admin/usage
+//   ?days=30  (預設 30、過去 N 天)
+//
+// 回傳：
+//   - total_cost_twd（本期間總 API 成本）
+//   - total_messages（總 AI 對話次數）
+//   - daily_breakdown（每日 cost + messages）
+//   - top_users_by_cost（最花錢的前 10 user）
+//
+// 用途：admin 看公司 API cost vs subscription revenue 是否平衡
+
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin/requireAdmin';
+import { supabaseAdmin } from '@/lib/supabase';
+import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAdmin(request)
-  if (error) return error
+  const { error: authError } = await requireAdmin(request);
+  if (authError) return authError;
 
-  const url = new URL(request.url)
-  const period = url.searchParams.get('period') || 'current'
+  try {
+    const url = new URL(request.url);
+    const days = Math.min(Math.max(parseInt(url.searchParams.get('days') || '30', 10), 1), 365);
 
-  const now = new Date()
-  const periodStart = period === 'last'
-    ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    : new Date(now.getFullYear(), now.getMonth(), 1)
-  const periodEnd = period === 'last'
-    ? new Date(now.getFullYear(), now.getMonth(), 1)
-    : new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceIso = since.toISOString();
 
-  const periodStartStr = periodStart.toISOString().slice(0, 10)
+    // 抓期間內所有 usage logs
+    const { data: logs, error: logsError } = await supabaseAdmin
+      .from('ai_usage_logs')
+      .select('user_id, model, input_tokens, output_tokens, cost_twd, created_at')
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: false });
 
-  const { data: quotas, error: quotaError } = await supabaseAdmin
-    .from('usage_quotas')
-    .select('user_id, period_start, messages_count, tokens_input, tokens_output, cost_twd_estimated')
-    .eq('period_start', periodStartStr)
-    .order('messages_count', { ascending: false })
-    .limit(100)
+    if (logsError) {
+      console.error('[GET /api/admin/usage] logs query failed:', logsError);
+      return NextResponse.json<ApiResponse>(
+        { data: null, error: '查詢失敗', timestamp: new Date().toISOString() },
+        { status: 500 }
+      );
+    }
 
-  if (quotaError) {
-    return NextResponse.json({ data: null, error: quotaError.message }, { status: 500 })
-  }
+    const safeLogs = logs || [];
 
-  const userIds = (quotas || []).map((q) => q.user_id)
+    // 總計
+    let totalCost = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    safeLogs.forEach(l => {
+      totalCost += Number(l.cost_twd || 0);
+      totalInputTokens += l.input_tokens || 0;
+      totalOutputTokens += l.output_tokens || 0;
+    });
 
-  const { data: users } = userIds.length > 0
-    ? await supabaseAdmin
+    // Daily breakdown
+    const dailyMap = new Map<string, { cost: number; messages: number; tokens: number }>();
+    safeLogs.forEach(l => {
+      const day = l.created_at.slice(0, 10); // YYYY-MM-DD
+      const cur = dailyMap.get(day) || { cost: 0, messages: 0, tokens: 0 };
+      cur.cost += Number(l.cost_twd || 0);
+      cur.messages += 1;
+      cur.tokens += (l.input_tokens || 0) + (l.output_tokens || 0);
+      dailyMap.set(day, cur);
+    });
+    const dailyBreakdown = Array.from(dailyMap.entries())
+      .map(([day, data]) => ({ day, ...data }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+
+    // Top users by cost
+    const userMap = new Map<string, { cost: number; messages: number; tokens: number }>();
+    safeLogs.forEach(l => {
+      if (!l.user_id) return;
+      const cur = userMap.get(l.user_id) || { cost: 0, messages: 0, tokens: 0 };
+      cur.cost += Number(l.cost_twd || 0);
+      cur.messages += 1;
+      cur.tokens += (l.input_tokens || 0) + (l.output_tokens || 0);
+      userMap.set(l.user_id, cur);
+    });
+    const topUserIds = Array.from(userMap.entries())
+      .sort((a, b) => b[1].cost - a[1].cost)
+      .slice(0, 10)
+      .map(([id]) => id);
+
+    // 抓這些 top users 的 email + plan
+    let topUserInfos: Array<{
+      user_id: string;
+      email: string | null;
+      name: string | null;
+      plan: string | null;
+      cost_twd: number;
+      messages: number;
+      tokens: number;
+    }> = [];
+    if (topUserIds.length > 0) {
+      const { data: userInfos } = await supabaseAdmin
         .from('users')
         .select('id, email, name, current_plan')
-        .in('id', userIds)
-    : { data: [] }
+        .in('id', topUserIds);
 
-  const userMap = new Map<string, { email: string; name: string | null; current_plan: string }>()
-  for (const u of users || []) {
-    userMap.set(u.id, u)
-  }
-
-  const { data: dailyLogs } = await supabaseAdmin
-    .from('ai_usage_logs')
-    .select('created_at, input_tokens, output_tokens, cost_twd')
-    .gte('created_at', periodStart.toISOString())
-    .lt('created_at', periodEnd.toISOString())
-    .order('created_at', { ascending: true })
-    .limit(5000)
-
-  const dailyAgg = new Map<string, { calls: number; tokens: number; cost: number }>()
-  for (const log of dailyLogs || []) {
-    const day = log.created_at.slice(0, 10)
-    const existing = dailyAgg.get(day) || { calls: 0, tokens: 0, cost: 0 }
-    dailyAgg.set(day, {
-      calls: existing.calls + 1,
-      tokens: existing.tokens + log.input_tokens + log.output_tokens,
-      cost: existing.cost + Number(log.cost_twd),
-    })
-  }
-
-  const dailyChart = Array.from(dailyAgg.entries())
-    .map(([date, stats]) => ({ date, ...stats }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-
-  const totalMessages = (quotas || []).reduce((sum, q) => sum + q.messages_count, 0)
-  const totalTokens = (quotas || []).reduce((sum, q) => sum + q.tokens_input + q.tokens_output, 0)
-  const totalCost = (quotas || []).reduce((sum, q) => sum + Number(q.cost_twd_estimated), 0)
-  const totalCalls = (dailyLogs || []).length
-
-  const userUsage = (quotas || []).map((q) => {
-    const u = userMap.get(q.user_id)
-    return {
-      user_id: q.user_id,
-      email: u?.email || 'unknown',
-      name: u?.name || null,
-      current_plan: u?.current_plan || 'unknown',
-      messages_count: q.messages_count,
-      tokens_total: q.tokens_input + q.tokens_output,
-      cost_twd: Number(q.cost_twd_estimated),
+      const infoMap = new Map((userInfos || []).map(u => [u.id, u]));
+      topUserInfos = topUserIds.map(uid => {
+        const info = infoMap.get(uid);
+        const data = userMap.get(uid)!;
+        return {
+          user_id: uid,
+          email: info?.email ?? null,
+          name: info?.name ?? null,
+          plan: info?.current_plan ?? null,
+          cost_twd: data.cost,
+          messages: data.messages,
+          tokens: data.tokens,
+        };
+      });
     }
-  })
 
-  return NextResponse.json({
-    data: {
-      period: periodStartStr,
-      overview: {
-        total_messages: totalMessages,
-        total_tokens: totalTokens,
-        total_cost_twd: Math.round(totalCost * 100) / 100,
-        total_api_calls: totalCalls,
-        active_users: userUsage.length,
+    return NextResponse.json<ApiResponse>({
+      data: {
+        days,
+        since: sinceIso,
+        total_cost_twd: totalCost,
+        total_messages: safeLogs.length,
+        total_input_tokens: totalInputTokens,
+        total_output_tokens: totalOutputTokens,
+        unique_users: userMap.size,
+        avg_cost_per_message: safeLogs.length > 0 ? totalCost / safeLogs.length : 0,
+        daily_breakdown: dailyBreakdown,
+        top_users_by_cost: topUserInfos,
       },
-      daily_chart: dailyChart,
-      user_usage: userUsage,
-    },
-    error: null,
-  })
+      error: null,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[GET /api/admin/usage] unexpected:', err);
+    return NextResponse.json<ApiResponse>(
+      { data: null, error: '伺服器錯誤', timestamp: new Date().toISOString() },
+      { status: 500 }
+    );
+  }
 }

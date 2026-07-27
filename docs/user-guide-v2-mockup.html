@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>羽升幸福養成學苑 — 使用說明書 v2 (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: linear-gradient(135deg, #fef3e2 0%, #fde2c8 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #4a3829;
+  }
+
+  .phone-frame {
+    width: 100%;
+    max-width: 430px;
+    aspect-ratio: 9 / 19.5;
+    background: linear-gradient(180deg, #fef4e8 0%, #fde2c8 50%, #fed9b8 100%);
+    border-radius: 40px;
+    box-shadow:
+      0 20px 60px rgba(0,0,0,0.15),
+      inset 0 0 0 2px rgba(255,255,255,0.5);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Decorative background elements */
+  .deco {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .deco-heart-1 { top: 8%;  left: 7%;   color: #ff8a8a; font-size: 0.8em; }
+  .deco-heart-2 { top: 12%; right: 14%; color: #ffb380; font-size: 0.9em; }
+  .deco-heart-3 { bottom: 14%; left: 5%; color: #ff8a8a; font-size: 0.7em; }
+  .deco-heart-4 { bottom: 10%; right: 8%; color: #ffb380; font-size: 0.7em; }
+  .deco-heart-5 { top: 40%; left: 4%; color: #ff8a8a; font-size: 0.6em; }
+  .deco-heart-6 { top: 60%; right: 5%; color: #ffb380; font-size: 0.6em; }
+  .deco-spark-1 { top: 6%;  left: 14%;  color: #ffd166; font-size: 0.9em; }
+  .deco-spark-2 { top: 5%;  left: 18%;  color: #ffd166; font-size: 0.7em; }
+  .deco-leaf-1  { top: 11%; right: 18%; font-size: 0.9em; }
+
+  /* Speech bubble (top right - matches cover page) */
+  .speech-bubble {
+    position: absolute;
+    top: 2.5%;
+    right: 5%;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #ff7d5c, #ff9b7a);
+    border-radius: 50% 50% 50% 8%;
+    transform: rotate(15deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(255,125,92,0.3);
+    z-index: 10;
+  }
+  .speech-bubble::before {
+    content: "♥";
+    color: white;
+    font-size: 18px;
+    transform: rotate(-15deg);
+  }
+
+  /* Page carousel */
+  .carousel {
+    position: absolute;
+    top: 7%;
+    left: 0;
+    right: 0;
+    bottom: 7%;
+    overflow: hidden;
+  }
+  .pages {
+    display: flex;
+    height: 100%;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .page {
+    flex: 0 0 100%;
+    height: 100%;
+    padding: 36px 28px 50px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Typography */
+  .page h1 {
+    font-size: 1.45em;
+    font-weight: 900;
+    color: #d96030;
+    margin-bottom: 8px;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .page h1 .mode-tag {
+    display: block;
+    font-size: 0.55em;
+    font-weight: 500;
+    color: #b07050;
+    margin-top: 4px;
+  }
+  .page h2 {
+    font-size: 1.0em;
+    font-weight: 700;
+    color: #c44a25;
+    margin-top: 18px;
+    margin-bottom: 8px;
+  }
+  .page p, .page li {
+    font-size: 0.92em;
+    line-height: 1.7;
+    color: #5a4530;
+  }
+  .accent { color: #d96030; font-weight: 700; }
+
+  /* Welcome greeting */
+  .welcome-greeting {
+    font-size: 1.15em;
+    font-weight: 700;
+    color: #d96030;
+    text-align: center;
+    margin-bottom: 14px;
+    margin-top: 8px;
+  }
+
+  /* Sub-note under page title */
+  .sub-note {
+    font-size: 0.85em;
+    color: #a07a5e;
+    text-align: center;
+    margin-bottom: 14px;
+    font-style: italic;
+  }
+
+  /* Mode cards (Page 1) */
+  .mode-card {
+    background: rgba(255,255,255,0.7);
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    box-shadow: 0 2px 6px rgba(217,96,48,0.08);
+  }
+  .mode-card .head { font-weight: 700; color: #c44a25; font-size: 0.95em; }
+  .mode-card .who { font-size: 0.82em; color: #a07a5e; margin: 2px 0 4px; }
+  .mode-card .desc { font-size: 0.88em; color: #5a4530; }
+
+  /* Scenario boxes (Page 2 / 3) */
+  .scenario {
+    background: rgba(255,255,255,0.6);
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin: 5px 0;
+    font-size: 0.88em;
+    color: #5a4530;
+  }
+
+  /* Numbered steps */
+  .steps ol { list-style: none; padding: 0; counter-reset: step; }
+  .steps li {
+    padding: 5px 0 5px 28px;
+    counter-increment: step;
+    position: relative;
+    font-size: 0.9em;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 20px;
+    height: 20px;
+    background: #ff9b7a;
+    color: white;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Important tip box */
+  .important-tip {
+    background: linear-gradient(135deg, #fff4e0, #ffe8c8);
+    border-left: 3px solid #ff9b7a;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin: 14px 0 8px;
+    font-size: 0.9em;
+    line-height: 1.65;
+  }
+
+  /* Plan cards (Page 4) */
+  .plan-card {
+    background: rgba(255,255,255,0.7);
+    border-radius: 12px;
+    padding: 11px 14px;
+    margin: 8px 0;
+    border-left: 3px solid #ff9b7a;
+  }
+  .plan-card .name { font-weight: 700; color: #c44a25; font-size: 0.95em; }
+  .plan-card .meta { font-size: 0.82em; color: #8a6e50; margin-top: 2px; }
+
+  /* Invite code box */
+  .invite-code {
+    background: rgba(217,96,48,0.08);
+    border: 1.5px dashed #d96030;
+    padding: 12px;
+    text-align: center;
+    border-radius: 10px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: #d96030;
+    margin: 8px 0;
+    letter-spacing: 0.05em;
+  }
+
+  /* Dots navigation */
+  .dots {
+    position: absolute;
+    bottom: 2.5%;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d4a890;
+    opacity: 0.4;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .dot.active {
+    background: #d96030;
+    opacity: 1;
+    width: 24px;
+    border-radius: 4px;
+  }
+
+  /* Navigation arrows */
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.85);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+    color: #d96030;
+    cursor: pointer;
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    font-weight: 700;
+  }
+  .nav-btn:hover { background: white; }
+  .nav-btn.prev { left: 8px; }
+  .nav-btn.next { right: 8px; }
+  .nav-btn:disabled { opacity: 0; cursor: not-allowed; pointer-events: none; }
+
+  /* External hint */
+  .hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 0.75em;
+    z-index: 100;
+    opacity: 0.7;
+  }
+
+  /* Scrollbar styling */
+  .page::-webkit-scrollbar { width: 4px; }
+  .page::-webkit-scrollbar-track { background: transparent; }
+  .page::-webkit-scrollbar-thumb {
+    background: rgba(217,96,48,0.2);
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+
+  <!-- Decorative speech bubble (top-right) -->
+  <div class="speech-bubble"></div>
+
+  <!-- Decorative scattered elements -->
+  <div class="deco deco-heart-1">♥</div>
+  <div class="deco deco-heart-2">♥</div>
+  <div class="deco deco-heart-3">♥</div>
+  <div class="deco deco-heart-4">♥</div>
+  <div class="deco deco-heart-5">♥</div>
+  <div class="deco deco-heart-6">♥</div>
+  <div class="deco deco-spark-1">✦</div>
+  <div class="deco deco-spark-2">✦</div>
+  <div class="deco deco-leaf-1">🌿</div>
+
+  <div class="carousel">
+    <div class="pages" id="pages">
+
+      <!-- ============== Page 1: 歡迎 + 產品功能 ============== -->
+      <div class="page">
+        <div class="welcome-greeting">嗨，很高興你來了 ☺️</div>
+        <p>
+          不管是某段關係讓你有點累、有點氣、有點難開口，
+          或只是想讓現在的關係，再靠近一點點——
+        </p>
+        <p style="margin-top:14px;">
+          歡迎你來這裡，慢慢練。<br>
+          不急、不勉強、也不需要「<span class="accent">先變得夠好</span>」才開始。
+        </p>
+
+        <h2>🌸 這個 app 是什麼？</h2>
+        <p>
+          讓你跟 AI 教練「<span class="accent">小羽</span>」一起，
+          用 21 天，慢慢練好一段關係——
+          不論是伴侶、親子、還是職場，
+          這裡都可以是你的練習場。
+        </p>
+
+        <h2>💡 兩個你可以用的方式</h2>
+
+        <div class="mode-card">
+          <div class="head">🌱 21 天練習</div>
+          <div class="who">給「想穩穩練的你」</div>
+          <div class="desc">固定主題、固定對象、循序漸進</div>
+        </div>
+
+        <div class="mode-card">
+          <div class="head">🤝 我卡住、幫我拆</div>
+          <div class="who">給「當下需要被接住的你」</div>
+          <div class="desc">臨時狀況、小羽即時診斷</div>
+        </div>
+      </div>
+
+      <!-- ============== Page 2: 我卡住、幫我拆 ============== -->
+      <div class="page">
+        <h1>🤝 我卡住、幫我拆<span class="mode-tag">（諮詢模式）</span></h1>
+        <p class="sub-note">第一次使用 app、註冊完會自動進入這個模式</p>
+
+        <h2>＊什麼時候用？</h2>
+        <p>
+          當你「<span class="accent">急需處理一個當下卡住的問題</span>」、
+          不一定跟 21 天的主題或對象有關。
+        </p>
+
+        <div class="scenario">老闆突然在會議上罵我、不知道怎麼回應</div>
+        <div class="scenario">老婆今天說了一句話、我不知道該不該回</div>
+        <div class="scenario">兒子昨天考試成績下滑、我該不該開口問</div>
+        <div class="scenario">同事一直推工作給我、要怎麼劃界線</div>
+
+        <h2>＊怎麼用？</h2>
+        <div class="steps">
+          <ol>
+            <li>點上方「🤝 我卡住、幫我拆」</li>
+            <li>開新主題（可開多個、每個獨立）</li>
+            <li>描述：對方是誰、發生什麼、你的反應、你想要什麼</li>
+            <li>小羽會幫你拆解、給你具體做法</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ============== Page 3: 21 天練習 ============== -->
+      <div class="page">
+        <h1>🌱 21 天練習<span class="mode-tag">（練習模式）</span></h1>
+
+        <h2>＊什麼時候用？</h2>
+        <p>
+          想針對「<span class="accent">一段特定關係</span>」、做有節奏的深度練習——
+          不是急著解決今天的事、而是慢慢長出新的相處方式。
+        </p>
+
+        <div class="scenario">🟢 想跟伴侶多點理解、少點誤會</div>
+        <div class="scenario">🟢 想跟青春期孩子重新連上線</div>
+        <div class="scenario">🟢 想跟某位同事 / 老闆相處更順</div>
+
+        <h2>＊一天大概像這樣</h2>
+        <p>
+          🌅 早上：拿到「今天要練的一件事」<br>
+          🎯 白天：在真實生活裡試試看<br>
+          🌙 晚上：跟小羽聊聊心得
+        </p>
+
+        <h2>＊21 天會走過 3 個階段</h2>
+        <p>
+          <span class="accent">Week 1</span>：看見「對方」<br>
+          <span class="accent">Week 2</span>：看見「自己」<br>
+          <span class="accent">Week 3</span>：在真實情境裡整合應用
+        </p>
+
+        <div class="important-tip">
+          💡 <strong>一個重要提醒</strong><br>
+          選定一個對象、一件事、練滿 21 天、效果最好。
+          中途換對象、會等於從頭開始喔。
+        </div>
+      </div>
+
+      <!-- ============== Page 4: 訂閱方案 ============== -->
+      <div class="page">
+        <h1>💎 訂閱方案</h1>
+
+        <div class="important-tip" style="text-align:center;">
+          🟢 <strong>內測中、所有功能免費開放</strong><br>
+          <span style="font-size:0.88em;">以下是正式上線後的方案、給你參考</span>
+        </div>
+
+        <h2>＊三種正式方案</h2>
+
+        <div class="plan-card">
+          <div class="name">🌱 Basic 啟動｜NT$299 / 月</div>
+          <div class="meta">給「剛開始接觸的你」｜80 則對話</div>
+        </div>
+
+        <div class="plan-card">
+          <div class="name">🌿 Advanced 深化｜NT$699 / 月</div>
+          <div class="meta">給「想穩穩練的你」｜200 則對話</div>
+        </div>
+
+        <div class="plan-card">
+          <div class="name">🌳 Premium 整合｜NT$1,888 / 月</div>
+          <div class="meta">給「想真正用在人生裡的你」｜500 則對話</div>
+        </div>
+
+        <h2>＊免費試用</h2>
+        <p>
+          🎁 首次註冊送 <span class="accent">7 天 Premium 體驗</span><br>
+          最多 100 則對話、體驗完再決定。
+        </p>
+
+        <h2>＊「一則對話」是什麼？</h2>
+        <p style="text-align:center;">
+          你說一句 + 小羽回一句 = <span class="accent">1 則</span>
+        </p>
+      </div>
+
+      <!-- ============== Page 5: 邀請碼 ============== -->
+      <div class="page">
+        <h1>🎁 邀請碼怎麼用？</h1>
+
+        <h2>＊為什麼需要邀請碼？</h2>
+        <p>
+          目前是內測階段、希望給早期用戶最好的陪伴 💛
+          所以採邀請制註冊。
+        </p>
+
+        <h2>＊邀請碼長什麼樣？</h2>
+        <div class="invite-code">NUWA-XXXX-XXX</div>
+        <p style="text-align:center;font-size:0.82em;color:#8a6e50;margin-top:-2px;">
+          （例：NUWA-A123-001）
+        </p>
+
+        <h2>＊在哪裡拿？</h2>
+        <p style="text-align:center;font-size:1.0em;">
+          🌟 <strong>加入 LINE 內測群組</strong> 索取
+        </p>
+
+        <h2>＊使用步驟</h2>
+        <div class="steps">
+          <ol>
+            <li>點「註冊新帳號」</li>
+            <li>輸入你拿到的邀請碼</li>
+            <li>完成基本資料</li>
+          </ol>
+        </div>
+        <p style="text-align:center;color:#d96030;font-weight:700;margin-top:10px;">
+          → 立刻獲得 7 天 Premium 免費體驗 🎁
+        </p>
+
+        <h2>＊有問題？</h2>
+        <p style="text-align:center;">
+          💬 <strong>到 LINE 內測群組</strong> 找我們
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Navigation arrows -->
+  <button class="nav-btn prev" id="prevBtn">‹</button>
+  <button class="nav-btn next" id="nextBtn">›</button>
+
+  <!-- Page indicator dots -->
+  <div class="dots">
+    <span class="dot active" data-page="0"></span>
+    <span class="dot" data-page="1"></span>
+    <span class="dot" data-page="2"></span>
+    <span class="dot" data-page="3"></span>
+    <span class="dot" data-page="4"></span>
+  </div>
+
+</div>
+
+<div class="hint">← → 鍵 / 滑動 / 點圓點 切換頁面</div>
+
+<script>
+  const pages = document.getElementById('pages');
+  const dots = document.querySelectorAll('.dot');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const totalPages = 5;
+  let currentPage = 0;
+
+  function goToPage(pageIdx) {
+    currentPage = Math.max(0, Math.min(totalPages - 1, pageIdx));
+    pages.style.transform = `translateX(-${currentPage * 100}%)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === currentPage));
+    prevBtn.disabled = currentPage === 0;
+    nextBtn.disabled = currentPage === totalPages - 1;
+  }
+
+  prevBtn.addEventListener('click', () => goToPage(currentPage - 1));
+  nextBtn.addEventListener('click', () => goToPage(currentPage + 1));
+
+  dots.forEach(d => {
+    d.addEventListener('click', () => goToPage(parseInt(d.dataset.page)));
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') goToPage(currentPage - 1);
+    if (e.key === 'ArrowRight') goToPage(currentPage + 1);
+  });
+
+  // Touch swipe support
+  let touchStartX = 0;
+  let touchStartY = 0;
+  pages.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  pages.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    // Only horizontal swipe (not vertical scroll)
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) goToPage(currentPage + 1);
+      else goToPage(currentPage - 1);
+    }
+  });
+
+  // Mouse drag support (for desktop testing)
+  let mouseDownX = 0;
+  let isMouseDown = false;
+  pages.addEventListener('mousedown', (e) => {
+    mouseDownX = e.clientX;
+    isMouseDown = true;
+  });
+  pages.addEventListener('mouseup', (e) => {
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    const dx = e.clientX - mouseDownX;
+    if (Math.abs(dx) > 80) {
+      if (dx < 0) goToPage(currentPage + 1);
+      else goToPage(currentPage - 1);
+    }
+  });
+
+  goToPage(0);
+</script>
+
+</body>
+</html>

@@ -28,6 +28,9 @@ import {
   buildConsultantPromptLite,
   extractMbtiCodes,
 } from '@/lib/ai/buildContext';
+import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
+
+const MODEL_NAME = 'claude-sonnet-4-5';
 import { generateTopicTitle } from '@/lib/ai/autoTitle';
 import type { ChatMessage } from '@/types';
 
@@ -47,6 +50,36 @@ function checkRateLimit(userId: string): boolean {
   if (current.count >= 80) return false;
   current.count++;
   return true;
+}
+
+// =============================================================
+// v1.4.x (6/10) Mode B Soft Landing — count prior AI messages
+// 跨 topic 累計該 user 在 Mode B 已收 AI 回覆次數
+// 給 buildConsultantPrompt 用、決定本次回覆是否要 hook MBTI/4S
+// =============================================================
+
+async function countPriorModeBAiMessages(userId: string): Promise<number> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('conversations')
+      .select('messages')
+      .eq('user_id', userId)
+      .eq('context_type', 'consultant');
+
+    if (!data) return 0;
+
+    let aiMessageCount = 0;
+    for (const conv of data) {
+      const msgs = (conv.messages as ChatMessage[]) || [];
+      for (const m of msgs) {
+        if (m.role === 'assistant') aiMessageCount++;
+      }
+    }
+    return aiMessageCount;
+  } catch (err) {
+    console.error('[countPriorModeBAiMessages]', err);
+    return 0; // fail-soft、回 0 等於採最保守 vernacular 路徑
+  }
 }
 
 // =============================================================
@@ -151,6 +184,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '今日對話次數已達上限，明天再繼續吧！' }, { status: 429 });
     }
 
+    // Phase 1A：訂閱方案額度檢查（BILLING_ENFORCEMENT=false 時永遠通過）
+    const quotaCheck = await checkQuotaAvailable(session.userId);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json({
+        error: quotaCheck.user_message || '已達使用上限',
+        quota_exceeded: true,
+        quota_reason: quotaCheck.reason,
+        usage: quotaCheck.usage,
+      }, { status: 429 });
+    }
+
     const body = await request.json();
     const {
       message,
@@ -215,12 +259,19 @@ export async function POST(request: NextRequest) {
     const allMessageText = messages.map(m => m.content).join(' ');
     const declaredMbtis = extractMbtiCodes(allMessageText);
 
+    // v1.4.x (6/10) Soft Landing：抓 user 跨 topic 累計 Mode B 已收 AI 回覆次數
+    // 用途：feed 給 prompt、決定本次回覆是否要 hook MBTI/4S
+    //   - count < 2 → 純日常語言、禁專有名詞
+    //   - count ≥ 2 → AI 動態判斷時機 soft hook（user 自提則例外、立即可用）
+    // 注意：此 request 的新 AI 回覆還沒寫進 DB、所以 count 自然不含、正確反映「之前」累計次數
+    const modeBEngagementCount = await countPriorModeBAiMessages(session.userId);
+
     // v1.3.2a: 兩條 path 組 prompt
     let systemPrompt: string;
     if (journey) {
       const contextData = await buildContextData(journey.id, journey.current_day);
       if (!contextData) return NextResponse.json({ error: '無法載入旅程資料' }, { status: 500 });
-      systemPrompt = buildConsultantPrompt(contextData, declaredMbtis);
+      systemPrompt = buildConsultantPrompt(contextData, declaredMbtis, modeBEngagementCount);
     } else {
       const liteContext = await buildConsultantLiteContextData(session.userId);
       if (!liteContext) {
@@ -229,7 +280,7 @@ export async function POST(request: NextRequest) {
           code: 'NEEDS_ONBOARDING',
         }, { status: 400 });
       }
-      systemPrompt = buildConsultantPromptLite(liteContext, declaredMbtis);
+      systemPrompt = buildConsultantPromptLite(liteContext, declaredMbtis, modeBEngagementCount);
     }
 
     // 呼叫 Claude API（Streaming）
@@ -239,7 +290,7 @@ export async function POST(request: NextRequest) {
     }));
 
     const stream = await anthropic.messages.stream({
-      model: 'claude-sonnet-4-5',
+      model: MODEL_NAME,
       max_tokens: 2500,
       system: systemPrompt,
       messages: anthropicMessages,
@@ -318,6 +369,23 @@ export async function POST(request: NextRequest) {
             controller.enqueue(encoder.encode(
               `data: ${JSON.stringify({ topic_id: savedConvId, is_new_topic: isNewTopic })}\n\n`
             ));
+          }
+
+          // Phase 1A：精準 token usage tracking（fail-soft）
+          try {
+            const finalMsg = await stream.finalMessage();
+            const inputTokens = finalMsg.usage?.input_tokens ?? 0;
+            const outputTokens = finalMsg.usage?.output_tokens ?? 0;
+            recordUsage({
+              userId: session.userId,
+              conversationId: savedConvId,
+              contextType: 'consultant',
+              model: MODEL_NAME,
+              inputTokens,
+              outputTokens,
+            }).catch(err => console.error('[ai/consultant] recordUsage failed:', err));
+          } catch (err) {
+            console.error('[ai/consultant] usage tracking failed:', err);
           }
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));

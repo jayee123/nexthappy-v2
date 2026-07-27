@@ -10,14 +10,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json<ApiResponse>({ data: null, error: '請先登入', timestamp: new Date().toISOString() }, { status: 401 });
     }
 
+    // v1.5.x: 支援 ?journey_id=xxx 查特定 journey（含歷史已完成）
+    // 用途：Pearl 7/16 事件後、sidebar 歷史列表點過去看已完成 journey
+    // 安全：查完後檢查 journey.user_id 必須匹配 session（防跨用戶偷看）
+    const url = new URL(request.url);
+    const requestedJourneyId = url.searchParams.get('journey_id');
+
     // v1.3.2b: journey 變 optional——trier-first user 可在無 journey 狀態下落地 /chat、
     // 21 天 tab 顯示「開始第 1 輪」CTA、Mode B「我卡住了，幫我拆」走 lite path
-    const { data: journey } = await supabaseAdmin
-      .from('journeys')
-      .select('*')
-      .eq('user_id', session.userId)
-      .eq('is_active', true)
-      .maybeSingle();
+    let journey;
+    if (requestedJourneyId) {
+      const { data } = await supabaseAdmin
+        .from('journeys')
+        .select('*')
+        .eq('id', requestedJourneyId)
+        .eq('user_id', session.userId)   // ⚠️ 安全檢查、防跨用戶
+        .maybeSingle();
+      journey = data;
+    } else {
+      const { data } = await supabaseAdmin
+        .from('journeys')
+        .select('*')
+        .eq('user_id', session.userId)
+        .eq('is_active', true)
+        .maybeSingle();
+      journey = data;
+    }
 
     if (!journey) {
       return NextResponse.json<ApiResponse>({

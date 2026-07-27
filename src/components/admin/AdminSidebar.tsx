@@ -24,7 +24,7 @@ const NAV = [
   { href: '/admin/course', icon: '📚', label: '課程內容' },
   { href: '/admin/invites', icon: '📨', label: '邀請碼管理' },
   { href: '/admin/subscriptions', icon: '💳', label: '訂閱管理' },
-  { href: '/admin/usage', icon: '📈', label: '用量／成本' },
+  { href: '/admin/usage', icon: '📈', label: '用量 / 成本' },
   { href: '/admin/spec', icon: '📜', label: '規格文件' },
   { href: '/admin/prompts', icon: '🤖', label: 'AI Prompt 程式碼' },
   { href: '/admin/settings', icon: '⚙️', label: '系統設定' },

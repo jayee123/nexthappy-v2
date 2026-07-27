@@ -26,6 +26,19 @@ export interface TopicSummary {
   last_updated_at: string;
 }
 
+// v1.5.x: 練習 tab 顯示所有 rounds 用（Pearl 7/16 事件之後補的 UX）
+export interface JourneySummary {
+  id: string;
+  round_label: string | null;
+  round_number: number | null;
+  partner_nickname: string | null;
+  relationship_type: string | null;
+  current_day: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SidebarProps {
   activeTab: ActiveTab;
   hasJourney: boolean;
@@ -35,17 +48,23 @@ interface SidebarProps {
   currentTopicId: string | null;
   onSwitchTopic: (topicId: string) => void;
   onNewTopic: () => void;
-  onSwitchDay?: (day: number) => void;  // v1.3.3d：點 Day grid / arrow 切換
+  /** v1.3.3d：點 Day grid / arrow 切換。v1.5.x 加 journeyId — 有值代表切到歷史輪次的某天 */
+  onSwitchDay?: (day: number, journeyId?: string) => void;
+  /** v1.5.x：目前正在看哪一輪（null = 當前 active journey）、用來決定 Day grid 的 highlight */
+  viewingJourneyId?: string | null;
   collapsed: boolean;
   onToggleCollapse: () => void;
   refreshKey: number;
 }
 
+/** v1.5.x：手風琴展開狀態用的特殊 key，代表「當前 active 任務」 */
+const CURRENT_JOURNEY_KEY = '__current__';
+
 export default function Sidebar(props: SidebarProps) {
   const {
     activeTab, hasJourney, journey, currentDay, viewingDay, currentTopicId,
     onSwitchTopic, onNewTopic, onSwitchDay, collapsed, onToggleCollapse,
-    refreshKey,
+    refreshKey, viewingJourneyId,
   } = props;
 
   const [topics, setTopics] = useState<TopicSummary[]>([]);
@@ -55,6 +74,13 @@ export default function Sidebar(props: SidebarProps) {
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  // v1.5.x: 練習 tab 所有 rounds 列表（含歷史已完成）
+  const [journeys, setJourneys] = useState<JourneySummary[]>([]);
+  const [loadingJourneys, setLoadingJourneys] = useState(false);
+  // v1.5.x 7/26：手風琴——同時只展開一個任務的 Day grid。
+  //   預設展開「當前任務」（Steve 7/26 拍板）；點歷史任務會自動收合當前的。
+  const [expandedJourneyId, setExpandedJourneyId] = useState<string | null>(CURRENT_JOURNEY_KEY);
 
   const loadTopics = useCallback(async () => {
     if (activeTab !== 'consultant') return;
@@ -78,6 +104,27 @@ export default function Sidebar(props: SidebarProps) {
   useEffect(() => {
     loadTopics();
   }, [loadTopics, refreshKey]);
+
+  // v1.5.x: 練習 tab 展開時、載入 all journeys
+  const loadJourneys = useCallback(async () => {
+    if (activeTab !== 'practice') return;
+    setLoadingJourneys(true);
+    try {
+      const res = await fetch('/api/journey/list');
+      const json = await res.json();
+      if (json.data?.journeys) {
+        setJourneys(json.data.journeys);
+      }
+    } catch (err) {
+      console.error('[Sidebar.loadJourneys]', err);
+    } finally {
+      setLoadingJourneys(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    loadJourneys();
+  }, [loadJourneys, refreshKey]);
 
   async function handleArchive(topicId: string, archive: boolean) {
     try {
@@ -160,83 +207,203 @@ export default function Sidebar(props: SidebarProps) {
   // Mode A sidebar：21 天進度 + 任務 + Day grid
   // ──────────────────────────────────────────────────────────
   function renderPracticeSidebar() {
-    if (!hasJourney) {
+    // v1.5.x: 無論有無 active journey、都列出所有 journeys（含歷史）
+    // Pearl 事件的核心 fix：Day 21 完成 is_active=false 後、仍要能看歷史
+
+    const activeJourney = journeys.find(j => j.is_active) || journey;
+    const pastJourneys = journeys.filter(j => !j.is_active);
+
+    if (!activeJourney && pastJourneys.length === 0) {
       return (
         <div className="p-4 text-sm text-gray-400 text-center">
           還沒開始第 1 輪 21 天練習
           <br />
           <span className="text-xs text-gray-300 mt-1 block">
-            從右邊「開始第 1 輪」進去
+            點頂部「+」按鈕開始
           </span>
         </div>
       );
     }
 
-    const taskName = journey?.round_label || `跟 ${journey?.partner_nickname || '對方'} 第 ${journey?.round_number || 1} 輪`;
+    // 沒 active 但有歷史 → 引導開新輪次
+    if (!activeJourney && pastJourneys.length > 0) {
+      return (
+        <div className="p-4 space-y-4">
+          <div className="text-sm text-[#5a4530] leading-relaxed">
+            🎉 上一輪已完成、點頂部「<span className="text-primary-600 font-bold">+</span>」開始下一輪練習
+          </div>
+          {renderPastJourneysList(pastJourneys)}
+        </div>
+      );
+    }
+
+    const taskName = activeJourney?.round_label || `跟 ${activeJourney?.partner_nickname || '對方'} 第 ${activeJourney?.round_number || 1} 輪`;
     const dayN = currentDay ?? 0;
+    const currentExpanded = expandedJourneyId === CURRENT_JOURNEY_KEY;
 
     return (
       <div className="p-4 space-y-4">
-        {/* 任務 title */}
+        {/* 當前任務 — 可收合（預設展開）*/}
         <div>
           <div className="text-xs text-gray-500 mb-1">任務</div>
-          <div className="text-sm font-semibold text-gray-800 leading-snug">
-            {taskName}
-          </div>
+          <button
+            onClick={() => setExpandedJourneyId(currentExpanded ? null : CURRENT_JOURNEY_KEY)}
+            className="w-full flex items-start justify-between gap-2 text-left group"
+            title={currentExpanded ? '收合每日進度' : '展開每日進度'}
+          >
+            <span className="text-sm font-semibold text-gray-800 leading-snug group-hover:text-primary-700">
+              {taskName}
+            </span>
+            <span
+              className={`text-primary-600 text-[10px] shrink-0 mt-1 transition-transform ${
+                currentExpanded ? 'rotate-180' : ''
+              }`}
+            >
+              ▼
+            </span>
+          </button>
         </div>
 
-        {/* 當前 Day + progress bar */}
-        <div className="bg-primary-50 rounded-xl p-3">
-          <div className="text-xs text-primary-600 font-medium">當前</div>
-          <div className="text-2xl font-bold text-primary-700 mt-0.5">
-            Day {dayN}
-            <span className="text-sm font-normal text-primary-400 ml-1">/ 21</span>
-          </div>
-          <div className="mt-2 bg-white rounded-full h-1.5 overflow-hidden">
-            <div
-              className="bg-primary-500 h-full transition-all duration-500"
-              style={{ width: `${Math.min(100, ((dayN) / 21) * 100)}%` }}
-            />
-          </div>
-        </div>
+        {currentExpanded && (
+          <>
+            {/* 當前 Day + progress bar */}
+            <div className="bg-primary-50 rounded-xl p-3">
+              <div className="text-xs text-primary-600 font-medium">當前</div>
+              <div className="text-2xl font-bold text-primary-700 mt-0.5">
+                Day {dayN}
+                <span className="text-sm font-normal text-primary-400 ml-1">/ 21</span>
+              </div>
+              <div className="mt-2 bg-white rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-primary-500 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, ((dayN) / 21) * 100)}%` }}
+                />
+              </div>
+            </div>
 
-        {/* Day grid（Day 0-21、v1.3.3d 加 onClick 載歷史） */}
-        <div>
-          <div className="text-xs text-gray-500 mb-2">每日進度</div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 22 }, (_, i) => i).map(d => {
-              const isCurrent = d === dayN;
-              const isPast = d < dayN;
-              const isFuture = d > dayN;
-              const isViewing = viewingDay !== null && viewingDay !== undefined ? d === viewingDay : isCurrent;
-              const clickable = (isPast || isCurrent) && !!onSwitchDay;
-              return (
+            {/* Day grid（Day 0-21、v1.3.3d 加 onClick 載歷史） */}
+            <div>
+              <div className="text-xs text-gray-500 mb-2">每日進度</div>
+              {renderDayGrid(dayN, null)}
+              <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                點任一 Day 看完整對話、點當前 Day 回練習模式
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* v1.5.x: 歷史 rounds 列表（有的話）*/}
+        {pastJourneys.length > 0 && renderPastJourneysList(pastJourneys)}
+      </div>
+    );
+  }
+
+  /**
+   * v1.5.x 7/26：Day grid（當前輪次與歷史輪次共用）
+   * @param maxDay      該輪次進行到第幾天（可點的上限）
+   * @param journeyId   null = 當前 active journey；有值 = 歷史輪次
+   */
+  function renderDayGrid(maxDay: number, journeyId: string | null) {
+    const isViewingThisJourney = journeyId
+      ? viewingJourneyId === journeyId
+      : !viewingJourneyId;
+
+    return (
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 22 }, (_, i) => i).map(d => {
+          const isCurrentDay = d === maxDay;
+          const isPast = d < maxDay;
+          const isFuture = d > maxDay;
+          // 只有「正在看的那一輪」才顯示 highlight、避免兩輪同時亮起
+          const isViewing =
+            isViewingThisJourney &&
+            (viewingDay !== null && viewingDay !== undefined ? d === viewingDay : isCurrentDay);
+          const clickable = (isPast || isCurrentDay) && !!onSwitchDay;
+          return (
+            <button
+              key={d}
+              disabled={isFuture || !clickable}
+              onClick={() => clickable && onSwitchDay?.(d, journeyId ?? undefined)}
+              className={`text-xs py-1.5 rounded font-medium transition-all ${
+                isViewing
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : isPast || isCurrentDay
+                    ? 'bg-gray-100 text-gray-700 hover:bg-primary-100 hover:text-primary-700 cursor-pointer'
+                    : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+              }`}
+              title={
+                isViewing ? `正在看 Day ${d}` :
+                isPast ? `點看 Day ${d} 對話` :
+                isCurrentDay ? (journeyId ? `看 Day ${d}` : `回到當前 Day ${d}`) :
+                `Day ${d}（未開始）`
+              }
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // v1.5.x: 歷史 rounds 列表 sub-render
+  function renderPastJourneysList(pastJourneys: JourneySummary[]) {
+    return (
+      <div className="pt-2 border-t border-[#f6bf8e]/30">
+        <div className="text-xs text-gray-500 mb-2">歷史任務</div>
+        <div className="space-y-1.5">
+          {pastJourneys.map(pj => {
+            const name = pj.round_label || `跟 ${pj.partner_nickname || '對方'} 第 ${pj.round_number || 1} 輪`;
+            const relLabel = pj.relationship_type === 'couple' ? '情侶' :
+                             pj.relationship_type === 'parent_child' ? '親子' :
+                             pj.relationship_type === 'workplace' ? '職場' : '';
+            const isExpanded = expandedJourneyId === pj.id;
+            return (
+              <div
+                key={pj.id}
+                className={`rounded-lg border transition-colors ${
+                  isExpanded
+                    ? 'border-primary-300 bg-primary-50/40'
+                    : 'border-[#f6bf8e]/25 bg-white'
+                }`}
+              >
+                {/* 任務標題列 — 點擊展開 / 收合該輪次的 Day grid */}
                 <button
-                  key={d}
-                  disabled={isFuture || !clickable}
-                  onClick={() => clickable && onSwitchDay?.(d)}
-                  className={`text-xs py-1.5 rounded font-medium transition-all ${
-                    isViewing
-                      ? 'bg-primary-600 text-white shadow-sm'
-                      : isPast || isCurrent
-                        ? 'bg-gray-100 text-gray-700 hover:bg-primary-100 hover:text-primary-700 cursor-pointer'
-                        : 'bg-gray-50 text-gray-300 cursor-not-allowed'
-                  }`}
-                  title={
-                    isViewing ? `正在看 Day ${d}` :
-                    isPast ? `點看 Day ${d} 歷史對話` :
-                    isCurrent ? `回到當前 Day ${d}` :
-                    `Day ${d}（未開始）`
-                  }
+                  onClick={() => setExpandedJourneyId(isExpanded ? null : pj.id)}
+                  className="w-full text-left px-3 py-2 group flex items-start justify-between gap-2"
+                  title={isExpanded ? '收合' : `展開「${name}」的每日進度`}
                 >
-                  {d}
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[#38261e] group-hover:text-primary-700 truncate">
+                      {name}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-gray-400">
+                      {relLabel && <span>{relLabel}</span>}
+                      <span>Day {pj.current_day}/21</span>
+                      <span className="text-primary-600 font-medium">✓ 已完成</span>
+                    </span>
+                  </span>
+                  <span
+                    className={`text-primary-600 text-[10px] shrink-0 mt-1 transition-transform ${
+                      isExpanded ? 'rotate-180' : ''
+                    }`}
+                  >
+                    ▼
+                  </span>
                 </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-            點任一 Day 看完整對話、點當前 Day 回練習模式
-          </p>
+
+                {/* 展開後：該輪次的 Day grid、點任一 Day 回溯當天對話 */}
+                {isExpanded && (
+                  <div className="px-3 pb-3">
+                    {renderDayGrid(pj.current_day, pj.id)}
+                    <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
+                      點任一 Day 看這輪當天的完整對話
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -362,7 +529,9 @@ function TopicItem(props: TopicItemProps) {
             value={renameText || ''}
             onChange={e => onChangeRenameText?.(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter') onSubmitRename?.();
+              // v1.5.x 7/26：IME 組字中按 Enter 是「確認選字」、不該送出（同 chat input fix）
+              const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+              if (e.key === 'Enter' && !composing) onSubmitRename?.();
               if (e.key === 'Escape') onCancelRename?.();
             }}
             autoFocus
