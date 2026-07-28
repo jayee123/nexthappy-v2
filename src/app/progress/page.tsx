@@ -72,7 +72,25 @@ export default function ProgressPage() {
     );
   }
 
-  if (!stats) return null;
+  // 尚未有旅程（還沒開始 21 天練習）→ 顯示空狀態，不要整頁空白
+  if (!stats) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <div className="text-5xl mb-4">🌱</div>
+        <h1 className="text-lg font-bold text-[#38261e] mb-2">還沒開始你的練習旅程</h1>
+        <p className="text-sm text-gray-500 mb-6 max-w-xs">
+          開始跟小羽對話，就會啟動你的 21 天練習，這裡會顯示每天的進度與成就。
+        </p>
+        <Link
+          href="/chat"
+          className="px-5 py-2.5 rounded-full text-white text-sm font-medium shadow-md"
+          style={{ background: PEARL_GRADIENT }}
+        >
+          開始今日練習
+        </Link>
+      </div>
+    );
+  }
 
   const { journey, achievements, daily_records, completed_days, total_points, current_day } = stats;
 

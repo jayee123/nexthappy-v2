@@ -2,6 +2,9 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  // berth 是自架 standalone docker、未裝 sharp，next/image 最佳化會 500 導致破圖。
+  // unoptimized 讓 <Image> 直接輸出原圖（不經 /_next/image 最佳化），穩定顯示。
+  images: { unoptimized: true },
   // 把 Vercel 的 VERCEL_ENV 橋接到 client side（用來決定 dev 測試按鈕是否顯示）
   // - preview deploy  → 'preview'
   // - production deploy → 'production'
