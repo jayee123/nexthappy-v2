@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, type PlanTier } from '@/lib/billing/plans'
-import { DAILY_CHARGE_TWD, nextChargeAt } from '@/lib/billing/subscription-cycle'
+import { DAILY_CHARGE_TWD, TEST_MAX_DAILY_CHARGES, nextChargeAt } from '@/lib/billing/subscription-cycle'
 import {
   getSunpayConfig,
   requestSubsequentPayment,
@@ -62,6 +62,23 @@ export async function GET(request: NextRequest) {
       continue
     }
 
+    // 測試用：扣滿 TEST_MAX_DAILY_CHARGES 次就停止續扣（不再扣款）
+    const { count: prevRenewals } = await supabaseAdmin
+      .from('payment_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('transaction_type', 'renewal')
+      .eq('status', 'success')
+
+    if ((prevRenewals ?? 0) >= TEST_MAX_DAILY_CHARGES) {
+      await supabaseAdmin
+        .from('users')
+        .update({ auto_renewal: false, subscription_renews_at: null })
+        .eq('id', user.id)
+      console.log(`[cron:charge-renewals] user=${user.id} 已扣滿 ${TEST_MAX_DAILY_CHARGES} 次，停止續扣`)
+      continue
+    }
+
     const RENEWAL_AMOUNT = DAILY_CHARGE_TWD
     const result = await requestSubsequentPayment(config, {
       email: user.email,
@@ -93,13 +110,16 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (result.success) {
-      const nextRenewal = nextChargeAt(now) // 試用測試模式：下次扣款隔 24h
+      // 這次扣款後累計次數達上限即停止續扣（本次是第 prevRenewals+1 次）
+      const reachedMax = (prevRenewals ?? 0) + 1 >= TEST_MAX_DAILY_CHARGES
+      const nextRenewal = nextChargeAt(now) // 下次扣款隔 24h
 
       await supabaseAdmin
         .from('users')
         .update({
           current_plan: effectiveTier,
-          subscription_renews_at: nextRenewal.toISOString(),
+          subscription_renews_at: reachedMax ? null : nextRenewal.toISOString(),
+          auto_renewal: reachedMax ? false : true,
           pending_downgrade_plan: null,
         })
         .eq('id', user.id)

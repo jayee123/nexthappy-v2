@@ -16,6 +16,9 @@ export const DAILY_CHARGE_TWD = 5
 /** 扣款週期：24 小時 */
 export const CHARGE_INTERVAL_MS = 24 * 60 * 60 * 1000
 
+/** 測試用：每個用戶最多每日扣款次數，扣滿即自動停止續扣 */
+export const TEST_MAX_DAILY_CHARGES = 2
+
 /** 由基準時間算出下次扣款時間（隔一個週期） */
 export function nextChargeAt(from: Date): Date {
   return new Date(from.getTime() + CHARGE_INTERVAL_MS)

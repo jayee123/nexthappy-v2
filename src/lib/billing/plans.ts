@@ -55,7 +55,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
     label: 'Basic 啟動',
     tagline: '開啟你的幸福練習旅程',
     monthly_messages: 80,
-    price_twd: 299,
+    price_twd: 5, // 測試用統一價（實際扣款走 subscription-cycle）
     suitable_for: '剛開始接觸練習的人',
     features: [
       '🌱 開始進行基本練習與引導式對話',
@@ -69,7 +69,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
     label: 'Advanced 深化',
     tagline: '讓你的改變開始穩定發生',
     monthly_messages: 200,
-    price_twd: 699,
+    price_twd: 5, // 測試用統一價
     suitable_for: '已開始練習、希望更快理解與調整的人',
     features: [
       '🔄 可反覆演練同一種情境（關係、溝通、選擇）',
@@ -83,7 +83,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
     label: 'Premium 整合',
     tagline: '真正用在你的人生裡',
     monthly_messages: 500,
-    price_twd: 1888,
+    price_twd: 5, // 測試用統一價
     suitable_for: '有明確目標、想實際改變關係 / 狀態 / 人生方向的人',
     features: [
       '🏃 長時間陪伴式練習（不只單次對話）',
