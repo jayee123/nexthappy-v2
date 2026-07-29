@@ -63,7 +63,9 @@ export async function POST(request: NextRequest) {
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      // 正式環境用 none：紅陽付款頁完成後以跨網域 POST 導回，sameSite=lax 會導致
+      // session cookie 不被送出 → 使用者被踢回登入頁。none 需搭配 secure(HTTPS)。
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 60 * 60 * 24 * 30,
       path: '/',
     });

@@ -101,7 +101,8 @@ export async function POST(request: NextRequest) {
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      // 與 login 一致：正式環境用 none，紅陽跨網域 POST 導回時 session cookie 才會送出
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 天
       path: '/',
     });

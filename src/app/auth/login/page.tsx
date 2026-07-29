@@ -31,15 +31,9 @@ export default function LoginPage() {
         return;
       }
 
-      // 檢查是否有旅程
-      const journeyRes = await fetch('/api/journey/me');
-      const journeyJson = await journeyRes.json();
-
-      if (journeyJson.data?.journey) {
-        router.push('/chat');
-      } else {
-        router.push('/onboarding');
-      }
+      // 路由交給首頁判斷：首頁以 user.mbti_self 決定 /chat 或 /onboarding。
+      // （不可用「有無 journey」判斷——onboarding 不建立 journey，會導致每次登入重跑 onboarding）
+      router.push('/');
     } catch {
       setError('網路錯誤，請稍後再試');
     } finally {
