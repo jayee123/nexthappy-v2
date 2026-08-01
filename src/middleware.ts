@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   '/auth/register',
   '/api/auth/login',
   '/api/auth/register',
+  '/sso', // Market → App SSO 接收端（未登入時帶 token 進來）
   '/welcome',
   '/images',
 ];
