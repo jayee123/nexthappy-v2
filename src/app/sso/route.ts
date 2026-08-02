@@ -34,10 +34,15 @@ function verifySsoToken(token: string, secret: string): SsoPayload | null {
   }
 }
 
+// 組公開網址：request.url 在容器內是 http://0.0.0.0:3000，導向要用反向代理的 x-forwarded-host
+function publicUrl(request: Request, path: string): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || new URL(request.url).host
+  const proto = request.headers.get('x-forwarded-proto') || 'https'
+  return `${proto}://${host}${path}`
+}
+
 function loginFail(request: Request, reason: string) {
-  const url = new URL('/auth/login', request.url)
-  url.searchParams.set('error', `sso_${reason}`)
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(publicUrl(request, `/auth/login?error=sso_${reason}`))
 }
 
 export async function GET(request: Request) {
@@ -99,7 +104,7 @@ export async function GET(request: Request) {
   // 發 happy_session cookie
   const sessionToken = await createToken({ userId: user.id, email: user.email, name: user.name })
   const isProd = process.env.NODE_ENV === 'production'
-  const res = NextResponse.redirect(new URL('/', request.url))
+  const res = NextResponse.redirect(publicUrl(request, '/'))
   res.cookies.set(COOKIE_NAME, sessionToken, {
     httpOnly: true,
     secure: isProd,
