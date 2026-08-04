@@ -14,6 +14,7 @@ interface SsoPayload {
   email?: string
   name?: string
   app?: string
+  to?: string // 'welcome' | 'app'：公版指定進來後導向（未帶 → 交給首頁判斷）
   exp?: number
 }
 
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
   // 1) 先用 nuwa_user_id 找
   let { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email, name')
+    .select('id, email, name, mbti_self')
     .eq('nuwa_user_id', nuwaUserId)
     .maybeSingle()
 
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
   if (!user && payload.email) {
     const { data: byEmail } = await supabaseAdmin
       .from('users')
-      .select('id, email, name')
+      .select('id, email, name, mbti_self')
       .eq('email', payload.email)
       .maybeSingle()
     if (byEmail) {
@@ -92,7 +93,7 @@ export async function GET(request: Request) {
         password_hash: randomBytes(32).toString('hex'),
         current_plan: 'trial',
       })
-      .select('id, email, name')
+      .select('id, email, name, mbti_self')
       .single()
     if (error || !created) {
       console.error('[sso] create user failed:', error)
@@ -104,7 +105,14 @@ export async function GET(request: Request) {
   // 發 happy_session cookie
   const sessionToken = await createToken({ userId: user.id, email: user.email, name: user.name })
   const isProd = process.env.NODE_ENV === 'production'
-  const res = NextResponse.redirect(publicUrl(request, '/'))
+
+  // 公版指定導向：welcome=先看導覽、app=直接進 App；未帶則交給首頁 / 自行判斷
+  const appPath = (user as { mbti_self?: string | null }).mbti_self ? '/chat' : '/onboarding'
+  const dest =
+    payload.to === 'welcome' ? `/welcome?next=${encodeURIComponent(appPath)}`
+    : payload.to === 'app' ? appPath
+    : '/'
+  const res = NextResponse.redirect(publicUrl(request, dest))
   res.cookies.set(COOKIE_NAME, sessionToken, {
     httpOnly: true,
     secure: isProd,
