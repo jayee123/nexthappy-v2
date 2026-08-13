@@ -11,11 +11,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import UsageChip from '@/components/UsageChip';
 import MarkdownMessage, { stripMarkdown } from '@/components/MarkdownMessage';
 import Image from 'next/image';
-// v1.5.x: Pearl 設計把 📄 emoji 換成 proper Download icon
-import { Download } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import { MARKET_BASE_URL } from '@/lib/market';
 import type { TodayInfo, Journey, ChatMessage } from '@/types';
 import { useRealtimeVoice, type VoiceMessage } from '@/hooks/useRealtimeVoice';
 import Sidebar from '@/components/Sidebar';
@@ -1015,7 +1014,9 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Action buttons — v1.3.7b 縮 gap/padding */}
+          {/* Action buttons
+              上方只留「回到 NUWA」。下載 PDF（側邊欄主題選單已有）、個人設定、
+              訂閱、進度、登出都移到側邊欄 footer，避免右上角擠 5 顆 icon。*/}
           <div className="flex items-center gap-0 shrink-0 pl-0.5">
             {/* v1.4.x（Phase 1）：文字 / 語音切換暫拿掉、Phase 2 重新接入時恢復
                 Phase 1 只開放文字模式、voiceMode state 保留 default=false
@@ -1027,89 +1028,15 @@ export default function ChatPage() {
             </div>
             */}
 
-            {/* v1.3.5 PDF 匯出 — v1.3.7：consultant tab 永遠顯示 icon（無主題時 disabled）*/}
-            {(() => {
-              let convId: string | undefined | null = null;
-              let titleHint = '匯出對話為 PDF';
-              let alwaysShow = false;
-              if (activeTab === 'practice' && hasJourney) {
-                alwaysShow = true; // v1.3.9 fix: practice tab 也永遠顯示 icon（與 consultant tab 一致、無對話時 disabled）
-                convId = viewingDay !== null
-                  ? viewingDayInfo?.conversation?.id
-                  : today?.conversation?.id;
-                titleHint = convId ? '匯出當天對話為 PDF' : '尚無對話可匯出（先開始今天練習）';
-              } else if (activeTab === 'consultant') {
-                alwaysShow = true; // discoverability：諮詢 tab 一定顯示
-                if (currentTopicId) {
-                  convId = currentTopicId;
-                  titleHint = '匯出當前主題對話為 PDF';
-                } else {
-                  titleHint = '選擇 / 開啟主題後可匯出 PDF';
-                }
-              }
-              if (!convId && !alwaysShow) return null;
-              const disabled = !convId;
-              return (
-                <button
-                  onClick={() => convId && window.open(`/export/conversation/${convId}?autoprint=1`, '_blank')}
-                  title={titleHint}
-                  disabled={disabled}
-                  className={`px-1.5 py-1 rounded-lg ${
-                    disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                  aria-label={titleHint}
-                >
-                  {/* v1.5.x: Pearl 設計把 📄 emoji 換成 lucide-react <Download />（下載動作更明確） */}
-                  <Download size={14} strokeWidth={2} />
-                </button>
-              );
-            })()}
-            {/* v1.3.8: 個人設定（齒輪 icon）— 可改 MBTI / 暱稱 */}
-            <Link
-              href="/settings"
-              className="text-xs text-gray-500 px-1 py-1 rounded-lg hover:bg-gray-100 flex items-center"
-              title="個人設定（改 MBTI / 暱稱）"
-              aria-label="個人設定"
+            {/* 回到 NUWA：訂閱與帳號管理都在公版 */}
+            <a
+              href={MARKET_BASE_URL}
+              className="text-xs text-primary-600 font-medium px-2 py-1 rounded-lg hover:bg-primary-50 flex items-center gap-1 whitespace-nowrap"
+              title="回到 NUWA 平台（訂閱、帳號管理）"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </Link>
-
-            {/* Phase 1A：訂閱用量 chip（進入 /settings/billing） */}
-            <UsageChip />
-
-            {/* v1.3.7c: 進度/登出 — mobile icon-only、sm 以上才顯示文字（mobile 防截字）*/}
-            <Link
-              href="/progress"
-              className="text-xs text-primary-600 font-medium px-1 py-1 rounded-lg hover:bg-primary-50 flex items-center gap-0.5"
-              title="進度"
-              aria-label="進度"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-              <span className="hidden sm:inline">進度</span>
-            </Link>
-            <button
-              onClick={async () => {
-                await fetch('/api/auth/login', { method: 'DELETE' });
-                router.push('/auth/login');
-              }}
-              className="text-xs text-gray-400 px-1 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-0.5"
-              title="登出"
-              aria-label="登出"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span className="hidden sm:inline">登出</span>
-            </button>
+              <ExternalLink size={13} strokeWidth={2} />
+              <span>回到 NUWA</span>
+            </a>
           </div>
         </div>
       </div>

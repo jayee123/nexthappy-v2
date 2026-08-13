@@ -13,7 +13,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { BarChart3, Settings, CreditCard, LogOut } from 'lucide-react';
 import type { Journey } from '@/types';
+import { MARKET_BASE_URL } from '@/lib/market';
+
+/** sidebar footer 顯示的用量摘要（完整資訊在 /settings/billing） */
+interface UsageSummary {
+  messages_used: number;
+  messages_limit: number;
+  enforcement_enabled: boolean;
+}
 
 type ActiveTab = 'practice' | 'consultant';
 
@@ -74,6 +84,32 @@ export default function Sidebar(props: SidebarProps) {
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  // Footer：用量摘要 + 登出（原本都在 chat header）
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (collapsed) return;
+    let cancelled = false;
+    fetch('/api/billing/me')
+      .then(r => r.json())
+      .then(j => { if (!cancelled && j.data) setUsage(j.data); })
+      .catch(() => { /* 讀不到就不顯示，不影響 sidebar */ });
+    return () => { cancelled = true; };
+  }, [collapsed]);
+
+  // 登出必須清掉私版自己發的 happy_session（30 天有效）——
+  // 只是跳回公版並不會結束私版 session。清完再導向 NUWA。
+  const handleLogout = useCallback(async () => {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/login', { method: 'DELETE' });
+    } catch {
+      /* 清 cookie 失敗仍導向 NUWA，至少離開當前頁 */
+    }
+    window.location.href = MARKET_BASE_URL;
+  }, []);
 
   // v1.5.x: 練習 tab 所有 rounds 列表（含歷史已完成）
   const [journeys, setJourneys] = useState<JourneySummary[]>([]);
@@ -196,8 +232,51 @@ export default function Sidebar(props: SidebarProps) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {activeTab === 'practice' ? renderPracticeSidebar() : renderConsultantSidebar()}
+        </div>
+
+        {/* Footer：低頻功能從 chat header 移下來，讓上方只留兩個 tab + 回到 NUWA */}
+        <div className="border-t border-gray-100 p-2 space-y-0.5 shrink-0">
+          <Link
+            href="/progress"
+            className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <BarChart3 size={15} strokeWidth={2} className="text-primary-600" />
+            <span>進度</span>
+          </Link>
+
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <Settings size={15} strokeWidth={2} className="text-gray-500" />
+            <span>個人設定</span>
+          </Link>
+
+          <Link
+            href="/settings/billing"
+            className="flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <CreditCard size={15} strokeWidth={2} className="text-gray-500" />
+            <span className="flex-1">我的方案</span>
+            {usage && (
+              <span className="text-[11px] tabular-nums text-gray-400">
+                {usage.enforcement_enabled
+                  ? `${usage.messages_used} / ${usage.messages_limit}`
+                  : '內測'}
+              </span>
+            )}
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <LogOut size={15} strokeWidth={2} />
+            <span>{loggingOut ? '登出中⋯' : '登出並回到 NUWA'}</span>
+          </button>
         </div>
       </div>
     </>
