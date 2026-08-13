@@ -8,7 +8,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { MARKET_BASE_URL } from '@/lib/market';
 
 interface AdminSidebarProps {
   adminEmail: string;
@@ -17,7 +18,7 @@ interface AdminSidebarProps {
 
 const NAV = [
   { href: '/admin', icon: '📊', label: 'Dashboard' },
-  { href: '/admin/users', icon: '👥', label: '用戶管理' },
+  { href: '/admin/users', icon: '👥', label: '學員管理' },
   { href: '/admin/journeys', icon: '🗺', label: 'Journey 管理' },
   { href: '/admin/conversations', icon: '💬', label: '對話歷史' },
   { href: '/admin/topics', icon: '📁', label: '諮詢主題' },
@@ -32,11 +33,11 @@ const NAV = [
 
 export default function AdminSidebar({ adminEmail, adminName }: AdminSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
 
   async function handleLogout() {
+    // 清掉私版 session 後回到 NUWA（私版沒有自己的登入頁）
     await fetch('/api/auth/login', { method: 'DELETE' });
-    router.push('/auth/login');
+    window.location.href = MARKET_BASE_URL;
   }
 
   return (

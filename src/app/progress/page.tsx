@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { ProgressStats, DailyRecord } from '@/types';
+import { MARKET_BASE_URL } from '@/lib/market';
 
 // v1.5.x: Pearl 三色橘漸層（跟 progress bar 一致）
 const PEARL_GRADIENT = 'linear-gradient(135deg, #f7c399 0%, #e78b54 62%, #cf6e43 100%)';
@@ -110,8 +111,9 @@ export default function ProgressPage() {
           </Link>
           <button
             onClick={async () => {
+              // 清掉私版 session 後回到 NUWA（私版沒有自己的登入頁）
               await fetch('/api/auth/login', { method: 'DELETE' });
-              router.push('/auth/login');
+              window.location.href = MARKET_BASE_URL;
             }}
             className="text-xs text-gray-400 px-3 py-1 rounded-lg hover:bg-gray-100"
           >

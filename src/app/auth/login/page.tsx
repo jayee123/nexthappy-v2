@@ -1,123 +1,60 @@
-'use client';
+/**
+ * /auth/login —— 私版沒有自己的登入。
+ *
+ * 帳號真值在公版（NUWA），進來的唯一路徑是公版「App 服務」→ /sso。
+ * middleware 已把沒帶 ?error 的請求直接導向公版登入頁，所以這個頁面
+ * 只會在「SSO 失敗」時被看到：讓用戶知道發生什麼事，而不是被彈回公版卻不明所以。
+ */
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
-import { MARKET_REGISTER_URL } from '@/lib/market';
+import { MARKET_LOGIN_URL } from '@/lib/market';
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+const SSO_ERROR_MESSAGES: Record<string, string> = {
+  sso_no_token: '這個連結沒有帶登入資訊，請從 NUWA 重新進入。',
+  sso_not_configured: '登入設定尚未完成，請聯繫客服。',
+  sso_invalid: '登入連結已失效或無法驗證，請從 NUWA 重新進入。',
+  sso_wrong_app: '這個登入連結不屬於本 App，請從 NUWA 重新進入。',
+  sso_create_failed: '建立帳號時發生問題，請稍後再試或聯繫客服。',
+};
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        setError(json.error || '登入失敗');
-        return;
-      }
-
-      // 路由交給首頁判斷：首頁以 user.mbti_self 決定 /chat 或 /onboarding。
-      // （不可用「有無 journey」判斷——onboarding 不建立 journey，會導致每次登入重跑 onboarding）
-      router.push('/');
-    } catch {
-      setError('網路錯誤，請稍後再試');
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
+  const message =
+    (searchParams.error && SSO_ERROR_MESSAGES[searchParams.error]) ??
+    '請從 NUWA 平台進入本 App。';
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <div className="bg-pearl-gradient-soft text-white px-6 pt-12 pb-8 text-center">
-        {/* v1.5.x: Pearl Logo（火焰鳳凰）取代 🕊️ dove emoji */}
-        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 overflow-hidden shadow-md">
-          <Image
-            src="/images/logo/logo-icon.png"
-            alt="羽升幸福養成學苑"
-            width={56}
-            height={56}
-            priority
-            className="object-contain"
-          />
-        </div>
-        <h1 className="text-xl font-bold">羽升幸福養成學苑</h1>
-        <p className="text-primary-200 text-sm mt-1">21天幸福關係練習</p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
+      <div className="w-full max-w-sm text-center">
+        <Image
+          src="/images/logo/avatar-xiaoyu.png"
+          alt="小羽老師"
+          width={64}
+          height={64}
+          className="mx-auto rounded-full border border-primary-100"
+        />
 
-      {/* Form */}
-      <div className="flex-1 px-6 py-8">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">歡迎回來</h2>
+        <h1 className="mt-4 text-xl font-bold text-gray-800">無法登入</h1>
+        <p className="mt-2 text-sm text-gray-500 leading-relaxed">{message}</p>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="input-field"
-              required
-              autoComplete="email"
-            />
-          </div>
+        <a
+          href={MARKET_LOGIN_URL}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-medium text-white hover:bg-primary-700"
+        >
+          前往 NUWA 登入
+        </a>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">密碼</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="input-field"
-              required
-              autoComplete="current-password"
-            />
-          </div>
+        <p className="mt-4 text-xs text-gray-400">
+          登入後在 NUWA 點「App 服務 → 幸福關係」即可回到這裡。
+        </p>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="btn-primary w-full"
-            disabled={loading}
-          >
-            {loading ? '登入中...' : '登入'}
-          </button>
-        </form>
-
-        {/* #3a：私版不再自行註冊，帳號一律在 NUWA 公版建立後以 SSO 進來 */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            還沒有帳號？{' '}
-            <a
-              href={MARKET_REGISTER_URL}
-              className="text-primary-600 font-medium hover:underline"
-            >
-              到 NUWA 註冊
-            </a>
-          </p>
-        </div>
+        <Link href="/welcome" className="mt-6 inline-block text-xs text-gray-400 hover:text-gray-600">
+          先看看這個 App 在做什麼
+        </Link>
       </div>
     </div>
   );

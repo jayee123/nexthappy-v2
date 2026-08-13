@@ -13,5 +13,11 @@ export const MARKET_BASE_URL = 'https://next.nuwa.chg2asc.com';
 /** 公版註冊頁（需邀請碼，見 nuwa/v2 register/actions.ts） */
 export const MARKET_REGISTER_URL = `${MARKET_BASE_URL}/register`;
 
+/**
+ * 公版登入頁 —— 私版不再有自己的登入入口。
+ * 登入後從公版「App 服務」進來，由 /sso 建立私版 session。
+ */
+export const MARKET_LOGIN_URL = `${MARKET_BASE_URL}/login`;
+
 /** 公版訂閱管理 —— 付費一律在公版，私版只讀方案（見 src/lib/market/plan.ts） */
 export const MARKET_SUBSCRIBE_URL = `${MARKET_BASE_URL}/dashboard/subscribe`;

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { MARKET_REGISTER_URL } from '@/lib/market';
+import { MARKET_REGISTER_URL, MARKET_LOGIN_URL } from '@/lib/market';
 
 // v1.5.x: /welcome 加入公開路徑（首次訪客的 6 頁產品導引、未登入也要看得到）
 // /images 加入公開路徑保險（Cover 圖等靜態素材、next/image 雖然走 /_next/image 但直接路徑也放行）
 // #3a: /api/auth/register 已移除（私版停用獨立註冊），白名單一併撤掉。
-// /auth/register 保留、但只是 302 到公版註冊頁的轉接點。
+// /auth/register、/auth/login 保留在白名單，但實際上只是導向公版的轉接點（見下方）。
 const PUBLIC_PATHS = [
   '/auth/login',
   '/auth/register',
@@ -43,6 +43,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(MARKET_REGISTER_URL, 307);
   }
 
+  // 登入同樣一律走公版：私版沒有自己的帳號，密碼登入已移除。
+  // 例外：SSO 失敗會導回 /auth/login?error=sso_*，那種情況要讓用戶看到原因，
+  //       不能直接彈去公版（否則失敗訊息消失、用戶不知道發生什麼事）。
+  if (pathname.startsWith('/auth/login') && !request.nextUrl.searchParams.has('error')) {
+    return NextResponse.redirect(MARKET_LOGIN_URL, 307);
+  }
+
   // 公開路徑不檢查
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
@@ -54,16 +61,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 檢查登入狀態
+  // 檢查登入狀態：未登入直接導向公版登入（私版不再有自己的登入頁）。
+  // 登入後從公版「App 服務」進來，由 /sso 建立私版 session。
   const session = request.cookies.get('happy_session');
   if (!session) {
-    // 用 nextUrl.clone() 代替 new URL(..., request.url)
-    // 原因：Vercel edge 做 TLS termination，request.url 在 serverless function 裡
-    //      會是 http://（內部 proxy scheme），導致使用者被踢到 http 版登入頁
-    //      nextUrl 會尊重 x-forwarded-proto header，產生正確的 https URL
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/auth/login';
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(MARKET_LOGIN_URL, 307);
   }
 
   return NextResponse.next();

@@ -33,9 +33,26 @@ test.describe('公開頁（未登入）', () => {
     await expect(page.locator('button, a').first()).toBeVisible();
   });
 
-  test('/auth/login 有密碼欄位', async ({ page }) => {
-    await page.goto('/auth/login');
-    await expect(page.locator('input[type="password"]')).toBeVisible();
+  // 私版沒有自己的登入：/auth/login 一律導向公版，密碼登入 API 也已移除
+  test('/auth/login 導向 NUWA 公版登入', async ({ request }) => {
+    const res = await request.get('/auth/login', { maxRedirects: 0 });
+    expect(res.status(), '應為 3xx 轉址').toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(400);
+    expect(res.headers()['location']).toContain('next.nuwa.chg2asc.com/login');
+  });
+
+  test('SSO 失敗時仍看得到原因，不會被彈走', async ({ page }) => {
+    await page.goto('/auth/login?error=sso_invalid');
+    await expect(page).toHaveURL(/error=sso_invalid/);
+    await expect(page.getByText('無法登入')).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  });
+
+  test('密碼登入 API 已移除', async ({ request }) => {
+    const res = await request.post('/api/auth/login', {
+      data: { email: 'probe@example.com', password: 'x' },
+    });
+    expect(res.status(), 'POST 應不被接受').toBeGreaterThanOrEqual(400);
   });
 
   // #3a：私版停用獨立註冊 —— /auth/register 只剩 302 到 NUWA 公版註冊頁
@@ -56,9 +73,14 @@ test.describe('公開頁（未登入）', () => {
 
 // ─────────────────────────────────────────────
 test.describe('中介層 / 認證', () => {
-  test('未登入進 /chat 會被導向登入頁', async ({ page }) => {
+  test('未登入進 /chat 會被導向 NUWA 登入', async ({ page }) => {
     await page.goto('/chat');
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expect(page).toHaveURL(/next\.nuwa\.chg2asc\.com\/login/);
+  });
+
+  test('未登入進 /admin 也被導向 NUWA 登入（不再有私版登入表單）', async ({ page }) => {
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/next\.nuwa\.chg2asc\.com\/login/);
   });
 
   test('未登入打 /api/billing/me → 401（非導向 HTML）', async ({ request }) => {
