@@ -134,7 +134,10 @@ export default function WelcomeCarousel({
                 fill
                 priority
                 sizes="(max-width: 430px) 100vw, 430px"
-                style={{ objectFit: 'cover' }}
+                // cover.png 是 9:16，容器是 9:19.5 —— 用 cover 會把左右各裁掉約 18%
+                // （「情緒梳理」「方向釐清」兩張卡的文字剛好被切）。
+                // 改用 contain 完整顯示，上下留白由容器的暖色漸層接住。
+                style={{ objectFit: 'contain' }}
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = 'none';
                 }}
@@ -295,14 +298,21 @@ export default function WelcomeCarousel({
             </p>
           </PageContent>
 
-          {/* Page 5: 邀請碼 */}
+          {/* Page 5: 從 NUWA 進來（#3a：私版停用獨立註冊、帳號真值只有公版一份） */}
           <PageContent>
-            <PageTitle title="🎁 邀請碼怎麼用？" />
+            <PageTitle title="🌟 怎麼開始使用？" />
 
-            <H2>＊為什麼需要邀請碼？</H2>
+            <H2>＊帳號在 NUWA 平台</H2>
             <p>
-              目前是內測階段、希望給早期用戶最好的陪伴 💛
-              所以採邀請制註冊。
+              「幸福關係」是 <Accent>NUWA 平台</Accent>上的 App 💛
+              帳號統一在 NUWA 註冊，之後從 NUWA 點「幸福關係」就會自動登入進來、
+              不用再記一組密碼。
+            </p>
+
+            <H2>＊還是需要邀請碼</H2>
+            <p>
+              目前是內測階段、希望給早期用戶最好的陪伴，
+              在 NUWA 註冊時要填一組邀請碼。
             </p>
 
             <H2>＊邀請碼長什麼樣？</H2>
@@ -319,7 +329,13 @@ export default function WelcomeCarousel({
             </p>
 
             <H2>＊使用步驟</H2>
-            <Steps items={['點「註冊新帳號」', '輸入你拿到的邀請碼', '完成基本資料']} />
+            <Steps
+              items={[
+                '到 NUWA 註冊帳號（填邀請碼）',
+                '在 NUWA 首頁點「幸福關係」',
+                '自動登入、直接開始練習',
+              ]}
+            />
             <p className="mt-2 text-center font-bold text-orange-700">
               → 立刻獲得 7 天 Premium 免費體驗 🎁
             </p>
@@ -329,7 +345,7 @@ export default function WelcomeCarousel({
               💬 <strong>到 LINE 內測群組</strong> 找我們
             </p>
 
-            {/* CTA button - 開始使用 → /auth/register */}
+            {/* CTA button - 開始使用 → /auth/register（302 到 NUWA 公版註冊） */}
             <button
               onClick={onComplete}
               className="mx-auto mt-6 block rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-3 text-base font-bold text-white shadow-lg transition hover:from-orange-600 hover:to-orange-700 active:scale-95"

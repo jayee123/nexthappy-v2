@@ -38,10 +38,19 @@ test.describe('公開頁（未登入）', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible();
   });
 
-  test('/auth/register 頁載入', async ({ page }) => {
-    const res = await page.goto('/auth/register');
-    expect(res?.status()).toBeLessThan(400);
-    await expect(page.locator('input').first()).toBeVisible();
+  // #3a：私版停用獨立註冊 —— /auth/register 只剩 302 到 NUWA 公版註冊頁
+  test('/auth/register 導向 NUWA 公版註冊', async ({ request }) => {
+    const res = await request.get('/auth/register', { maxRedirects: 0 });
+    expect(res.status(), '應為 3xx 轉址').toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(400);
+    expect(res.headers()['location']).toContain('next.nuwa.chg2asc.com/register');
+  });
+
+  test('私版註冊 API 已移除（後門關閉）', async ({ request }) => {
+    const res = await request.post('/api/auth/register', {
+      data: { email: 'probe@example.com', password: 'x', invite_code: 'X' },
+    });
+    expect(res.status(), '應為 404（route 已刪除）').toBe(404);
   });
 });
 
@@ -57,9 +66,10 @@ test.describe('中介層 / 認證', () => {
     expect(res.status()).toBe(401);
   });
 
-  test('未登入打 /api/payment/bind-card → 401', async ({ request }) => {
+  // 付費已統一到公版，私版的付費端點與扣款 cron 全數移除
+  test('私版付費端點已移除', async ({ request }) => {
     const res = await request.post('/api/payment/bind-card', { data: { tier: 'basic' } });
-    expect(res.status()).toBe(401);
+    expect(res.status(), 'route 應已不存在').toBe(404);
   });
 });
 
@@ -70,9 +80,13 @@ test.describe('認證後頁面（jeff）', () => {
   });
 
   test('/chat 載入且未被導回登入', async ({ page }) => {
+    const t0 = Date.now();
     await page.goto('/chat');
     await expect(page).toHaveURL(/\/chat/);
-    await expect(page.locator('textarea, input[type="text"]').first()).toBeVisible();
+    // 首次進入會先顯示「小羽正在準備中…」（要載入 AI context），實測需 8 秒以上，
+    // 預設 5 秒會誤判成失敗。給 30 秒，並印出實際耗時以便觀察是否惡化。
+    await expect(page.locator('textarea, input[type="text"]').first()).toBeVisible({ timeout: 30_000 });
+    console.log(`  /chat 輸入框出現耗時 ${((Date.now() - t0) / 1000).toFixed(1)} 秒`);
   });
 
   test('/progress 進度頁載入', async ({ page }) => {

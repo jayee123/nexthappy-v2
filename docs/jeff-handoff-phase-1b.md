@@ -197,9 +197,12 @@ User 填卡片資訊、紅陽驗證
 
 ### Block 2：Trial 7 天 auto-convert
 
-**4.2.1 註冊 hook 修改**
+**4.2.1 建帳號 hook 修改**
 
-`src/app/api/auth/register/route.ts` 新註冊 user 預設：
+> 📌 **#3a 更新**：私版註冊 API（`src/app/api/auth/register/route.ts`）已移除，
+> 新用戶一律由 Market SSO 建立 → 改看 **`src/app/sso/route.ts`**（建 user 的 insert 在 `:89-95`）。
+
+新用戶預設應為：
 
 ```typescript
 {
@@ -209,7 +212,11 @@ User 填卡片資訊、紅陽驗證
 }
 ```
 
-⚠️ 注意：現有 user 仍然是 'premium'（grandfather）、只有**新註冊**走 trial。
+⚠️ 注意：現有 user 仍然是 'premium'（grandfather）、只有**新建立**的走 trial。
+
+🚨 **已知落差**：`sso/route.ts:94` 目前只寫 `current_plan: 'trial'`、**沒寫 `trial_started_at`**。
+`api/admin/subscriptions/route.ts:186-191` 靠 `trial_started_at` 推算到期日，NULL 會讓
+`trial_expires_at` 永遠是 null（後台看不到到期日、trial 等於不會過期）。修這個要一併確認。
 
 **4.2.2 Trial 過期 cron**
 
@@ -352,7 +359,7 @@ BILLING_ENFORCEMENT=true
 
 | 檔案 | 改什麼 |
 |---|---|
-| `src/app/api/auth/register/route.ts` | 新註冊 default trial（先別 push、Steve confirm 時機） |
+| `src/app/sso/route.ts` | SSO 新建帳號 default trial + 補 `trial_started_at`（先別 push、Steve confirm 時機）<br>（#3a：原 `api/auth/register/route.ts` 已移除） |
 | `src/app/settings/billing/page.tsx` | 拿掉「金流串接中」鎖定 modal、改成真實 checkout flow |
 | `.env.example` | 加 `HONGYANG_*` 變數 + `RESEND_API_KEY` 等 |
 

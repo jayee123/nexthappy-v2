@@ -130,7 +130,7 @@ WHERE j.user_id = u.id
 |---|---|
 | `supabase/migrations/005_user_mbti_global.sql`（新） | Schema migration + data backfill |
 | `src/lib/ai/buildContext.ts` `buildUserMbtiGroundTruthBloc` | 改從 `user.mbti_self` 拉、不是 `journey.mbti_self` |
-| `src/app/api/auth/register/route.ts` | 註冊後不創建 journey、只跑共用 onboarding |
+| ~~`src/app/api/auth/register/route.ts`~~ → `src/app/sso/route.ts` | 建帳號後不創建 journey、只跑共用 onboarding<br>（#3a：私版註冊 API 已移除，新用戶一律由 Market SSO 建立） |
 | `src/app/onboarding/page.tsx`（新或重構）| 共用 onboarding 2 步 |
 | `src/app/(authenticated)/page.tsx`（新）| 主畫面 mode tab |
 | `src/app/(authenticated)/practice/onboarding/page.tsx`（新或從 Day 0 拆出）| Mode A 專屬 5 步 setup |

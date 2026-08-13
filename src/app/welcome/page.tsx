@@ -5,11 +5,13 @@
  *   未登入訪客 → / → /welcome（6 頁 carousel）→ /auth/register 或 /auth/login
  *
  * 原因（Steve 6/15 觀察）：
- *   原本放在 register 之後、但 Page 5 教「邀請碼怎麼用」對已註冊用戶毫無意義。
- *   改放在 register 之前、Page 5 內容才能發揮作用（教用戶去 LINE 群索取邀請碼）。
+ *   原本放在 register 之後、但 Page 5 教「怎麼開始使用」對已註冊用戶毫無意義。
+ *   改放在 register 之前、Page 5 內容才能發揮作用（教用戶去 NUWA 註冊 + 去 LINE 群索取邀請碼）。
+ *
+ * #3a：/auth/register 已改成 302 到 NUWA 公版註冊頁，私版不再自行建帳號。
  *
  * 互動策略：
- * - 「開始使用」（Page 5 CTA） → /auth/register（新訪客註冊）
+ * - 「開始使用」（Page 5 CTA） → /auth/register → NUWA 公版註冊
  * - 「已有帳號？登入」（Page 5 small link） → /auth/login（回訪老用戶）
  * - 「跳過 ✕」（右上）→ /auth/login（假設老用戶想登入、不想看完）
  *

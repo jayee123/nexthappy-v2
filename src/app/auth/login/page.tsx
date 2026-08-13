@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import { MARKET_REGISTER_URL } from '@/lib/market';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -106,12 +106,16 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* #3a：私版不再自行註冊，帳號一律在 NUWA 公版建立後以 SSO 進來 */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             還沒有帳號？{' '}
-            <Link href="/auth/register" className="text-primary-600 font-medium hover:underline">
-              用邀請碼註冊
-            </Link>
+            <a
+              href={MARKET_REGISTER_URL}
+              className="text-primary-600 font-medium hover:underline"
+            >
+              到 NUWA 註冊
+            </a>
           </p>
         </div>
       </div>
