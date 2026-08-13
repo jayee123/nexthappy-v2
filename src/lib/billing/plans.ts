@@ -2,6 +2,10 @@
 //
 // Phase 1A：訂閱方案常數定義
 //
+// ⚠️ 名稱與額度以**公版 plans 表為準**（basic 50 / advanced 100 / premium 200）。
+//    改動前先確認公版 public.plans，兩邊不一致會讓用戶看到互相矛盾的數字。
+//    付費一律在公版，私版只讀方案（見 src/lib/market/plan.ts）。
+//
 // 4 個方案：trial（7 天試用、Premium 級別功能）/ basic / advanced / premium / cancelled
 // 額度單位：「對話次數」（user 一輪 + AI 一輪 = 1 則）
 // 訂價：TWD / 月（內部 billing 計算用、user 介面顯示時格式化）
@@ -52,44 +56,44 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   basic: {
     tier: 'basic',
-    label: 'Basic 啟動',
+    label: 'Basic 啟動練習階段',
     tagline: '開啟你的幸福練習旅程',
-    monthly_messages: 80,
-    price_twd: 5, // 測試用統一價（實際扣款走 subscription-cycle）
+    monthly_messages: 50,
+    price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
     suitable_for: '剛開始接觸練習的人',
     features: [
       '🌱 開始進行基本練習與引導式對話',
       '💬 透過簡單情境、認識自己的反應模式',
       '✨ 建立「我可以練、我做得到」的信心感',
-      '📊 每月最多 80 則對話',
+      '📊 每月最多 50 則對話',
     ],
   },
   advanced: {
     tier: 'advanced',
-    label: 'Advanced 深化',
+    label: 'Advanced 深化練習階段',
     tagline: '讓你的改變開始穩定發生',
-    monthly_messages: 200,
-    price_twd: 5, // 測試用統一價
+    monthly_messages: 100,
+    price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
     suitable_for: '已開始練習、希望更快理解與調整的人',
     features: [
       '🔄 可反覆演練同一種情境（關係、溝通、選擇）',
       '👁️ 開始看懂「為什麼我會這樣反應」',
       '✅ 從「試試看」進入「我知道怎麼做比較好」',
-      '📊 每月最多 200 則對話',
+      '📊 每月最多 100 則對話',
     ],
   },
   premium: {
     tier: 'premium',
-    label: 'Premium 整合',
+    label: 'Premium 整合與達成階段',
     tagline: '真正用在你的人生裡',
-    monthly_messages: 500,
-    price_twd: 5, // 測試用統一價
+    monthly_messages: 200,
+    price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
     suitable_for: '有明確目標、想實際改變關係 / 狀態 / 人生方向的人',
     features: [
       '🏃 長時間陪伴式練習（不只單次對話）',
       '🔗 跨情境整合：關係 × 情緒 × 選擇 × 行動',
       '🎯 從「知道」進入「做到」、再到「做得穩」',
-      '📊 每月最多 500 則對話',
+      '📊 每月最多 200 則對話',
     ],
   },
   cancelled: {

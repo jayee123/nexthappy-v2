@@ -45,7 +45,7 @@ export default function UsageChip() {
       <Link
         href="/settings/billing"
         className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium hover:bg-amber-100"
-        title="目前為 Premium 內測、無用量限制（Jeff 上線紅陽金流後、chip 會顯示實際用量）"
+        title="目前為 Premium 內測、無用量限制（方案由 NUWA 平台管理，正式計費後 chip 會顯示實際用量）"
       >
         訂閱
       </Link>

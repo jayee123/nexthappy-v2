@@ -1,19 +1,29 @@
+/**
+ * 我的方案（唯讀）— 驗收測試
+ *
+ * 付費已統一到公版：私版不再有訂閱／升降級／綁卡／取消，
+ * 對應的 API（/api/payment/*）與扣款 cron 也已移除。
+ * 這裡驗證兩件事：頁面仍能正確顯示方案與用量、付費端點確實不存在。
+ */
 import { test, expect, type Page } from '@playwright/test';
 import { SignJWT } from 'jose';
 
-const TRIAL_USER = {
+const TEST_USER = {
   userId: 'f9090753-48b6-497b-a8ea-0faeb64b89af',
   email: 'jeff@milkidea.com',
   name: 'Jeff',
 };
 
-const PREMIUM_USER = {
-  userId: '2a89c766-b84f-4519-8f3e-6b6ce6dbed63',
-  email: 'test@nexthappy.test',
-  name: '測試用戶',
-};
+const REMOVED_PAYMENT_ENDPOINTS = [
+  '/api/payment/bind-card',
+  '/api/payment/checkout',
+  '/api/payment/callback',
+  '/api/cron/charge-renewals',
+  '/api/cron/retry-failed',
+  '/api/cron/expire-trials',
+];
 
-async function loginAs(page: Page, user = TRIAL_USER) {
+async function loginAs(page: Page, user = TEST_USER) {
   const secret = new TextEncoder().encode(process.env.JWT_SECRET);
   const token = await new SignJWT(user as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
@@ -22,164 +32,63 @@ async function loginAs(page: Page, user = TRIAL_USER) {
     .sign(secret);
 
   await page.context().addCookies([
-    {
-      name: 'happy_session',
-      value: token,
-      domain: 'localhost',
-      path: '/',
-    },
+    { name: 'happy_session', value: token, domain: 'localhost', path: '/' },
   ]);
 }
 
-async function makeAuthCookie(user = TRIAL_USER): Promise<string> {
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-  return new SignJWT(user as unknown as Record<string, unknown>)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('1h')
-    .sign(secret);
-}
+// ─── Middleware ────────────────────────────────────────────
 
-// ─── Middleware: API routes bypass auth redirect ────────────
-
-test('middleware lets API routes through without redirect', async ({ request }) => {
+test('API routes 不做轉址、各自回 401', async ({ request }) => {
   const res = await request.get('/api/billing/me');
   expect(res.status()).toBe(401);
   expect(res.headers()['location']).toBeUndefined();
 });
 
-test('middleware redirects page routes without cookie', async ({ page }) => {
+test('未登入進 /settings/billing 會被導走', async ({ page }) => {
   const res = await page.goto('/settings/billing');
-  expect(res?.url()).toContain('/welcome');
+  expect(res?.url()).not.toContain('/settings/billing');
 });
 
-// ─── Billing Page (authenticated) ──────────────────────────
+// ─── 我的方案（唯讀）──────────────────────────────────────
 
-test('billing page loads and shows 3 plan cards', async ({ page }) => {
+test('顯示目前方案與本月用量', async ({ page }) => {
   await loginAs(page);
   await page.goto('/settings/billing');
-  await expect(page.locator('h1')).toContainText('我的訂閱', { timeout: 10_000 });
-  const planCards = page.locator('h3:has-text("Basic"), h3:has-text("Advanced"), h3:has-text("Premium")');
-  await expect(planCards).toHaveCount(3);
+
+  await expect(page.getByRole('heading', { name: '我的方案' })).toBeVisible();
+  await expect(page.getByText('目前方案')).toBeVisible();
+  await expect(page.getByText('本月已用對話次數')).toBeVisible();
 });
 
-test('billing page shows usage bar', async ({ page }) => {
+test('提供前往公版管理訂閱的外連', async ({ page }) => {
   await loginAs(page);
   await page.goto('/settings/billing');
-  await expect(page.locator('text=當前方案')).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('text=本月已用對話次數')).toBeVisible();
+
+  const link = page.getByRole('link', { name: '前往 NUWA 管理訂閱' });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', /nuwa\.chg2asc\.com/);
 });
 
-test('trial user sees subscribe button', async ({ page }) => {
-  await loginAs(page, TRIAL_USER);
-  await page.goto('/settings/billing');
-  await expect(page.locator('button:has-text("選擇方案")').first()).toBeVisible({ timeout: 10_000 });
-});
-
-test('clicking plan opens confirmation modal with bind-card prompt', async ({ page }) => {
-  await loginAs(page, TRIAL_USER);
-  await page.goto('/settings/billing');
-  await page.locator('button:has-text("選擇方案")').first().click({ timeout: 10_000 });
-  await expect(page.locator('text=確認訂閱')).toBeVisible();
-  await expect(page.locator('text=前往綁卡付款')).toBeVisible();
-});
-
-test('confirmation modal dismisses on cancel click', async ({ page }) => {
-  await loginAs(page, TRIAL_USER);
-  await page.goto('/settings/billing');
-  await page.locator('button:has-text("選擇方案")').first().click({ timeout: 10_000 });
-  await expect(page.locator('text=確認訂閱')).toBeVisible();
-  await page.locator('button:has-text("再考慮一下")').click();
-  await expect(page.locator('text=確認訂閱')).not.toBeVisible();
-});
-
-test('premium user sees cancel button and retention modal', async ({ page }) => {
-  await loginAs(page, PREMIUM_USER);
-  await page.goto('/settings/billing');
-  const cancelBtn = page.locator('button:has-text("取消訂閱")');
-  await expect(cancelBtn).toBeVisible({ timeout: 10_000 });
-  await cancelBtn.click();
-  await expect(page.locator('text=我們很遺憾看到您想要取消')).toBeVisible();
-  await page.locator('button:has-text("保留我的訂閱")').click();
-  await expect(page.locator('text=我們很遺憾看到您想要取消')).not.toBeVisible();
-});
-
-// ─── Payment query param toast ─────────────────────────────
-
-test('shows success toast on ?payment=success', async ({ page }) => {
+test('頁面不再有任何付費操作', async ({ page }) => {
   await loginAs(page);
-  await page.goto('/settings/billing?payment=success');
-  await expect(page.locator('text=付款成功')).toBeVisible({ timeout: 10_000 });
+  await page.goto('/settings/billing');
+
+  for (const label of ['立即訂閱', '升級方案', '降級', '取消訂閱', '綁定信用卡']) {
+    await expect(page.getByRole('button', { name: label })).toHaveCount(0);
+  }
 });
 
-test('shows error toast on ?payment=failed', async ({ page }) => {
-  await loginAs(page);
-  await page.goto('/settings/billing?payment=failed');
-  await expect(page.locator('text=付款失敗')).toBeVisible({ timeout: 10_000 });
-});
+// ─── 付費端點確實已移除 ────────────────────────────────────
 
-// ─── Callback API ──────────────────────────────────────────
-
-test('callback rejects invalid ChkValue', async ({ request }) => {
-  const form = new URLSearchParams({
-    web: 'S2502249051',
-    Td: 'TEST_ORDER_E2E',
-    MN: '299',
-    errcode: '00',
-    errmsg: 'Success',
-    ChkValue: 'INVALID_SIGNATURE',
-    buysafeno: 'BSN_E2E',
-    note1: TRIAL_USER.userId,
-  });
-
-  const res = await request.post('/api/payment/callback', {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: form.toString(),
-  });
-
-  expect(res.status()).toBe(400);
-  const text = await res.text();
-  expect(text).toContain('ChkValue mismatch');
-});
-
-// ─── Auth guard on payment APIs ────────────────────────────
-
-test('bind-card returns 401 without session', async ({ request }) => {
-  const res = await request.post('/api/payment/bind-card', {
-    headers: { 'Content-Type': 'application/json' },
-    data: JSON.stringify({ tier: 'basic' }),
-  });
-  expect(res.status()).toBe(401);
-});
-
-test('checkout returns 401 without session', async ({ request }) => {
-  const res = await request.post('/api/payment/checkout', {
-    headers: { 'Content-Type': 'application/json' },
-    data: JSON.stringify({ action: 'subscribe', targetTier: 'basic' }),
-  });
-  expect(res.status()).toBe(401);
-});
-
-test('bind-card rejects invalid tier with auth', async ({ request }) => {
-  const token = await makeAuthCookie(TRIAL_USER);
-  const res = await request.post('/api/payment/bind-card', {
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: `happy_session=${token}`,
-    },
-    data: JSON.stringify({ tier: 'invalid_plan' }),
-  });
-  expect(res.status()).toBe(400);
-});
-
-test('checkout rejects invalid action with auth', async ({ request }) => {
-  const token = await makeAuthCookie(TRIAL_USER);
-  const res = await request.post('/api/payment/checkout', {
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: `happy_session=${token}`,
-    },
-    data: JSON.stringify({ action: 'INVALID_ACTION', targetTier: 'basic' }),
-  });
-  expect(res.status()).toBe(400);
+test.describe('付費端點已移除', () => {
+  for (const endpoint of REMOVED_PAYMENT_ENDPOINTS) {
+    test(`${endpoint} 回 404`, async ({ request }) => {
+      const post = await request.post(endpoint, { data: {} });
+      const get = await request.get(endpoint);
+      expect(
+        post.status() === 404 && get.status() === 404,
+        `${endpoint} 應已不存在（POST=${post.status()} GET=${get.status()}）`,
+      ).toBe(true);
+    });
+  }
 });

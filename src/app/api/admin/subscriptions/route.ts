@@ -16,14 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PLANS, type PlanTier } from '@/lib/billing/plans';
-import { unpackToken } from '@/lib/payment/sunpay';
 import type { ApiResponse } from '@/types';
-
-// 遮罩 token_key：只露頭尾 4 碼（後台驗證用，不外洩完整 token）
-function maskToken(tokenKey: string): string {
-  if (tokenKey.length <= 8) return '****';
-  return `${tokenKey.slice(0, 4)}****${tokenKey.slice(-4)}`;
-}
 
 interface TokenInfo {
   bound: boolean;
@@ -45,23 +38,13 @@ interface TxRow {
   created_at: string;
 }
 
-// 從加密的 payment_method_token 解出可安全顯示的 metadata
+// 付費已統一到公版，私版不再綁卡，解密用的 lib/payment 也已移除。
+// 這裡只回報「是否有歷史殘留 token」，不再解密內容。
+// TODO: 確認舊 token 無保留必要後，連同 users.payment_method_token 欄位一起清掉。
 function buildTokenInfo(packed: string | null | undefined): TokenInfo {
   const empty = { bound: false, token_life: null, bound_at: null, token_key_masked: null, customer_name: null, customer_phone: null };
   if (!packed) return empty;
-  try {
-    const t = unpackToken(packed, process.env.ENCRYPTION_KEY!);
-    return {
-      bound: true,
-      token_life: t.tokenLife || null,
-      bound_at: t.boundAt || null,
-      token_key_masked: t.tokenKey ? maskToken(t.tokenKey) : null,
-      customer_name: t.customerName || null,
-      customer_phone: t.customerPhone || null,
-    };
-  } catch {
-    return { ...empty, bound: true, token_key_masked: '(解密失敗)' };
-  }
+  return { ...empty, bound: true, token_key_masked: '(歷史資料)' };
 }
 
 interface SubscriptionListItem {

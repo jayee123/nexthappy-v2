@@ -15,6 +15,7 @@
 //   - 失敗（譬如 DB error）不阻塞主流程、log 後 fail-open allow
 
 import { supabaseAdmin } from '@/lib/supabase';
+import { getMarketPlan } from '@/lib/market/plan';
 import { PLANS, type PlanTier, estimateClaudeCallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
 
 // ============================================================
@@ -70,7 +71,7 @@ export interface UserUsageInfo {
 export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
   const { data: user, error: userError } = await supabaseAdmin
     .from('users')
-    .select('id, current_plan, trial_started_at, payment_method_token, auto_renewal, pending_downgrade_plan, subscription_renews_at, cancelled_at')
+    .select('id, nuwa_user_id, current_plan, trial_started_at, payment_method_token, auto_renewal, pending_downgrade_plan, subscription_renews_at, cancelled_at')
     .eq('id', userId)
     .single();
 
@@ -78,7 +79,9 @@ export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
     throw new Error(`找不到 user: ${userId}`);
   }
 
-  const plan = user.current_plan as PlanTier;
+  // 方案真值在公版；讀不到（未綁定 / 查詢失敗）才用私版本地值，避免對話功能中斷
+  const marketPlan = await getMarketPlan(user.nuwa_user_id);
+  const plan = (marketPlan?.tier ?? user.current_plan) as PlanTier;
   const planSpec = PLANS[plan];
   const periodStart = getCurrentPeriodStart();
 
