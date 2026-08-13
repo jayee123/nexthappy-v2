@@ -19,11 +19,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getMarketUsers } from '@/lib/market/users';
 import type { ApiResponse } from '@/types';
 
 interface UserListItem {
   id: string;
+  /** 顯示用 email：優先公版（帳號真值），公版查不到才用私版本地值 */
   email: string;
+  /** 對照公版用：公版 users.id；未綁定為 null */
+  nuwa_user_id: string | null;
+  /** email 從哪來，讓後台知道這筆是否已跟公版對上 */
+  email_source: 'market' | 'local';
   name: string | null;
   mbti_self: string | null;
   is_admin: boolean;
@@ -55,7 +61,7 @@ export async function GET(request: NextRequest) {
     // 3. Build base users query
     let query = supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at, created_at')
+      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at, created_at, nuwa_user_id')
       .order('created_at', { ascending: false })
       .limit(limit + 1); // 多撈 1 筆判斷 hasMore
 
@@ -141,13 +147,20 @@ export async function GET(request: NextRequest) {
       if (!journeyMap.has(j.user_id)) journeyMap.set(j.user_id, j);
     });
 
-    // 7. Merge + apply 'active' filter
+    // 7. 取公版帳號資料（email 真值在公版；私版的只是 SSO 當下的快照）
+    //    一次批次查完這頁的人，避免 N+1；查不到就 fallback 本地值
+    const marketUsers = await getMarketUsers(pageUsers.map(u => u.nuwa_user_id));
+
+    // 8. Merge + apply 'active' filter
     let result: UserListItem[] = pageUsers.map(u => {
       const conv = convMap.get(u.id);
       const j = journeyMap.get(u.id);
+      const market = u.nuwa_user_id ? marketUsers.get(u.nuwa_user_id) : undefined;
       return {
         id: u.id,
-        email: u.email,
+        email: market?.email ?? u.email,
+        nuwa_user_id: u.nuwa_user_id ?? null,
+        email_source: market?.email ? ('market' as const) : ('local' as const),
         name: u.name,
         mbti_self: u.mbti_self,
         is_admin: u.is_admin,
@@ -166,7 +179,7 @@ export async function GET(request: NextRequest) {
       result = result.filter(u => u.last_active && u.last_active >= sevenDaysAgo);
     }
 
-    // 8. 回傳
+    // 9. 回傳
     return NextResponse.json<ApiResponse>({
       data: {
         users: result,

@@ -1,6 +1,6 @@
 // 放置路徑：src/app/admin/users/[id]/page.tsx
 //
-// Week 2 Session 2C：用戶詳情頁（含編輯 + 停權 + 復原功能）
+// Week 2 Session 2C：學員詳情頁（含編輯 + 停權 + 復原功能）
 //
 // Updates from Session 2B:
 //   - 串接 EditUserModal（點「編輯」開 modal）
@@ -235,7 +235,7 @@ export default function AdminUserDetailPage() {
     return (
       <div className="p-6 lg:p-8">
         <Link href="/admin/users" className="text-primary-600 text-sm hover:underline">
-          ← 返回用戶列表
+          ← 返回學員列表
         </Link>
         <div className="mt-6 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
           ⚠️ {error || '找不到 user'}
@@ -252,7 +252,7 @@ export default function AdminUserDetailPage() {
     <div className="p-6 lg:p-8">
       {/* Header */}
       <Link href="/admin/users" className="text-primary-600 text-sm hover:underline">
-        ← 返回用戶列表
+        ← 返回學員列表
       </Link>
 
       <div className="mt-3 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

@@ -13,28 +13,8 @@
  * 失敗時一律 fallback 到私版本地的 current_plan，不讓對話功能因為讀不到方案而中斷。
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { PlanTier } from '@/lib/billing/plans';
-
-/**
- * 公版 public schema client（只讀方案，不寫入）。
- * 延遲建立：讓純函式（mapMarketPlanToTier）在沒有 env var 的環境也能被 import。
- */
-let marketClient: SupabaseClient | null = null;
-
-function getMarketClient() {
-  if (!marketClient) {
-    marketClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        db: { schema: 'public' },
-        auth: { autoRefreshToken: false, persistSession: false },
-      },
-    );
-  }
-  return marketClient;
-}
+import { getMarketClient } from './client';
 
 /**
  * 公版 current_plan → 私版 PlanTier

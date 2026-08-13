@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import { getMarketPlan } from '@/lib/market/plan';
+import { reportUsageToMarket } from '@/lib/market/usage';
 import { PLANS, type PlanTier, estimateClaudeCallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
 
 // ============================================================
@@ -297,5 +298,24 @@ export async function recordUsage(params: RecordUsageParams): Promise<void> {
     }
   } catch (err) {
     console.error('[quotas recordUsage] quota update unexpected error:', err);
+  }
+
+  // 3. 回寫公版做跨 App 用量歸戶（以會員為單位彙總各 App 的用量與成本）
+  //    未綁定公版帳號的 user 會自動跳過；失敗只 log、不影響對話
+  try {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('nuwa_user_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    await reportUsageToMarket({
+      nuwaUserId: user?.nuwa_user_id,
+      inputTokens,
+      outputTokens,
+      costTwd,
+    });
+  } catch (err) {
+    console.error('[quotas recordUsage] 回寫公版用量失敗:', err);
   }
 }

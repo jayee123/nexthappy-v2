@@ -1,6 +1,6 @@
 // 放置路徑：src/app/admin/users/page.tsx
 //
-// Week 2 Session 2A：用戶管理列表頁
+// Week 2 Session 2A：學員管理列表頁
 //
 // 功能：
 //   - 表格列出所有 user（pagination 50 / page）
@@ -18,6 +18,8 @@ import Link from 'next/link';
 interface UserListItem {
   id: string;
   email: string;
+  nuwa_user_id: string | null;
+  email_source: 'market' | 'local';
   name: string | null;
   mbti_self: string | null;
   is_admin: boolean;
@@ -141,7 +143,7 @@ export default function AdminUsersPage() {
     <div className="p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">👥 用戶管理</h1>
+        <h1 className="text-2xl font-bold text-gray-800">👥 學員管理</h1>
         <p className="text-sm text-gray-500 mt-1">查看 / 編輯所有 user、Mode A / B 使用狀況</p>
       </div>
 
@@ -179,7 +181,8 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Email（公版）</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">NUWA ID</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">MBTI</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">註冊</th>
@@ -192,15 +195,37 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">載入中⋯</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">載入中⋯</td></tr>
               ) : error ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-red-500">⚠️ {error}</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-red-500">⚠️ {error}</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">沒有 user 符合條件</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">沒有 user 符合條件</td></tr>
               ) : (
                 users.map(u => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-800">{u.email}</td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {u.email}
+                      {u.email_source === 'local' && (
+                        <span
+                          className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded"
+                          title="這筆尚未跟公版帳號對上，顯示的是私版本地紀錄"
+                        >
+                          未綁定
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.nuwa_user_id ? (
+                        <span
+                          className="font-mono text-xs text-gray-500 cursor-help"
+                          title={`公版 users.id：${u.nuwa_user_id}`}
+                        >
+                          {u.nuwa_user_id.slice(0, 8)}…
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{u.name || '-'}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-600">{u.mbti_self || '-'}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
