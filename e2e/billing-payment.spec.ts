@@ -56,7 +56,8 @@ test('顯示目前方案與本月用量', async ({ page }) => {
   await page.goto('/settings/billing');
 
   await expect(page.getByRole('heading', { name: '我的方案' })).toBeVisible();
-  await expect(page.getByText('目前方案')).toBeVisible();
+  // exact + first：頁面上「目前方案」出現在說明文字、欄位標籤、方案標籤三處
+  await expect(page.getByText('目前方案', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('本月已用對話次數')).toBeVisible();
 });
 
