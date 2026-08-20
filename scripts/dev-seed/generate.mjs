@@ -40,7 +40,13 @@ const pick = (arr) => arr[Math.floor(rng() * arr.length)];
 
 // --- 固定 UUID：一眼看得出是測試資料，且每次產生都相同 ---
 const uuid = (group, n) => `d0000000-${group}-4000-8000-${String(n).padStart(12, '0')}`;
-const USER = (i) => uuid('0001', i);
+// 公版 public.users.id
+const MARKET_USER = (i) => uuid('0001', i);
+// 私版 happy.users.id —— 【刻意與公版不同】。
+// 正式站這兩組 id 本來就是獨立的（私版早於公版存在，靠 nuwa_user_id 指回去）。
+// 若在測試資料把它們設成相同，把兩者搞混的程式在本機會正常運作、
+// 上正式站才爆炸 —— 那是最不該被測試資料掩蓋的一類錯誤。
+const HAPPY_USER = (i) => uuid('1001', i);
 const JOURNEY = (i) => uuid('0002', i);
 const RECORD = (i, d) => uuid('0003', i * 100 + d);
 const CONVO = (i, d) => uuid('0004', i * 100 + d);
@@ -95,7 +101,7 @@ ON CONFLICT (slug) DO UPDATE
 w(`-- ── public.users（公版帳號主檔）──────────────────────────────
 -- 私版透過 happy.users.nuwa_user_id 指回這裡，讀 email / nickname / current_plan。`);
 PERSONAS.forEach((p, i) => {
-  const id = USER(i + 1);
+  const id = MARKET_USER(i + 1);
   w(`INSERT INTO public.users (id, phone, email, nickname, current_plan, role)
 VALUES (${q(id)}, ${q(`0900000${String(i + 1).padStart(3, '0')}`)}, ${q(`dev${i + 1}@example.test`)}, ${q(p.name)}, ${q(p.marketPlan)}, 'user')
 ON CONFLICT (id) DO NOTHING;   -- ${p.why}`);
@@ -105,9 +111,8 @@ w();
 w(`-- ── happy.users（私版帳號）───────────────────────────────────
 -- password_hash 是佔位值：SSO 帳號本來就沒有密碼，只能走 /sso 進入。`);
 PERSONAS.forEach((p, i) => {
-  const id = USER(i + 1);
   w(`INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES (${q(id)}, ${q(`dev${i + 1}@example.test`)}, ${q(p.name)}, 'dev-no-password', ${q(id)}, ${q(p.plan)})
+VALUES (${q(HAPPY_USER(i + 1))}, ${q(`dev${i + 1}@example.test`)}, ${q(p.name)}, 'dev-no-password', ${q(MARKET_USER(i + 1))}, ${q(p.plan)})
 ON CONFLICT (id) DO NOTHING;`);
 });
 w();
@@ -115,7 +120,7 @@ w();
 // --- happy.journeys 與其下的所有紀錄 ---
 w(`-- ── happy.journeys 與每日紀錄 ────────────────────────────────`);
 PERSONAS.forEach((p, i) => {
-  const uid = USER(i + 1);
+  const uid = HAPPY_USER(i + 1);   // 私版內部外鍵一律用私版 id
   if (!p.journey) {
     w(`-- ${p.name}：刻意【不建立 journey】—— ${p.why}`);
     w();
