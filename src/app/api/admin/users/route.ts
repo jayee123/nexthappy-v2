@@ -30,6 +30,15 @@ interface UserListItem {
   nuwa_user_id: string | null;
   /** email 從哪來，讓後台知道這筆是否已跟公版對上 */
   email_source: 'market' | 'local';
+  // ── 以下三欄來自公版（帳號與付費的真相來源）──────────────
+  // getMarketUsers() 本來就會一併撈回這三個欄位，先前只用了 email、
+  // 其餘直接丟棄。接上來不需要任何額外查詢。
+  /** 公版暱稱；未綁定或查不到為 null */
+  market_nickname: string | null;
+  /** 公版手機 */
+  market_phone: string | null;
+  /** 公版方案 —— 付費以公版為準，私版的 current_plan 只是 fallback */
+  market_plan: string | null;
   name: string | null;
   mbti_self: string | null;
   is_admin: boolean;
@@ -161,6 +170,9 @@ export async function GET(request: NextRequest) {
         email: market?.email ?? u.email,
         nuwa_user_id: u.nuwa_user_id ?? null,
         email_source: market?.email ? ('market' as const) : ('local' as const),
+        market_nickname: market?.nickname ?? null,
+        market_phone: market?.phone ?? null,
+        market_plan: market?.currentPlan ?? null,
         name: u.name,
         mbti_self: u.mbti_self,
         is_admin: u.is_admin,
