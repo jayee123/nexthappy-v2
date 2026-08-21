@@ -20,6 +20,9 @@ interface UserListItem {
   email: string;
   nuwa_user_id: string | null;
   email_source: 'market' | 'local';
+  market_nickname: string | null;
+  market_phone: string | null;
+  market_plan: string | null;
   name: string | null;
   mbti_self: string | null;
   is_admin: boolean;
@@ -183,6 +186,9 @@ export default function AdminUsersPage() {
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Email（公版）</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">NUWA ID</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">暱稱（公版）</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">手機（公版）</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">方案（公版）</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">MBTI</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">註冊</th>
@@ -195,11 +201,11 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">載入中⋯</td></tr>
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400">載入中⋯</td></tr>
               ) : error ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-red-500">⚠️ {error}</td></tr>
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-red-500">⚠️ {error}</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">沒有 user 符合條件</td></tr>
+                <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400">沒有 user 符合條件</td></tr>
               ) : (
                 users.map(u => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -224,6 +230,22 @@ export default function AdminUsersPage() {
                         </span>
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{u.market_nickname || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{u.market_phone || <span className="font-sans text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3">
+                      {u.market_plan ? (
+                        <span className={`inline-block rounded px-2 py-0.5 text-xs ${
+                          u.market_plan === 'free' || u.market_plan === 'cancelled'
+                            ? 'bg-gray-100 text-gray-600'
+                            : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {u.market_plan}
+                        </span>
+                      ) : (
+                        /* 未綁定公版就讀不到方案，此時私版只能用本地 fallback */
+                        <span className="text-xs text-gray-300">未綁定</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{u.name || '-'}</td>
