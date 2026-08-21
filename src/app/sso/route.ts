@@ -14,7 +14,7 @@ interface SsoPayload {
   email?: string
   name?: string
   app?: string
-  to?: string // 'welcome' | 'app'：公版指定進來後導向（未帶 → 交給首頁判斷）
+  to?: string // 'welcome' | 'app' | 'admin'：公版指定進來後導向（未帶 → 交給首頁判斷）
   exp?: number
 }
 
@@ -106,10 +106,15 @@ export async function GET(request: Request) {
   const sessionToken = await createToken({ userId: user.id, email: user.email, name: user.name })
   const isProd = process.env.NODE_ENV === 'production'
 
-  // 公版指定導向：welcome=先看導覽、app=直接進 App；未帶則交給首頁 / 自行判斷
+  // 公版指定導向：
+  //   welcome = 先看導覽、app = 直接進 App、admin = 課程後台（公版「App 管理」點進來的）
+  //   未帶則交給首頁自行判斷
+  // 注意：admin 只是「落點」，是否真的有後台權限由 /admin 的 layout 再驗一次
+  //（公版管理者不等於私版管理者，兩邊的權限是分開的）。
   const appPath = (user as { mbti_self?: string | null }).mbti_self ? '/chat' : '/onboarding'
   const dest =
     payload.to === 'welcome' ? `/welcome?next=${encodeURIComponent(appPath)}`
+    : payload.to === 'admin' ? '/admin'
     : payload.to === 'app' ? appPath
     : '/'
   const res = NextResponse.redirect(publicUrl(request, dest))
