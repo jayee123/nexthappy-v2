@@ -32,13 +32,29 @@ const nextConfig = {
       ],
     },
   },
-  // PWA headers
   async headers() {
     return [
+      // PWA
       {
         source: '/manifest.json',
         headers: [
           { key: 'Content-Type', value: 'application/manifest+json' },
+        ],
+      },
+      // 安全標頭。
+      //
+      // 這幾條原本寫在 vercel.json，但私版跑在 berth 的 Docker 容器、不是 Vercel，
+      // 那個檔案從來沒有生效過（實測正式站一個安全標頭都沒回傳）。
+      // 移到這裡由 Next.js 自己送出，才不受部署平台影響。
+      {
+        source: '/:path*',
+        headers: [
+          // 禁止被嵌進 iframe，防點擊劫持
+          { key: 'X-Frame-Options', value: 'DENY' },
+          // 禁止瀏覽器自行猜測 MIME type
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // 跨站導向時不外洩完整路徑（SSO token 會出現在網址上）
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
     ];
