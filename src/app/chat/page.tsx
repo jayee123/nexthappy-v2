@@ -1160,7 +1160,10 @@ export default function ChatPage() {
               </div>
               <h3 className="font-semibold text-gray-700 text-base">還沒開始第 1 輪 21 天練習</h3>
               <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
-                21 天刻意練習是針對**一段特定關係**（伴侶 / 親子 / 同事⋯）的深度練習。
+                {/* 這裡是 JSX 純文字，不會被 markdown 渲染 —— 寫 ** 會讓用戶
+                    直接看到兩顆星號（封測回報過，見上方 AI 訊息渲染的註解）。
+                    要強調就用 <strong>。 */}
+                21 天刻意練習是針對<strong className="font-semibold">一段特定關係</strong>（伴侶 / 親子 / 同事⋯）的深度練習。
                 <br />每天一個小任務、慢慢建立新的溝通慣性。
               </p>
               <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
