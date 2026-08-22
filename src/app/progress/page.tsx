@@ -150,6 +150,13 @@ export default function ProgressPage() {
           {journey.goal_statement && (
             <p className="text-xs text-gray-500">目標：{journey.goal_statement}</p>
           )}
+          {/* v1.5.x 7/30（2026-08-22 從 v21 backport）：已完成的輪次要標明、避免用戶以為還在進行中
+              —— /api/progress 現在會回傳「最新一輪」（可能已完成），沒有這行會誤導 */}
+          {!journey.is_active && (
+            <p className="pt-1 text-xs font-medium text-orange-600">
+              🎉 這一輪已完成 — 想再練一輪？回聊天頁點上方「＋」
+            </p>
+          )}
         </div>
 
         {/* Stats — Pearl 暖色系（已完成/總積分 orange、徽章 amber） */}
