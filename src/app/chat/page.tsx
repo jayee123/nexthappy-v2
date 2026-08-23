@@ -304,6 +304,10 @@ export default function ChatPage() {
   const [pastRoundCount, setPastRoundCount] = useState(0);
   // v1.5.x 7/30（2026-08-22 backport）：正在看的歷史輪次進行到第幾天（決定 Day 標題列箭頭的上限）
   const [viewingJourneyMaxDay, setViewingJourneyMaxDay] = useState<number | null>(null);
+  // 2026-08-22：trier-first 自動切 tab 只該發生在「第一次載入」。
+  //   載入 effect 的依賴含 viewingJourneyId，離開歷史檢視時會再跑一次，
+  //   沒有這道閘門就會把刻意待在練習 tab 的用戶硬拉去諮詢 tab。
+  const didAutoSwitchTab = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -452,7 +456,13 @@ export default function ChatPage() {
 
         // v1.3.2b: trier user 沒 journey 時、預設切到「我卡住了，幫我拆」tab、不跑 practice opening
         if (!data.today || !data.journey) {
-          setActiveTab('consultant');
+          // v1.3.2b trier-first：沒 journey 時預設切到諮詢 tab。
+          // 2026-08-22 加閘門：只在第一次載入切。否則「離開歷史檢視」會觸發本 effect
+          //   再跑一次（依賴含 viewingJourneyId），把用戶從練習 tab 硬拉走。
+          if (!didAutoSwitchTab.current) {
+            setActiveTab('consultant');
+            didAutoSwitchTab.current = true;
+          }
           // v1.5.x 7/30（2026-08-22 backport）：查有沒有過去完成的輪次、決定空狀態文案
           //   （Angel / Pearl 這種做完 21 天的人、不該看到「還沒開始第 1 輪」）
           try {
@@ -1322,10 +1332,17 @@ export default function ChatPage() {
                 Day {viewingDay} 紀錄（唯讀）
               </span>
               {/* v1.5.x 7/30（2026-08-22 backport）：沒有 active journey 時「回當前 Day」會失效
-                  （switchToDay 守衛擋掉）、改成「離開檢視」直接清狀態回到空狀態 CTA */}
+                  （switchToDay 守衛擋掉）、改成「離開檢視」直接清狀態回到空狀態 CTA
+                  ⚠️ 2026-08-22 修正判斷依據：原本用 hasJourney，但那個問題答錯了。
+                     看歷史輪次時 /api/day/today?journey_id= 會回傳那一輪，
+                     於是 hasJourney 被翻成 true —— 它回答的是「有沒有旅程資料」，
+                     不是「我是不是在看別輪」。後者要問 viewingJourneyId。
+                     結果是 '離開檢視' 那一支永遠渲染不到（死碼），
+                     而按「回當前 Day」會跳回不存在的當前輪、被丟去諮詢 tab。 */}
               <button
                 onClick={() => {
-                  if (hasJourney) {
+                  // 只有「在自己這一輪裡看過去某天」才叫回當前 Day
+                  if (!viewingJourneyId && hasJourney) {
                     switchToDay(today?.day_number ?? 0);
                   } else {
                     setViewingDay(null);
@@ -1337,7 +1354,7 @@ export default function ChatPage() {
                 }}
                 className="text-orange-600 hover:text-orange-800 font-medium ml-2 underline shrink-0"
               >
-                {hasJourney ? '回當前 Day' : '離開檢視'}
+                {!viewingJourneyId && hasJourney ? '回當前 Day' : '離開檢視'}
               </button>
             </div>
           )}
@@ -1386,7 +1403,12 @@ export default function ChatPage() {
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </button>
-            {!completedToday && (
+            {/* 2026-08-22（hasJourney 全站掃描時發現）：唯讀檢視時這兩顆沒被擋。
+                旁邊的輸入框與送出鈕都有 `viewingDay !== null` 守衛，只有這裡漏了。
+                後果：Day 12 進行中的用戶去看 Day 3 的歷史紀錄，「完成」仍然亮著，
+                      按下去完成的是 Day 12 —— 不是他正在看的那天。
+                （v21 同樣沒擋，之後一併回補。）*/}
+            {viewingDay === null && !completedToday && (
               <button
                 onClick={() => setShowCompleteModal(true)}
                 className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity"
@@ -1395,7 +1417,7 @@ export default function ChatPage() {
                 完成
               </button>
             )}
-            {completedToday && (
+            {viewingDay === null && completedToday && (
               <Link href="/progress">
                 <button className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity">Done</button>
               </Link>
