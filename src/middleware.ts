@@ -23,15 +23,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // HTTPS 強制：Vercel 上的 production/preview 都應該走 https
-  // 本地 dev (localhost) 例外：dev 是 http://localhost
+  // HTTPS 強制：http 進來一律導向 https。
+  // ⚠️ 不能用 request.nextUrl.clone() —— 反向代理送進容器的 Host 是 0.0.0.0:3000，
+  //    clone 出來會變成 https://0.0.0.0:3000（容器外連不到）。
+  //    對外主機一律取 x-forwarded-host，與 sso/route.ts 的 publicUrl() 同源（819e5fb）。
   const proto = request.headers.get('x-forwarded-proto');
-  const host = request.headers.get('host') || '';
-  const isLocalDev = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+  const publicHost =
+    request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const isLocalDev = publicHost.startsWith('localhost') || publicHost.startsWith('127.0.0.1');
   if (!isLocalDev && proto && proto !== 'https') {
-    const httpsUrl = request.nextUrl.clone();
-    httpsUrl.protocol = 'https:';
-    return NextResponse.redirect(httpsUrl, 308);
+    const target = new URL(
+      request.nextUrl.pathname + request.nextUrl.search,
+      `https://${publicHost}`
+    );
+    return NextResponse.redirect(target, 308);
   }
 
   // #3a：註冊一律走公版。
