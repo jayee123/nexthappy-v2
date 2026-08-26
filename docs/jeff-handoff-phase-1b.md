@@ -236,10 +236,17 @@ WHERE current_plan = 'trial'
 
 **4.2.3 Cron 實作**
 
+> ⚠️ **私版不能用 Vercel Cron。**
+> 私版部署在 berth（EC2 Docker），`vercel.json` 在那裡根本不會被讀取；
+> 該檔案已於 2026-08-22 移除（commit `af0ca9d`），原有的安全標頭改由 `next.config.js` 送出。
+> 容易搞混是因為**公版確實跑在 Vercel**、它的三個 cron 就是用 `vercel.json` 設的——私版不是。
+
 選一個：
-- **A. Vercel Cron Job**（`vercel.json` 設定、推薦、簡單）
-- B. Supabase Edge Function + pg_cron
-- C. 外部 cron service（overkill）
+- **A. Supabase `pg_cron` + `net.http_post` 打私版 API route**（推薦：不需要多一台機器、排程與資料同源）
+- B. EC2 上的 crontab 打 `curl`（要 SSH 進 berth 主機設定，該主機多專案共用、改動要小心）
+- C. 金流 cron 整個移到公版做（帳號真值本來就只有公版一份，見 #3a）
+
+不論選哪一種，被打的 API route 都必須驗 `CRON_SECRET`，不可裸奔。
 
 **4.2.4 Email 通知**
 
@@ -314,7 +321,7 @@ export async function POST(request) {
 ```
 
 實作建議：
-- 用 Vercel Cron + DB 狀態追蹤
+- 用 4.2.3 選定的 cron 機制 + DB 狀態追蹤
 - 或更專業：用 BullMQ + Redis（overkill for now）
 
 ---
@@ -346,12 +353,11 @@ BILLING_ENFORCEMENT=true
 | `src/app/api/payment/webhook/route.ts` | 接收紅陽 webhook |
 | `src/app/api/payment/bind-card/route.ts` | 啟動信用卡綁定流程 |
 | `src/app/api/payment/checkout/route.ts` | 處理「選擇方案 → 紅陽」流程 |
-| `src/app/api/cron/expire-trials/route.ts` | 每日 trial 過期檢查（Vercel Cron 觸發） |
+| `src/app/api/cron/expire-trials/route.ts` | 每日 trial 過期檢查（由 4.2.3 選定的 cron 觸發、需驗 `CRON_SECRET`） |
 | `src/app/api/cron/charge-renewals/route.ts` | 每日月扣款檢查（or 整合在上一個） |
 | `src/app/api/cron/retry-failed-charges/route.ts` | 重試失敗扣款 |
 | `src/lib/email/templates.ts` | Email 範本（trial 提醒、收據、扣款失敗、取消確認） |
 | `src/lib/email/send.ts` | Resend / SendGrid wrapper |
-| `vercel.json` | Cron 設定 |
 | `supabase/migrations/013_payment_retry_tracking.sql` | 新增 retry tracking 欄位 |
 | `docs/payment-integration-spec.md` | 你寫的串接規格給 Steve review |
 
@@ -494,7 +500,7 @@ A：開 GitHub issue / 直接傳 Steve。**不要自己改 AI prompts / user-fac
 - 後台 7 模組規格：[`docs/admin-dashboard-spec-v0.1.md`](./admin-dashboard-spec-v0.1.md)
 - 產品規格 v1.4.x：[`docs/v2.1-course-spec.md`](./v2.1-course-spec.md)
 - 全 commit 歷史：`git log --oneline --all`
-- 開發環境 setup：[`SETUP-GUIDE.md`](../SETUP-GUIDE.md)
+- 開發環境 setup：[`docs/LOCAL-SETUP.md`](./LOCAL-SETUP.md)
 - 訂閱 Phase 1A commit hash：`d6690e2`（你的工作從這個 commit 之後接續）
 
 ---

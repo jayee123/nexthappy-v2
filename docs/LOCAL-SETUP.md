@@ -1,7 +1,7 @@
 # 本機開發環境設定（私版 nexthappy）
 
 本文件的每一步都在一個乾淨的 PostgreSQL 15 容器上實際跑過，
-包含下面標示 ⚠️ 的四個陷阱 —— 那些都是實測時真的撞到的，不是預防性提醒。
+包含下面標示 ⚠️ 的六個陷阱 —— 那些都是實測時真的撞到的，不是預防性提醒。
 
 搭配公版一起跑的整合設定見最後一節。
 
@@ -35,8 +35,30 @@
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS happy;
+
+-- Supabase 只預設幫 public schema 設好 anon / authenticated / service_role 的權限，
+-- 新建的 schema【不會繼承】—— 不補這段，PostgREST 一律回 permission denied。
+GRANT USAGE ON SCHEMA happy TO anon, authenticated, service_role;
+
+-- 讓「之後」在 happy 裡建立的表 / 函式 / sequence 自動取得權限。
+-- ⚠️ 必須在 1-3 建表【之前】跑 —— ALTER DEFAULT PRIVILEGES 只對之後建立的物件生效。
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA happy
+  GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA happy
+  GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA happy
+  GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
 SET search_path TO happy, public;
 ```
+
+> 已經先建了表才想起來補授權的話，改跑這段（對已存在的物件生效）：
+>
+> ```sql
+> GRANT ALL ON ALL TABLES    IN SCHEMA happy TO anon, authenticated, service_role;
+> GRANT ALL ON ALL ROUTINES  IN SCHEMA happy TO anon, authenticated, service_role;
+> GRANT ALL ON ALL SEQUENCES IN SCHEMA happy TO anon, authenticated, service_role;
+> ```
 
 > ⚠️ **陷阱 1：私版的 migration 沒有 schema 前綴、也沒有自己設 `search_path`。**
 > 忘了先 `SET search_path` 就執行，`users`、`journeys` 這些表會被建到 `public`，
@@ -55,9 +77,16 @@ SET search_path TO happy, public;
 依序執行：
 
 1. `supabase/combined-happy-schema.sql`
-2. `supabase/migrations/` 的 13 支，依編號順序
+2. `supabase/migrations/` 的 **15 支**，依編號順序
 
-> ⚠️ **陷阱 3：`combined-happy-schema.sql` 不是最新的。**
+> ⚠️ **陷阱 3：SQL Editor 建表時會跳 RLS 警告，要選「Run without RLS」。**
+> `combined-happy-schema.sql` 裡所有 `ENABLE ROW LEVEL SECURITY` 都是**刻意註解掉**的
+> （`010_disable_audit_log_rls.sql` 記錄過：Supabase 用 FORCE ROW LEVEL SECURITY、
+> 連 service_role 都會被擋）。私版所有 DB 存取都走 API Routes 的 `supabaseAdmin`。
+> 若讓 Supabase 自動開 RLS，查詢**不會報錯，只會安靜地回空陣列**。
+> 那個對話框的綠色按鈕看起來像建議選項，別按。
+
+> ⚠️ **陷阱 4：`combined-happy-schema.sql` 不是最新的。**
 > 它缺少 `012`／`013` 加的訂閱欄位（`current_plan`、`payment_method_token` 等），
 > 也缺少 `007` 把 `conversations.user_id` 改成必填的變更。
 > 所以它**不能單獨使用**，一定要接著跑完 migrations。
@@ -77,6 +106,46 @@ node scripts/dev-seed/generate.mjs supabase/dev-seed.sql
 ```
 
 產生器是決定性的（固定 UUID + 固定亂數種子），重跑不會產生無意義的 diff。
+
+### 1-5 把 `happy` 加進 Exposed schemas
+
+> ⚠️ **陷阱 5：不做這步，app 起得來、頁面畫得出來，但每一支 API 都拿不到資料。**
+> `src/lib/supabase.ts` 兩個 client 都指定 `db: { schema: 'happy' }`，
+> `supabase-js` 會據此送出 `Accept-Profile: happy` 標頭，而
+> **PostgREST 只接受列在 Exposed schemas 裡的 schema**。
+> 症狀很容易被誤判成「schema 沒建好」，實際上表都在。
+
+Dashboard → **Settings → Data API → Exposed schemas** → 加入 `happy`（保留 `public`）。
+
+這步是純 UI 操作，**SQL 做不到**。完成後該頁會顯示 `3 of 3 schemas exposed`
+（`public` / `happy` / `graphql_public`）。
+
+### 1-6 驗收
+
+每一批跑完貼這段，確認狀態正確：
+
+```sql
+SELECT
+  (SELECT count(*) FROM information_schema.tables
+     WHERE table_schema='public' AND table_type='BASE TABLE') AS public_tables,   -- 應為 33
+  (SELECT count(*) FROM information_schema.tables
+     WHERE table_schema='happy'  AND table_type='BASE TABLE') AS happy_tables,    -- 應為 16
+  to_regclass('happy.course_content') IS NOT NULL AS has_course_content,
+  EXISTS(SELECT 1 FROM information_schema.columns
+     WHERE table_schema='happy' AND table_name='conversations'
+       AND column_name='source') AS m015_conv_source;
+```
+
+四欄都對，才代表 `search_path` 沒跑掉、15 支 migration 都進去了。
+
+> `public_tables` 若接近 49（33+16），表示私版的表被建到 `public` 了 —— 即陷阱 1。
+> 公私版有 9 張同名表（`users`、`journeys`、`daily_records`、`daily_memories`、
+> `blindspot_records`、`blindspot_taxonomy`、`mbti_profiles`、`admin_audit_logs`、
+> `invite_codes`），撞上時 `CREATE TABLE IF NOT EXISTS` 不會報錯，只會安靜跳過。
+
+> 💡 **建議**：與其記住「每開一個新分頁都要重設 `search_path`」（陷阱 1），
+> 不如在每段要貼的 SQL 開頭就自帶一行 `SET search_path TO happy, public;`。
+> 陷阱 1 就從「要記得」變成「不可能忘」。
 
 灌進去之後有 7 個測試人物，各自對應一種開發時會卡住的狀態：
 
@@ -115,7 +184,7 @@ npm run dev
 
 ## 4. 登入
 
-> ⚠️ **陷阱 4：直接開 `http://localhost:3000` 會登不進去。這是正常的。**
+> ⚠️ **陷阱 6：直接開 `http://localhost:3000` 會登不進去。這是正常的。**
 >
 > 私版已經沒有自己的登入頁 —— 帳號真值只在公版。未登入的請求會被
 > middleware 導向公版登入頁，而公版登入後是依資料庫 `apps.app_url`
@@ -179,7 +248,10 @@ cd nexthappy && PORT=3001 npm run dev
 |---|---|
 | `relation "course_content" does not exist` | 陷阱 2：沒有先跑 `combined-happy-schema.sql` |
 | 表建到了 `public` 而不是 `happy` | 陷阱 1：忘了 `SET search_path TO happy` |
-| 插入 `conversations` 失敗說 `user_id` 不可為 null | 陷阱 3：沒跑完 migrations（`007` 才加這欄） |
-| 一直被導去正式站的登入頁 | 陷阱 4：用 `scripts/dev-login.mjs` 登入 |
+| 插入 `conversations` 失敗說 `user_id` 不可為 null | 陷阱 4：沒跑完 migrations（`007` 才加這欄） |
+| 一直被導去正式站的登入頁 | 陷阱 6：用 `scripts/dev-login.mjs` 登入 |
+| app 起得來但每支 API 都查不到資料 | 陷阱 5：`happy` 沒加進 Exposed schemas |
+| 查詢回 `permission denied for schema happy` | 1-2 的 GRANT 沒跑 |
+| 查詢不報錯但一律回空陣列 | 陷阱 3：建表時讓 Supabase 自動開了 RLS |
 | 登出按鈕沒反應 | `NEXT_PUBLIC_MARKET_BASE_URL` 少了 `NEXT_PUBLIC_` 前綴 |
 | `/chat` 沒有回應 | `ANTHROPIC_API_KEY` 未設定或額度用盡 |

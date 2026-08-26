@@ -28,7 +28,7 @@
 - 既有 auth pattern: `getSessionFromRequest` from `@/lib/auth`、`supabaseAdmin` from `@/lib/supabase`
 
 **先讀 4 份文件**：
-1. `SETUP-GUIDE.md`（環境 setup）
+1. `docs/LOCAL-SETUP.md`（本機開發環境設定）
 2. `docs/v2.1-course-spec.md` §14 版本紀錄（理解產品演化）
 3. `docs/positioning-v0.4-升維-stack.md`（整體願景、後台設計要前瞻三產品線）
 4. **本份**
