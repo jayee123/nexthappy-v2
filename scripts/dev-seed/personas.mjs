@@ -27,8 +27,10 @@ export const PERSONAS = [
     plan: 'trial',
     marketPlan: 'free',
     currentDay: 0,
-    why: '剛 SSO 進來、還沒 onboarding。測空狀態畫面（沒有 journey 的 /chat 會怎樣）',
-    journey: null, // 故意沒有 journey —— 空狀態一定要有人踩
+    why: '剛 SSO 進來、user 層還沒有 MBTI。測 /sso 落在 /onboarding 這條路徑',
+    journey: null,     // 沒有 journey
+    // userMbti 也不給 —— 這位測的是「連 MBTI 都還沒有」。
+    // 「有 MBTI 但沒 journey」是另一個狀態，見最後一位 onboarded_no_journey。
   },
   {
     key: 'basic_early',
@@ -86,6 +88,19 @@ export const PERSONAS = [
     currentDay: 6,
     why: 'relationship_type 不是 couple。文案會依關係類型變化，只測 couple 會漏',
     journey: { mbtiSelf: 'ESFJ', mbtiPartner: 'ISTP', relationship: 'parent_child', confidence: 'medium' },
+  },
+  {
+    key: 'onboarded_no_journey',
+    name: '測試用戶・未開課',
+    plan: 'basic',
+    marketPlan: 'basic',
+    currentDay: 0,
+    why: '做完 onboarding（user 層已有 MBTI）但還沒開任何一輪。測 /chat 空狀態，以及 Mode B 不需 journey 也能用',
+    journey: null,
+    // journey 為 null 時 user 層 MBTI 要自己指定 —— 這位存在的意義就是
+    // 「有 MBTI、沒 journey」這個組合。少了他，/chat 空狀態沒有人踩得到
+    // （dev1 的 mbti_self 是 NULL，/sso 會把他攔在 /onboarding）。
+    userMbti: { self: 'ENTP', confidence: 'medium' },
   },
 ];
 

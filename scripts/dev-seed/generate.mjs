@@ -62,6 +62,18 @@ const jsonb = (v) => `${q(JSON.stringify(v))}::jsonb`;
 /** 相對今天往前推 n 天，避免寫死日期讓資料看起來很舊 */
 const daysAgo = (n) => `(CURRENT_DATE - INTERVAL '${n} days')`;
 
+/**
+ * journeys.is_active —— 這是【旅程生命週期】旗標，不是訂閱狀態。
+ *
+ * app 的行為（src/app/api/day/complete/route.ts）：Day 21 完成時設成 false，
+ * 讓用戶可以開下一輪。因此「21/21 且 is_active=true」在真實世界不存在。
+ *
+ * 這點很要緊：is_active=false 正是 7/16、7/30 兩次事故的根因
+ * （進度頁空白、側板看不到歷史輪次、歷史 Day 點不動）。
+ * 測試資料若產不出這個狀態，那類 bug 在本機永遠重現不了、也驗不了有沒有修好。
+ */
+const isJourneyActive = (p) => p.plan !== 'cancelled' && p.currentDay < TOTAL_DAYS;
+
 const out = [];
 const w = (s = '') => out.push(s);
 
@@ -111,8 +123,17 @@ w();
 w(`-- ── happy.users（私版帳號）───────────────────────────────────
 -- password_hash 是佔位值：SSO 帳號本來就沒有密碼，只能走 /sso 進入。`);
 PERSONAS.forEach((p, i) => {
-  w(`INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES (${q(HAPPY_USER(i + 1))}, ${q(`dev${i + 1}@example.test`)}, ${q(p.name)}, 'dev-no-password', ${q(MARKET_USER(i + 1))}, ${q(p.plan)})
+  // mbti_self 決定 /sso 的落點（見 src/app/sso/route.ts）：
+  //   有值 → /chat；NULL → /onboarding。
+  // migrations/005 雖然有從 journeys 回填到 users 的邏輯，但那在建表階段就跑完了，
+  // 那時 seed 的 user 還不存在 —— 所以這裡一定要自己帶，不能指望回填。
+  // userMbti 優先：讓「有 MBTI 但沒 journey」這個狀態表達得出來。
+  const mbti = p.userMbti?.self ?? p.journey?.mbtiSelf ?? null;
+  const mbtiConf = mbti ? (p.userMbti?.confidence ?? p.journey?.confidence ?? 'medium') : null;
+  w(`INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES (${q(HAPPY_USER(i + 1))}, ${q(`dev${i + 1}@example.test`)}, ${q(p.name)}, 'dev-no-password', ${q(MARKET_USER(i + 1))}, ${q(p.plan)},
+        ${q(mbti)}, ${q(mbtiConf)}, ${mbti ? daysAgo(p.currentDay) : 'NULL'})
 ON CONFLICT (id) DO NOTHING;`);
 });
 w();
@@ -139,7 +160,7 @@ VALUES (${q(jid)}, ${q(uid)}, ${q(j.mbtiSelf)}, ${q(j.mbtiPartner)}, ${q(j.confi
         ${nullOpt ? 'NULL' : q(pick(GOAL_STATEMENTS))},
         ${nullOpt ? 'NULL' : q(pick(INITIAL_PROBLEMS))},
         ${daysAgo(p.currentDay)}, ${raw(p.currentDay)},
-        ${p.plan === 'cancelled' ? 'FALSE' : 'TRUE'}, ${raw(p.currentDay * 10)})
+        ${isJourneyActive(p) ? 'TRUE' : 'FALSE'}, ${raw(p.currentDay * 10)})
 ON CONFLICT (id) DO NOTHING;`);   // journeys 沒有 UNIQUE(user_id)：設計上允許同一人開多輪（見 combined-happy-schema.sql:318）
 
   // 每一天產生：日記 + 對話 +（部分天）記憶與盲點

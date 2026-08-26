@@ -30,7 +30,7 @@ ON CONFLICT (slug) DO UPDATE
 -- 私版透過 happy.users.nuwa_user_id 指回這裡，讀 email / nickname / current_plan。
 INSERT INTO public.users (id, phone, email, nickname, current_plan, role)
 VALUES ('d0000000-0001-4000-8000-000000000001', '0900000001', 'dev1@example.test', '測試用戶・全新', 'free', 'user')
-ON CONFLICT (id) DO NOTHING;   -- 剛 SSO 進來、還沒 onboarding。測空狀態畫面（沒有 journey 的 /chat 會怎樣）
+ON CONFLICT (id) DO NOTHING;   -- 剛 SSO 進來、user 層還沒有 MBTI。測 /sso 落在 /onboarding 這條路徑
 INSERT INTO public.users (id, phone, email, nickname, current_plan, role)
 VALUES ('d0000000-0001-4000-8000-000000000002', '0900000002', 'dev2@example.test', '測試用戶・初期', 'basic', 'user')
 ON CONFLICT (id) DO NOTHING;   -- 剛起步。測進度條低百分比、成就尚未解鎖
@@ -49,33 +49,55 @@ ON CONFLICT (id) DO NOTHING;   -- 專門放極端值：超長日記、emoji、�
 INSERT INTO public.users (id, phone, email, nickname, current_plan, role)
 VALUES ('d0000000-0001-4000-8000-000000000007', '0900000007', 'dev7@example.test', '測試用戶・親子', 'basic', 'user')
 ON CONFLICT (id) DO NOTHING;   -- relationship_type 不是 couple。文案會依關係類型變化，只測 couple 會漏
+INSERT INTO public.users (id, phone, email, nickname, current_plan, role)
+VALUES ('d0000000-0001-4000-8000-000000000008', '0900000008', 'dev8@example.test', '測試用戶・未開課', 'basic', 'user')
+ON CONFLICT (id) DO NOTHING;   -- 做完 onboarding（user 層已有 MBTI）但還沒開任何一輪。測 /chat 空狀態，以及 Mode B 不需 journey 也能用
 
 -- ── happy.users（私版帳號）───────────────────────────────────
 -- password_hash 是佔位值：SSO 帳號本來就沒有密碼，只能走 /sso 進入。
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000001', 'dev1@example.test', '測試用戶・全新', 'dev-no-password', 'd0000000-0001-4000-8000-000000000001', 'trial')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000001', 'dev1@example.test', '測試用戶・全新', 'dev-no-password', 'd0000000-0001-4000-8000-000000000001', 'trial',
+        NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000002', 'dev2@example.test', '測試用戶・初期', 'dev-no-password', 'd0000000-0001-4000-8000-000000000002', 'basic')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000002', 'dev2@example.test', '測試用戶・初期', 'dev-no-password', 'd0000000-0001-4000-8000-000000000002', 'basic',
+        'INFP', 'medium', (CURRENT_DATE - INTERVAL '3 days'))
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000003', 'dev3@example.test', '測試用戶・進行中', 'dev-no-password', 'd0000000-0001-4000-8000-000000000003', 'advanced')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000003', 'dev3@example.test', '測試用戶・進行中', 'dev-no-password', 'd0000000-0001-4000-8000-000000000003', 'advanced',
+        'ENFJ', 'high', (CURRENT_DATE - INTERVAL '12 days'))
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000004', 'dev4@example.test', '測試用戶・已完課', 'dev-no-password', 'd0000000-0001-4000-8000-000000000004', 'premium')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000004', 'dev4@example.test', '測試用戶・已完課', 'dev-no-password', 'd0000000-0001-4000-8000-000000000004', 'premium',
+        'ISTJ', 'high', (CURRENT_DATE - INTERVAL '21 days'))
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000005', 'dev5@example.test', '測試用戶・已退訂', 'dev-no-password', 'd0000000-0001-4000-8000-000000000005', 'cancelled')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000005', 'dev5@example.test', '測試用戶・已退訂', 'dev-no-password', 'd0000000-0001-4000-8000-000000000005', 'cancelled',
+        'ISFP', 'low', (CURRENT_DATE - INTERVAL '8 days'))
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000006', 'dev6@example.test', '測試用戶・邊界值', 'dev-no-password', 'd0000000-0001-4000-8000-000000000006', 'premium')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000006', 'dev6@example.test', '測試用戶・邊界值', 'dev-no-password', 'd0000000-0001-4000-8000-000000000006', 'premium',
+        'INTJ', 'low', (CURRENT_DATE - INTERVAL '5 days'))
 ON CONFLICT (id) DO NOTHING;
-INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan)
-VALUES ('d0000000-1001-4000-8000-000000000007', 'dev7@example.test', '測試用戶・親子', 'dev-no-password', 'd0000000-0001-4000-8000-000000000007', 'basic')
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000007', 'dev7@example.test', '測試用戶・親子', 'dev-no-password', 'd0000000-0001-4000-8000-000000000007', 'basic',
+        'ESFJ', 'medium', (CURRENT_DATE - INTERVAL '6 days'))
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO happy.users (id, email, name, password_hash, nuwa_user_id, current_plan,
+       mbti_self, mbti_confidence, mbti_set_at)
+VALUES ('d0000000-1001-4000-8000-000000000008', 'dev8@example.test', '測試用戶・未開課', 'dev-no-password', 'd0000000-0001-4000-8000-000000000008', 'basic',
+        'ENTP', 'medium', (CURRENT_DATE - INTERVAL '0 days'))
 ON CONFLICT (id) DO NOTHING;
 
 -- ── happy.journeys 與每日紀錄 ────────────────────────────────
--- 測試用戶・全新：刻意【不建立 journey】—— 剛 SSO 進來、還沒 onboarding。測空狀態畫面（沒有 journey 的 /chat 會怎樣）
+-- 測試用戶・全新：刻意【不建立 journey】—— 剛 SSO 進來、user 層還沒有 MBTI。測 /sso 落在 /onboarding 這條路徑
 
 -- 測試用戶・初期（day 3/21）：剛起步。測進度條低百分比、成就尚未解鎖
 INSERT INTO happy.journeys (id, user_id, mbti_self, mbti_partner, mbti_confidence,
@@ -254,7 +276,7 @@ VALUES ('d0000000-0002-4000-8000-000000000004', 'd0000000-1001-4000-8000-0000000
         '希望每天至少有一次好好聽對方說完話。',
         '我講的話好像都傳不到對方那邊，久了就懶得講了。',
         (CURRENT_DATE - INTERVAL '21 days'), 21,
-        TRUE, 210)
+        FALSE, 210)
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO happy.daily_records (id, journey_id, day_number, date, task_completed, completion_type, emotion_score, journal_text, points_earned)
 VALUES ('d0000000-0003-4000-8000-000000000401', 'd0000000-0002-4000-8000-000000000004', 1, (CURRENT_DATE - INTERVAL '20 days'), TRUE, 'success', 8, '照著今天的任務做了，但心裡其實有點抗拒，覺得這樣很刻意。不過做完之後氣氛真的有比較鬆一點，可能刻意也沒關係吧。明天再試一次看看。', 10)
@@ -678,13 +700,16 @@ INSERT INTO happy.blindspot_records (id, journey_id, day_number, blindspot_code,
 VALUES ('d0000000-0006-4000-8000-000000000706', 'd0000000-0002-4000-8000-000000000007', 6, 'B2', 'morning', '你每次都這樣', '這是放棄溝通的訊號，但對方可能解讀成不在乎。')
 ON CONFLICT (id) DO NOTHING;
 
+-- 測試用戶・未開課：刻意【不建立 journey】—— 做完 onboarding（user 層已有 MBTI）但還沒開任何一輪。測 /chat 空狀態，以及 Mode B 不需 journey 也能用
+
 COMMIT;
 
 -- ── 產生內容摘要 ──────────────────────────────────────────────
---   測試用戶・全新            trial      day  0/21  剛 SSO 進來、還沒 onboarding。測空狀態畫面（沒有 journey 的 /chat 會怎樣）
+--   測試用戶・全新            trial      day  0/21  剛 SSO 進來、user 層還沒有 MBTI。測 /sso 落在 /onboarding 這條路徑
 --   測試用戶・初期            basic      day  3/21  剛起步。測進度條低百分比、成就尚未解鎖
 --   測試用戶・進行中           advanced   day 12/21  最典型的使用中狀態。資料量最完整，日常開發主要看這筆
 --   測試用戶・已完課           premium    day 21/21  21 天全完成。測結業畫面、滿版成就、進度條 100% 不會溢位
 --   測試用戶・已退訂           cancelled  day  8/21  有資料但方案已失效。測額度擋人時舊資料還讀不讀得到
 --   測試用戶・邊界值           premium    day  5/21  專門放極端值：超長日記、emoji、單輪與超長對話、可為 null 的欄位全空
 --   測試用戶・親子            basic      day  6/21  relationship_type 不是 couple。文案會依關係類型變化，只測 couple 會漏
+--   測試用戶・未開課           basic      day  0/21  做完 onboarding（user 層已有 MBTI）但還沒開任何一輪。測 /chat 空狀態，以及 Mode B 不需 journey 也能用
