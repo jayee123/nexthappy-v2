@@ -4,12 +4,14 @@
 //
 // Tab 1 - Admin 列表：grant / revoke admin、含自我保護 + 數量保護
 // Tab 2 - Audit Log：列出最近 admin 動作、可篩選 action / admin、含 expandable changes JSON
+// Tab 3 - 外觀：公版欄位的標示配色（存 happy.system_params，見 016 migration）
 //
 // 對應 spec admin-dashboard-spec-v0.1.md §3.7
 
 'use client';
 
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import AppearanceTab from '@/components/admin/AppearanceTab';
 
 // ============================================================
 // Types
@@ -71,7 +73,7 @@ function formatFullTime(iso: string): string {
 // Main component
 // ============================================================
 
-type TabId = 'admins' | 'audit';
+type TabId = 'admins' | 'audit' | 'appearance';
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('admins');
@@ -80,7 +82,7 @@ export default function AdminSettingsPage() {
     <div className="p-6 lg:p-8 max-w-5xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">⚙️ 系統設定</h1>
-        <p className="text-sm text-gray-500 mt-1">Admin 列表管理 + Audit Log 查看</p>
+        <p className="text-sm text-gray-500 mt-1">Admin 列表管理 + Audit Log 查看 + 外觀設定</p>
       </div>
 
       {/* Tabs */}
@@ -91,9 +93,14 @@ export default function AdminSettingsPage() {
         <TabButton active={activeTab === 'audit'} onClick={() => setActiveTab('audit')}>
           📝 Audit Log
         </TabButton>
+        <TabButton active={activeTab === 'appearance'} onClick={() => setActiveTab('appearance')}>
+          🎨 外觀
+        </TabButton>
       </div>
 
-      {activeTab === 'admins' ? <AdminsTab /> : <AuditTab />}
+      {activeTab === 'admins' && <AdminsTab />}
+      {activeTab === 'audit' && <AuditTab />}
+      {activeTab === 'appearance' && <AppearanceTab />}
     </div>
   );
 }

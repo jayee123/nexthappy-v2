@@ -14,7 +14,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { MARKET_FIELD_HEADER_CLASS } from '@/lib/admin/marketField';
+import { MARKET_FIELD_HEADER_STYLE } from '@/lib/admin/marketField';
 
 interface UserListItem {
   id: string;
@@ -186,12 +186,14 @@ export default function AdminUsersPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {/* 以下五欄資料來自公版，用底色標示（見 lib/admin/marketField.ts）。
-                    原本用「（公版）」字樣標，改為底色後表頭變短、視覺分區也更清楚。 */}
-                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>Email</th>
-                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>NUWA ID</th>
-                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>用戶名稱</th>
-                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>手機</th>
-                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>方案</th>
+                    原本用「（公版）」字樣標，改為底色後表頭變短、視覺分區也更清楚。
+                    色值來自 admin/layout.tsx 注入的 CSS 變數（管理員可在 /admin/settings 改）
+                    —— 不能用 Tailwind class，runtime 才決定的 class 不會被 build 產出。 */}
+                <th className="text-left px-4 py-3 font-medium" style={MARKET_FIELD_HEADER_STYLE}>Email</th>
+                <th className="text-left px-4 py-3 font-medium" style={MARKET_FIELD_HEADER_STYLE}>NUWA ID</th>
+                <th className="text-left px-4 py-3 font-medium" style={MARKET_FIELD_HEADER_STYLE}>用戶名稱</th>
+                <th className="text-left px-4 py-3 font-medium" style={MARKET_FIELD_HEADER_STYLE}>手機</th>
+                <th className="text-left px-4 py-3 font-medium" style={MARKET_FIELD_HEADER_STYLE}>方案</th>
                 {/* 以下為私版自己的資料 */}
                 <th className="text-left px-4 py-3 font-medium text-gray-600">學員暱稱</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">MBTI</th>

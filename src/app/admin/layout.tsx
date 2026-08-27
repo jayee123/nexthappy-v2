@@ -9,6 +9,11 @@ import { getSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import NoAdminAccess from '@/components/admin/NoAdminAccess';
+import {
+  getMarketFieldColors,
+  MARKET_FIELD_BG_VAR,
+  MARKET_FIELD_FG_VAR,
+} from '@/lib/admin/marketField';
 
 export const metadata = {
   title: '後台管理 | 羽升幸福養成學苑',
@@ -41,8 +46,21 @@ export default async function AdminLayout({
     return <NoAdminAccess email={user?.email ?? null} />;
   }
 
+  // 3. 公版欄位的標示配色（管理員可在 /admin/settings 改）
+  //    在這裡讀、以 CSS 變數往下傳，底下的 client component 就不必自己打 API，
+  //    也不會先閃一次預設色再變。讀失敗時 getMarketFieldColors() 已退回預設值。
+  const marketColors = await getMarketFieldColors();
+
   return (
-    <div className="fixed inset-0 flex bg-gray-50 z-10">
+    <div
+      className="fixed inset-0 flex bg-gray-50 z-10"
+      style={
+        {
+          [MARKET_FIELD_BG_VAR]: marketColors.bg,
+          [MARKET_FIELD_FG_VAR]: marketColors.fg,
+        } as React.CSSProperties
+      }
+    >
       <AdminSidebar adminEmail={user.email} adminName={user.name} />
       <main className="flex-1 min-w-0 overflow-auto">{children}</main>
     </div>
