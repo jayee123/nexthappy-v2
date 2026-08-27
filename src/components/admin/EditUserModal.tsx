@@ -124,14 +124,14 @@ export default function EditUserModal({ user, isSelfAdmin, onClose, onSaved }: P
             </div>
           </div>
 
-          {/* Name */}
+          {/* 學員暱稱（私版自己的欄位；公版的「用戶名稱」要去公版後台改） */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">暱稱</label>
+            <label className="block text-xs text-gray-500 mb-1">學員暱稱</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="user 暱稱"
+              placeholder="學員暱稱"
               maxLength={50}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
             />

@@ -5,7 +5,7 @@
 // 功能：
 //   - 表格列出所有 user（pagination 50 / page）
 //   - Filter：全部 / 管理員 / 7 天活躍 / 已停權
-//   - 搜尋 email + name（debounce 400ms）
+//   - 搜尋 email + 學員暱稱（debounce 400ms）
 //   - 「查看」link 跳 /admin/users/[id]（Week 2B 才建詳情頁、現在會 404）
 //
 // 對應 spec admin-dashboard-spec-v0.1.md §3.1
@@ -14,6 +14,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { MARKET_FIELD_HEADER_CLASS } from '@/lib/admin/marketField';
 
 interface UserListItem {
   id: string;
@@ -172,7 +173,7 @@ export default function AdminUsersPage() {
             type="search"
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            placeholder="搜尋 email 或 name..."
+            placeholder="搜尋 Email 或學員暱稱..."
             className="w-full px-3 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
           />
         </div>
@@ -184,12 +185,15 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Email（公版）</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">NUWA ID</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">暱稱（公版）</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">手機（公版）</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">方案（公版）</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+                {/* 以下五欄資料來自公版，用底色標示（見 lib/admin/marketField.ts）。
+                    原本用「（公版）」字樣標，改為底色後表頭變短、視覺分區也更清楚。 */}
+                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>Email</th>
+                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>NUWA ID</th>
+                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>用戶名稱</th>
+                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>手機</th>
+                <th className={`text-left px-4 py-3 font-medium ${MARKET_FIELD_HEADER_CLASS}`}>方案</th>
+                {/* 以下為私版自己的資料 */}
+                <th className="text-left px-4 py-3 font-medium text-gray-600">學員暱稱</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">MBTI</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">註冊</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">最後活躍</th>
