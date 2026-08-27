@@ -300,6 +300,14 @@ export default function ChatPage() {
   // v1.5.x: 讀 ?journey_id URL param（sidebar 歷史 rounds 點過來會帶）
   // 若有值 → 目前在看已完成 journey 的唯讀模式、fetch today API 帶 journey_id
   const [viewingJourneyId, setViewingJourneyId] = useState<string | null>(null);
+  // v1.5.x 7/30（2026-08-22 backport）：過去輪次數量（判斷空狀態要顯示「還沒開始」還是「上一輪已完成」）
+  const [pastRoundCount, setPastRoundCount] = useState(0);
+  // v1.5.x 7/30（2026-08-22 backport）：正在看的歷史輪次進行到第幾天（決定 Day 標題列箭頭的上限）
+  const [viewingJourneyMaxDay, setViewingJourneyMaxDay] = useState<number | null>(null);
+  // 2026-08-22：trier-first 自動切 tab 只該發生在「第一次載入」。
+  //   載入 effect 的依賴含 viewingJourneyId，離開歷史檢視時會再跑一次，
+  //   沒有這道閘門就會把刻意待在練習 tab 的用戶硬拉去諮詢 tab。
+  const didAutoSwitchTab = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -448,7 +456,22 @@ export default function ChatPage() {
 
         // v1.3.2b: trier user 沒 journey 時、預設切到「我卡住了，幫我拆」tab、不跑 practice opening
         if (!data.today || !data.journey) {
-          setActiveTab('consultant');
+          // v1.3.2b trier-first：沒 journey 時預設切到諮詢 tab。
+          // 2026-08-22 加閘門：只在第一次載入切。否則「離開歷史檢視」會觸發本 effect
+          //   再跑一次（依賴含 viewingJourneyId），把用戶從練習 tab 硬拉走。
+          if (!didAutoSwitchTab.current) {
+            setActiveTab('consultant');
+            didAutoSwitchTab.current = true;
+          }
+          // v1.5.x 7/30（2026-08-22 backport）：查有沒有過去完成的輪次、決定空狀態文案
+          //   （Angel / Pearl 這種做完 21 天的人、不該看到「還沒開始第 1 輪」）
+          try {
+            const listRes = await fetch('/api/journey/list');
+            const listJson = await listRes.json();
+            setPastRoundCount((listJson.data?.journeys || []).length);
+          } catch {
+            // 查不到就當 0、退回「還沒開始」文案、不影響主流程
+          }
           return;
         }
 
@@ -568,15 +591,20 @@ export default function ChatPage() {
    *                   undefined = 當前 active journey
    */
   async function switchToDay(targetDay: number, journeyId?: string) {
-    if (!todayData?.journey || practiceStreaming) return;
-    const currentDayN = todayData.today?.day_number ?? 0;
+    // v1.5.x 7/30 fix（2026-08-22 backport）：舊守衛是 `if (!todayData?.journey) return`，
+    //   但完成 21 天的用戶 is_active=false → todayData.journey 是 null → 點歷史任務的 Day 完全沒反應。
+    //   Angel 7/30 踩到。改成：看歷史輪次（有 journeyId）時不需要 active journey。
+    if (practiceStreaming) return;
+    if (!journeyId && !todayData?.journey) return;
+    const currentDayN = todayData?.today?.day_number ?? 0;
 
-    // 點「當前輪次的當前 Day」= 回到互動模式
-    if (!journeyId && targetDay === currentDayN) {
+    // 點「當前輪次的當前 Day」= 回到互動模式（只有還有 active journey 時才成立）
+    if (!journeyId && todayData?.journey && targetDay === currentDayN) {
       setViewingDay(null);
       setViewingDayInfo(null);
       setViewingDayMessages([]);
       setViewingJourneyId(null);
+      setViewingJourneyMaxDay(null);
       setSidebarCollapsed(true);
       return;
     }
@@ -598,6 +626,8 @@ export default function ChatPage() {
       setViewingDay(targetDay);
       setViewingDayInfo(data.today);
       setViewingJourneyId(journeyId ?? null);
+      // v1.5.x 7/30（2026-08-22 backport）：記住這輪進行到第幾天、Day 標題列的「下一天」箭頭才知道上限
+      setViewingJourneyMaxDay(journeyId ? (data.journey?.current_day ?? null) : null);
       const msgs = (data.today.conversation?.messages as ExtendedChatMessage[] | undefined) || [];
       setViewingDayMessages(
         msgs.filter(m => !isAITriggerPrompt(m)).map(m => ({
@@ -841,6 +871,14 @@ export default function ChatPage() {
   const { today, journey } = todayData;
   // v1.3.2b: trier user 沒 journey 時、UI 顯示「開始第 1 輪」CTA 而非 Day N 練習
   const hasJourney = today !== null && journey !== null;
+  // v1.5.x 7/30（2026-08-22 backport）：正在看某一天的歷史紀錄（不論當前有沒有 active journey）
+  //   完成 21 天的用戶 hasJourney=false、但仍要能看歷史輪次的每一天
+  const isViewingHistory = viewingDay !== null && viewingDayInfo !== null;
+  // 練習 tab 主區域要顯示「對話內容」而非「空狀態 CTA」的條件
+  const showPracticeContent = hasJourney || isViewingHistory;
+  // v1.5.x 7/30（2026-08-22 backport）：區分「從沒開始過」vs「上一輪已完成」、
+  //   空狀態文案才不會對完成者說「還沒開始第 1 輪」
+  const hasCompletedRound = !hasJourney && pastRoundCount > 0;
 
   // ── 渲染 ───────────────────────────────────────
 
@@ -1041,17 +1079,24 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ── v1.3.6 Sticky Banner — Day title / Topic title 從 header 移到這裡 ── */}
-      {activeTab === 'practice' && hasJourney && today && (() => {
-        const displayDay = viewingDay !== null && viewingDayInfo ? viewingDayInfo : today;
+      {/* ── v1.3.6 Sticky Banner — Day title / Topic title 從 header 移到這裡
+          v1.5.x 7/30（2026-08-22 backport）：條件從 `hasJourney && today` 放寬成 showPracticeContent，
+          讓完成 21 天（無 active journey）的用戶看歷史輪次時也有 Day 標題列與前後箭頭。─ */}
+      {activeTab === 'practice' && showPracticeContent && (viewingDayInfo || today) && (() => {
+        const displayDay = viewingDay !== null && viewingDayInfo ? viewingDayInfo : today!;
         const isReadOnly = viewingDay !== null;
-        const currentDayN = today.day_number;
+        // 箭頭上限：看歷史輪次時用那輪的 current_day、否則用當前輪次的 day_number
+        const maxDayN = viewingJourneyId
+          ? (viewingJourneyMaxDay ?? displayDay.day_number)
+          : (today?.day_number ?? displayDay.day_number);
+        // 切換前後天時要留在同一輪（歷史輪次要帶 journeyId、否則會跳回當前輪次）
+        const navJourneyId = viewingJourneyId ?? undefined;
         const viewDayN = displayDay.day_number;
         return (
           <div className="bg-white border-b border-gray-100 px-4 py-2 shrink-0">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => switchToDay(viewDayN - 1)}
+                onClick={() => switchToDay(viewDayN - 1, navJourneyId)}
                 disabled={viewDayN <= 0}
                 className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-all ${
                   viewDayN <= 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'
@@ -1068,12 +1113,12 @@ export default function ChatPage() {
                 <p className="text-xs text-gray-400 truncate">{displayDay.course.subtitle}</p>
               </div>
               <button
-                onClick={() => switchToDay(viewDayN + 1)}
-                disabled={viewDayN >= currentDayN}
+                onClick={() => switchToDay(viewDayN + 1, navJourneyId)}
+                disabled={viewDayN >= maxDayN}
                 className={`w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold transition-all ${
-                  viewDayN >= currentDayN ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'
+                  viewDayN >= maxDayN ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'
                 }`}
-                title={viewDayN < currentDayN ? `看 Day ${viewDayN + 1}` : '已在當前 Day'}
+                title={viewDayN < maxDayN ? `看 Day ${viewDayN + 1}` : '已是這輪最後一天'}
               >
                 ▶
               </button>
@@ -1081,19 +1126,20 @@ export default function ChatPage() {
             {/* 知識卡片（collapsible、default 收合）— v1.5.x Pearl cream 底
                 7/26：課程內容也含 markdown、展開時渲染。
                 收合時用 stripMarkdown 純文字（markdown 會產生多個 block 元素、line-clamp 會失效）*/}
-            {today?.course.knowledge_point && (
+            {/* v1.5.x 7/30（2026-08-22 backport）：改用 displayDay（原本寫死 today）、看歷史時才會顯示那天的課程內容 */}
+            {displayDay?.course.knowledge_point && (
               <div className="mt-2 bg-[#fbfaf8] rounded-xl p-2.5 border border-[#f6bf8e]/25">
                 {knowledgeExpanded ? (
                   <MarkdownMessage
-                    content={today.course.knowledge_point}
+                    content={displayDay.course.knowledge_point}
                     className="!text-xs text-[#5a4530]"
                   />
                 ) : (
                   <p className="text-xs text-[#5a4530] leading-relaxed line-clamp-2">
-                    {stripMarkdown(today.course.knowledge_point)}
+                    {stripMarkdown(displayDay.course.knowledge_point)}
                   </p>
                 )}
-                {today.course.knowledge_point.length > 60 && (
+                {displayDay.course.knowledge_point.length > 60 && (
                   <button
                     onClick={() => setKnowledgeExpanded(v => !v)}
                     className="mt-1 text-xs text-primary-600 font-medium hover:text-primary-700"
@@ -1117,8 +1163,9 @@ export default function ChatPage() {
           </p>
         </div>
       )}
-      {/* v1.3.6 banner for 21 天 tab no journey */}
-      {activeTab === 'practice' && !hasJourney && (
+      {/* v1.3.6 banner for 21 天 tab no journey
+          v1.5.x 7/30（2026-08-22 backport）：看歷史輪次時讓位給上面的 Day 標題列、不要兩個標題疊著 */}
+      {activeTab === 'practice' && !showPracticeContent && (
         <div className="bg-white border-b border-gray-100 px-4 py-2 shrink-0">
           <h1 className="font-bold text-gray-800 text-sm text-center">🌱 21 天刻意練習</h1>
           <p className="text-xs text-gray-400 text-center">每天一個小任務、21 天改變慣性</p>
@@ -1128,9 +1175,11 @@ export default function ChatPage() {
       {/* ── 訊息列表 ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-hide">
 
-        {/* 21天練習訊息 */}
+        {/* 21天練習訊息
+            v1.5.x 7/30（2026-08-22 backport）：showPracticeContent = hasJourney || isViewingHistory
+            完成 21 天的用戶（hasJourney=false）點側板歷史任務的某天時、也要顯示對話而非空狀態 */}
         {activeTab === 'practice' && (
-          hasJourney ? (
+          showPracticeContent ? (
             <>
               {/* v1.3.3d：viewingDay !== null 時顯示歷史 messages、否則顯示當前互動 messages */}
               {(viewingDay !== null ? viewingDayMessages : practiceMessages).map((msg, i) => (
@@ -1153,27 +1202,43 @@ export default function ChatPage() {
               )}
             </>
           ) : (
-            /* v1.3.2b trier-first CTA：沒 journey 時顯示「開始第 1 輪 21 天練習」邀請 */
+            /* v1.3.2b trier-first CTA：沒 active journey 時顯示邀請
+               v1.5.x 7/30（2026-08-22 backport）：區分「從沒開始」vs「上一輪已完成」——
+               對 Angel / Pearl 這種做完 21 天的人說「還沒開始第 1 輪」很怪。
+               順手拿掉裸露的 ** （這裡是 JSX 純文字、不會被 markdown 渲染） */
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 px-4">
               <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center">
-                <span className="text-3xl">🌱</span>
+                <span className="text-3xl">{hasCompletedRound ? '🎉' : '🌱'}</span>
               </div>
-              <h3 className="font-semibold text-gray-700 text-base">還沒開始第 1 輪 21 天練習</h3>
-              <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
-                {/* 這裡是 JSX 純文字，不會被 markdown 渲染 —— 寫 ** 會讓用戶
-                    直接看到兩顆星號（封測回報過，見上方 AI 訊息渲染的註解）。
-                    要強調就用 <strong>。 */}
-                21 天刻意練習是針對<strong className="font-semibold">一段特定關係</strong>（伴侶 / 親子 / 同事⋯）的深度練習。
-                <br />每天一個小任務、慢慢建立新的溝通慣性。
-              </p>
-              <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
-                還在試水溫？也可以先去隔壁「🤝 我卡住了，幫我拆」直接問小羽老師。
-              </p>
+              {hasCompletedRound ? (
+                <>
+                  <h3 className="font-semibold text-gray-700 text-base">上一輪 21 天已完成</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
+                    想再練一輪嗎？可以換一個對象、或針對同一段關係再深一層。
+                    <br />過去的紀錄都在，從左上角選單可以隨時回看。
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="font-semibold text-gray-700 text-base">還沒開始第 1 輪 21 天練習</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
+                    {/* 這裡是 JSX 純文字，不會被 markdown 渲染 —— 寫 ** 會讓用戶
+                        直接看到兩顆星號（封測回報過，見上方 AI 訊息渲染的註解）。
+                        要強調就用 <strong>。（採 Jeff 12f3272 的寫法，
+                        比原 backport 用「」引號更好：真的做到強調） */}
+                    21 天刻意練習是針對<strong className="font-semibold">一段特定關係</strong>（伴侶 / 親子 / 同事⋯）的深度練習。
+                    <br />每天一個小任務、慢慢建立新的溝通慣性。
+                  </p>
+                  <p className="text-xs text-gray-400 leading-relaxed max-w-xs">
+                    還在試水溫？也可以先去隔壁「🤝 我卡住了，幫我拆」直接問小羽老師。
+                  </p>
+                </>
+              )}
               <button
                 onClick={() => router.push('/onboarding/practice')}
                 className="btn-primary px-6 py-2.5 text-sm mt-4"
               >
-                🚀 開始第 1 輪 21 天練習
+                {hasCompletedRound ? '🚀 開始新一輪練習' : '🚀 開始第 1 輪 21 天練習'}
               </button>
             </div>
           )
@@ -1266,11 +1331,30 @@ export default function ChatPage() {
                 📖 正在看{viewingJourneyId && <span className="font-medium">歷史任務的 </span>}
                 Day {viewingDay} 紀錄（唯讀）
               </span>
+              {/* v1.5.x 7/30（2026-08-22 backport）：沒有 active journey 時「回當前 Day」會失效
+                  （switchToDay 守衛擋掉）、改成「離開檢視」直接清狀態回到空狀態 CTA
+                  ⚠️ 2026-08-22 修正判斷依據：原本用 hasJourney，但那個問題答錯了。
+                     看歷史輪次時 /api/day/today?journey_id= 會回傳那一輪，
+                     於是 hasJourney 被翻成 true —— 它回答的是「有沒有旅程資料」，
+                     不是「我是不是在看別輪」。後者要問 viewingJourneyId。
+                     結果是 '離開檢視' 那一支永遠渲染不到（死碼），
+                     而按「回當前 Day」會跳回不存在的當前輪、被丟去諮詢 tab。 */}
               <button
-                onClick={() => switchToDay(today?.day_number ?? 0)}
+                onClick={() => {
+                  // 只有「在自己這一輪裡看過去某天」才叫回當前 Day
+                  if (!viewingJourneyId && hasJourney) {
+                    switchToDay(today?.day_number ?? 0);
+                  } else {
+                    setViewingDay(null);
+                    setViewingDayInfo(null);
+                    setViewingDayMessages([]);
+                    setViewingJourneyId(null);
+                    setViewingJourneyMaxDay(null);
+                  }
+                }}
                 className="text-orange-600 hover:text-orange-800 font-medium ml-2 underline shrink-0"
               >
-                回當前 Day
+                {!viewingJourneyId && hasJourney ? '回當前 Day' : '離開檢視'}
               </button>
             </div>
           )}
@@ -1296,14 +1380,20 @@ export default function ChatPage() {
                   sendPracticeMessage(practiceInput);
                 }
               }}
-              placeholder={viewingDay !== null ? '看歷史紀錄中、不能傳新訊息' : '想對小羽說...'}
-              disabled={viewingDay !== null}
+              placeholder={
+                !hasJourney
+                  ? '點上方「＋」開始新一輪 21 天練習'
+                  : viewingDay !== null
+                    ? '看歷史紀錄中、不能傳新訊息'
+                    : '想對小羽說...'
+              }
+              disabled={viewingDay !== null || !hasJourney}
               className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm resize-none max-h-[120px] overflow-y-auto focus:outline-none focus:ring-2 focus:ring-primary-400 placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
               rows={1}
             />
             <button
               onClick={() => sendPracticeMessage(practiceInput)}
-              disabled={!practiceInput.trim() || practiceStreaming || viewingDay !== null}
+              disabled={!practiceInput.trim() || practiceStreaming || viewingDay !== null || !hasJourney}
               className="text-white w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-pearl-gradient hover:opacity-90 disabled:!bg-gray-200 disabled:!bg-none disabled:text-gray-400 disabled:cursor-not-allowed transition-all"
               title="送出"
               aria-label="送出"
@@ -1313,7 +1403,12 @@ export default function ChatPage() {
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </button>
-            {!completedToday && (
+            {/* 2026-08-22（hasJourney 全站掃描時發現）：唯讀檢視時這兩顆沒被擋。
+                旁邊的輸入框與送出鈕都有 `viewingDay !== null` 守衛，只有這裡漏了。
+                後果：Day 12 進行中的用戶去看 Day 3 的歷史紀錄，「完成」仍然亮著，
+                      按下去完成的是 Day 12 —— 不是他正在看的那天。
+                （v21 同樣沒擋，之後一併回補。）*/}
+            {viewingDay === null && !completedToday && (
               <button
                 onClick={() => setShowCompleteModal(true)}
                 className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity"
@@ -1322,7 +1417,7 @@ export default function ChatPage() {
                 完成
               </button>
             )}
-            {completedToday && (
+            {viewingDay === null && completedToday && (
               <Link href="/progress">
                 <button className="bg-pearl-gradient text-white px-3 h-10 text-xs shrink-0 rounded-xl font-bold hover:opacity-90 transition-opacity">Done</button>
               </Link>
