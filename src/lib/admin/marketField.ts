@@ -17,8 +17,13 @@
  * 因此改用 CSS 變數：admin layout（server component）讀 DB 後把值寫進
  * wrapper 的 style，底下的 client component 直接引用變數。
  * 好處是不經 Tailwind、不必額外打 API、也不會有預設色閃一下才變的問題。
+ *
+ * ⚠️ 這支必須維持「純值」—— 不可以 import 任何碰 DB / server-only 的東西。
+ *    它同時被 client component（admin/users/page.tsx、AppearanceTab.tsx）引用，
+ *    一旦拉進 supabaseAdmin，那條依賴鏈會被打包進 client bundle、
+ *    在瀏覽器 createClient(url, undefined) 直接 throw → 整頁白畫面（2026-08-27 踩過）。
+ *    需要讀 DB 的部分在 marketField.server.ts。
  */
-import { getSystemParams } from '@/lib/admin/systemParams';
 
 /** system_params 的鍵名 */
 export const MARKET_FIELD_BG_KEY = 'admin.market_field_bg';
@@ -44,26 +49,7 @@ export interface MarketFieldColors {
   fg: string;
 }
 
-/**
- * 從 DB 取標示配色（server 端用）。
- *
- * 讀出來的值仍會過一次格式檢查 —— 寫入端雖然擋過，但 DB 也可能被
- * 直接改（Supabase console、SQL），不能假設裡面一定乾淨。
- * 不合法就當作沒設定、用預設值。
- */
-export async function getMarketFieldColors(): Promise<MarketFieldColors> {
-  const params = await getSystemParams([MARKET_FIELD_BG_KEY, MARKET_FIELD_FG_KEY]);
-
-  const pick = (key: string, fallback: string) => {
-    const v = params.get(key);
-    return v && HEX_COLOR_PATTERN.test(v) ? v : fallback;
-  };
-
-  return {
-    bg: pick(MARKET_FIELD_BG_KEY, DEFAULT_MARKET_FIELD_BG),
-    fg: pick(MARKET_FIELD_FG_KEY, DEFAULT_MARKET_FIELD_FG),
-  };
-}
+// 從 DB 讀取的 getMarketFieldColors() 在 marketField.server.ts —— 見檔案開頭的說明。
 
 /**
  * 表頭用的 style。client component 直接用這個，

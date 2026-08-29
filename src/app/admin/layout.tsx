@@ -9,11 +9,8 @@ import { getSession } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import NoAdminAccess from '@/components/admin/NoAdminAccess';
-import {
-  getMarketFieldColors,
-  MARKET_FIELD_BG_VAR,
-  MARKET_FIELD_FG_VAR,
-} from '@/lib/admin/marketField';
+import { MARKET_FIELD_BG_VAR, MARKET_FIELD_FG_VAR } from '@/lib/admin/marketField';
+import { getMarketFieldColors } from '@/lib/admin/marketField.server';
 
 export const metadata = {
   title: '後台管理 | 羽升幸福養成學苑',
