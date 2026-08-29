@@ -16,6 +16,7 @@ const SSO_ERROR_MESSAGES: Record<string, string> = {
   sso_invalid: '登入連結已失效或無法驗證，請從 NUWA 重新進入。',
   sso_wrong_app: '這個登入連結不屬於本 App，請從 NUWA 重新進入。',
   sso_create_failed: '建立帳號時發生問題，請稍後再試或聯繫客服。',
+  sso_suspended: '這個帳號已被停權，如有疑問請聯繫客服。',
 };
 
 export default function LoginPage({

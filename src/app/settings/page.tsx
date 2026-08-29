@@ -161,7 +161,7 @@ export default function SettingsPage() {
 
         {/* 暱稱 */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1">你的暱稱</label>
+          <label className="block text-xs text-gray-500 mb-1">學員暱稱</label>
           <input
             type="text"
             value={name}

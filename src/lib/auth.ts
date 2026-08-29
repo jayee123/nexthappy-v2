@@ -31,12 +31,47 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
   }
 }
 
+/**
+ * 這個 user 是否已被停權。
+ *
+ * ⚠️ 為什麼要在每次取 session 時查一次 DB：
+ *
+ * session 是無狀態 JWT、效期 30 天，簽出去就收不回來。後台按「停權」只是把
+ * `users.suspended_at` 寫進 DB —— 在這個檢查加進來之前，`suspended_at` 全站
+ * 只出現在後台的 UI 與 API，`/sso`、middleware、任何 API 都沒有讀它。
+ * 結果是停權完全沒有作用：管理員看到紅色「已停權」，那個人手上的 cookie
+ * 卻照樣能用到 30 天後，從公版點一次「進入 App」還會拿到新的一張。
+ *
+ * 要讓停權即時生效，只有兩條路：縮短 session 效期，或每次驗證時查一次 DB。
+ * 這裡選後者 —— 多一次 `select suspended_at`，而呼叫端幾乎都本來就要查 DB。
+ *
+ * 查詢失敗時**不**擋人（回 false）：DB 短暫不通不應該讓全站登出。
+ * 停權是管理動作，不是安全邊界的最後一道；真正不可繞過的檢查在 /sso。
+ */
+async function isSuspended(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('suspended_at')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[auth] 查詢停權狀態失敗，本次不擋:', error.message);
+    return false;
+  }
+  return Boolean(data?.suspended_at);
+}
+
 // 從 Cookie 取得當前 session
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifyToken(token);
+
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+  if (await isSuspended(payload.userId)) return null;
+  return payload;
 }
 
 // 從 Request Headers 取得 session（API Routes 用）
@@ -44,7 +79,11 @@ export async function getSessionFromRequest(request: Request): Promise<SessionPa
   const cookieHeader = request.headers.get('cookie') || '';
   const match = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
   if (!match) return null;
-  return verifyToken(match[1]);
+
+  const payload = await verifyToken(match[1]);
+  if (!payload) return null;
+  if (await isSuspended(payload.userId)) return null;
+  return payload;
 }
 
 // 密碼 hash（使用 crypto，不引入 bcrypt 避免 edge runtime 問題）

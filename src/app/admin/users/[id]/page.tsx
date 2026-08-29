@@ -14,6 +14,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import EditUserModal from '@/components/admin/EditUserModal';
+import { MARKET_FIELD_HEADER_STYLE } from '@/lib/admin/marketField';
 
 interface UserDetail {
   id: string;
@@ -26,6 +27,17 @@ interface UserDetail {
   suspended_at: string | null;
   created_at: string;
   updated_at: string;
+  /** 公版 users.id。null = 這筆還沒跟公版綁定 */
+  nuwa_user_id: string | null;
+}
+
+/** 公版來的帳號資料（唯讀）。查不到 / 未綁定為 null */
+interface MarketInfo {
+  id: string;
+  email: string | null;
+  nickname: string | null;
+  phone: string | null;
+  currentPlan: string | null;
 }
 
 interface Journey {
@@ -60,6 +72,7 @@ interface Stats {
 
 interface DetailResponse {
   user: UserDetail;
+  market: MarketInfo | null;
   journeys: Journey[];
   recent_conversations: Conversation[];
   stats: Stats;
@@ -244,7 +257,7 @@ export default function AdminUserDetailPage() {
     );
   }
 
-  const { user, journeys, recent_conversations, stats } = data;
+  const { user, market, journeys, recent_conversations, stats } = data;
   const displayName = user.name || user.email.split('@')[0];
   const isSelf = currentAdminId === user.id; // 是否看自己
 
@@ -320,20 +333,59 @@ export default function AdminUserDetailPage() {
 
         {/* Left: profile + stats */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Profile */}
+          {/* 用戶資料 —— 來源是公版（唯一身分來源），私版唯讀。
+              要改這些欄位得去公版後台，所以整張卡用標示色跟下面那張分開。
+              只標卡片標題，卡內不逐欄標 —— 整張卡同一個來源，逐欄標反而讓人
+              以為沒標的欄位不是公版的。（列表頁需要逐欄標，是因為公私版欄位
+              混在同一列。） */}
           <div className="bg-white border border-gray-200 rounded-lg p-5">
-            <h2 className="text-base font-semibold text-gray-700 mb-3">基本資料</h2>
+            <div className="mb-3 flex items-baseline gap-2">
+              <h2 className="text-base font-semibold rounded px-2 py-0.5" style={MARKET_FIELD_HEADER_STYLE}>
+                用戶資料
+              </h2>
+              <span className="text-xs text-gray-400">公版帳號 · 唯讀</span>
+            </div>
             <dl className="space-y-2.5 text-sm">
               <div>
-                <dt className="text-xs text-gray-400">ID</dt>
-                <dd className="text-gray-600 font-mono text-xs break-all">{user.id}</dd>
+                <dt className="text-xs text-gray-400">NUWA ID</dt>
+                <dd className="text-gray-600 font-mono text-xs break-all">
+                  {user.nuwa_user_id || <span className="text-amber-600 font-sans">尚未綁定公版</span>}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-gray-400">Email</dt>
-                <dd className="text-gray-800">{user.email}</dd>
+                <dd className="text-gray-800">
+                  {market?.email ?? user.email}
+                  {!market?.email && (
+                    <span className="ml-2 text-xs text-amber-600">（公版查無，顯示私版快照）</span>
+                  )}
+                </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-400">Name</dt>
+                <dt className="text-xs text-gray-400">手機</dt>
+                <dd className="text-gray-800">{market?.phone || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-400">用戶名稱</dt>
+                <dd className="text-gray-800">{market?.nickname || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-400">方案</dt>
+                <dd className="text-gray-800">{market?.currentPlan || '—'}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* 學員資料 —— 私版自己的，可寫 */}
+          <div className="bg-white border border-gray-200 rounded-lg p-5">
+            <h2 className="text-base font-semibold text-gray-700 mb-3">學員資料</h2>
+            <dl className="space-y-2.5 text-sm">
+              <div>
+                <dt className="text-xs text-gray-400">學員 ID</dt>
+                <dd className="text-gray-600 font-mono text-xs break-all">{user.id}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-gray-400">學員暱稱</dt>
                 <dd className="text-gray-800">{user.name || '—'}</dd>
               </div>
               <div>

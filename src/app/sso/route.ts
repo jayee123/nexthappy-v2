@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   // 1) 先用 nuwa_user_id 找
   let { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email, name, mbti_self')
+    .select('id, email, name, mbti_self, suspended_at')
     .eq('nuwa_user_id', nuwaUserId)
     .maybeSingle()
 
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
   if (!user && payload.email) {
     const { data: byEmail } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self')
+      .select('id, email, name, mbti_self, suspended_at')
       .eq('email', payload.email)
       .maybeSingle()
     if (byEmail) {
@@ -93,13 +93,26 @@ export async function GET(request: Request) {
         password_hash: randomBytes(32).toString('hex'),
         current_plan: 'trial',
       })
-      .select('id, email, name, mbti_self')
+      .select('id, email, name, mbti_self, suspended_at')
       .single()
     if (error || !created) {
       console.error('[sso] create user failed:', error)
       return loginFail(request, 'create_failed')
     }
     user = created
+  }
+
+  // 停權的人不得再進來。
+  //
+  // 這道檢查是停權的主要防線：私版沒有自己的密碼登入（見 api/auth/login），
+  // /sso 是唯一會發出 session 的地方。少了它，管理員停權之後，那個人只要
+  // 從公版再點一次「進入 App」就會拿到一張全新的 30 天 cookie ——
+  // 後台顯示紅色「已停權」，人卻照樣進得來。
+  //
+  // 公版的對應做法在 api/apps/[slug]/launch（用軟刪除的 deleted_at 擋 SSO）。
+  if ((user as { suspended_at?: string | null }).suspended_at) {
+    console.warn(`[sso] 停權帳號嘗試進入：${user.id}`)
+    return loginFail(request, 'suspended')
   }
 
   // 發 happy_session cookie
