@@ -4,7 +4,9 @@
 //
 // 回傳結構：
 //   {
-//     user: { id, email, name, mbti_self, ..., is_admin, suspended_at },
+//     user: { id, email, name, mbti_self, ..., is_admin, suspended_at, nuwa_user_id },
+//     market: { id, email, nickname, phone, currentPlan } | null,  ← 公版來的帳號資料
+
 //     journeys: [ { id, partner_nickname, current_day, is_active, ... } ],
 //     recent_conversations: [ { id, context_type, day_number, message_count, ... } ],（最近 20 筆）
 //     stats: { total_conversations, total_journeys, first_activity, last_activity }
@@ -16,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { logAdminAction } from '@/lib/admin/auditLog';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getMarketUsers } from '@/lib/market/users';
 import type { ApiResponse } from '@/types';
 
 export async function GET(
@@ -41,7 +44,7 @@ export async function GET(
     // 2. 撈 user 基本資料
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, created_at, updated_at')
+      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, created_at, updated_at, nuwa_user_id')
       .eq('id', userId)
       .maybeSingle();
 
@@ -59,6 +62,17 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // 2-1. 撈公版帳號資料
+    //
+    // 帳號真值在公版：happy.users.email 只是 SSO 當下的快照，公版沒給 email 時
+    // /sso 還會塞 `{nuwa_user_id}@sso.local` 的假值。列表頁（api/admin/users）
+    // 早就這樣做了，詳情頁一直漏掉 —— 導致同一個人在列表看到公版 email、
+    // 點進詳情卻看到私版快照。
+    //
+    // 查不到就回 null，前端 fallback 顯示私版本地值。
+    const marketUsers = await getMarketUsers([user.nuwa_user_id]);
+    const market = user.nuwa_user_id ? marketUsers.get(user.nuwa_user_id) ?? null : null;
 
     // 3. 撈所有 journeys（按建立時間倒序）
     const { data: journeys } = await supabaseAdmin
@@ -107,6 +121,7 @@ export async function GET(
     return NextResponse.json<ApiResponse>({
       data: {
         user,
+        market,
         journeys: journeys || [],
         recent_conversations,
         stats,

@@ -118,7 +118,10 @@ export default function EditUserModal({ user, isSelfAdmin, onClose, onSaved }: P
         <div className="px-5 py-4 space-y-4">
           {/* Email (read-only) */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Email（不可修改）</label>
+            {/* 這是私版本地的 email 快照，跟詳情頁「用戶資料」卡顯示的公版真值
+                可能不一樣（公版改過 email、私版不會跟）。同一個畫面出現兩個值
+                會讓人以為壞掉，所以把來源標出來。 */}
+            <label className="block text-xs text-gray-500 mb-1">Email（私版快照，不可修改）</label>
             <div className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
               {user.email}
             </div>
