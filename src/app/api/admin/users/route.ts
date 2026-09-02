@@ -5,12 +5,15 @@
 // 功能：
 //   - 列出所有 user（cursor-based pagination、預設 50 / page）
 //   - 搜尋 email / name（ilike 模糊比對）
-//   - filter：admin / active（過去 7 天）/ suspended / none
+//   - filter：admin / active（過去 7 天）/ suspended / archived / none
 //   - 聚合：每個 user 的對話數 + 最後活躍時間 + 當前 21 天進度
+//
+// 封存（archived_at）：預設「隱藏」已封存的帳號 —— 封存的用途就是把
+// 試用完沒回來的人收出視野。要看他們用 ?filter=archived。
 //
 // Query params:
 //   ?search=foo
-//   ?filter=admin|active|suspended|none
+//   ?filter=admin|active|suspended|archived|none
 //   ?cursor=2026-05-29T10:00:00.000Z  (上一頁最後一筆的 created_at)
 //   ?limit=50  (max 100)
 //
@@ -43,6 +46,7 @@ interface UserListItem {
   mbti_self: string | null;
   is_admin: boolean;
   suspended_at: string | null;
+  archived_at: string | null;
   created_at: string;
   conversation_count: number;
   last_active: string | null;
@@ -70,7 +74,7 @@ export async function GET(request: NextRequest) {
     // 3. Build base users query
     let query = supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at, created_at, nuwa_user_id')
+      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at, archived_at, created_at, nuwa_user_id')
       .order('created_at', { ascending: false })
       .limit(limit + 1); // 多撈 1 筆判斷 hasMore
 
@@ -88,6 +92,15 @@ export async function GET(request: NextRequest) {
       query = query.not('suspended_at', 'is', null);
     }
     // 'active' filter 需要 conversation 資料、留到 step 7 post-merge 處理
+
+    // 封存：只有 filter=archived 才看得到已封存的帳號，其餘一律隱藏。
+    // 注意是「其餘一律」—— 搜尋、admin / suspended filter 都不豁免，
+    // 封存的人要嘛從 archived 分頁找，要嘛等他自己 SSO 回來（會自動解封存）。
+    if (filter === 'archived') {
+      query = query.not('archived_at', 'is', null);
+    } else {
+      query = query.is('archived_at', null);
+    }
 
     // Cursor pagination
     if (cursor) {
@@ -177,6 +190,7 @@ export async function GET(request: NextRequest) {
         mbti_self: u.mbti_self,
         is_admin: u.is_admin,
         suspended_at: u.suspended_at,
+        archived_at: u.archived_at,
         created_at: u.created_at,
         conversation_count: conv?.count ?? 0,
         last_active: conv?.lastActive ?? null,

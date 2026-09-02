@@ -44,7 +44,7 @@ export async function GET(
     // 2. 撈 user 基本資料
     const { data: user, error: userError } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, created_at, updated_at, nuwa_user_id')
+      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, archived_at, created_at, updated_at, nuwa_user_id')
       .eq('id', userId)
       .maybeSingle();
 
@@ -148,11 +148,17 @@ export async function GET(
 //     mbti_confidence?: 'low' | 'medium' | 'high';
 //     is_admin?: boolean;
 //     suspended_at?: string | null; // ISO timestamp 或 null（解除停權）
+//     archived_at?: string | null;  // ISO timestamp（封存）或 null（解封存）
 //   }
+//
+// 封存 vs 停權（兩者正交、各自獨立設定）：
+//   - suspended_at：處分，擋登入（/sso 擋）
+//   - archived_at：整理視野，不擋登入；用戶走 /sso 回來會「自動」解封存
 //
 // 防自鎖：
 //   - admin 不可降自己 is_admin 為 false
 //   - admin 不可停權自己
+//   （封存不需要防自鎖 —— 不擋登入、可逆、自己 SSO 回來就解）
 //
 // 每次成功更新都寫 audit log（before/after diff）
 // ─────────────────────────────────────────────────
@@ -189,7 +195,7 @@ export async function PATCH(
     // 1. 撈當前 user
     const { data: currentUser, error: fetchError } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at')
+      .select('id, email, name, mbti_self, mbti_confidence, is_admin, suspended_at, archived_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -277,6 +283,23 @@ export async function PATCH(
       }
     }
 
+    if (body.archived_at !== undefined) {
+      // null = 解封存、有值 = 封存。不擋登入所以不需要防自鎖。
+      if (body.archived_at !== null && Number.isNaN(new Date(body.archived_at).getTime())) {
+        return NextResponse.json<ApiResponse>(
+          { data: null, error: 'archived_at 必須是 ISO timestamp 或 null', timestamp: new Date().toISOString() },
+          { status: 400 }
+        );
+      }
+      const newArchived =
+        body.archived_at === null ? null : new Date(body.archived_at).toISOString();
+      if (newArchived !== currentUser.archived_at) {
+        updates.archived_at = newArchived;
+        before.archived_at = currentUser.archived_at;
+        after.archived_at = newArchived;
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json<ApiResponse>(
         { data: null, error: '沒有任何欄位要更新', timestamp: new Date().toISOString() },
@@ -291,7 +314,7 @@ export async function PATCH(
       .from('users')
       .update(updates)
       .eq('id', userId)
-      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, created_at, updated_at')
+      .select('id, email, name, mbti_self, mbti_confidence, mbti_set_at, is_admin, suspended_at, archived_at, created_at, updated_at')
       .single();
 
     if (updateError || !updatedUser) {
@@ -308,6 +331,8 @@ export async function PATCH(
       action = after.is_admin ? 'user.grant_admin' : 'user.revoke_admin';
     } else if ('suspended_at' in after) {
       action = after.suspended_at ? 'user.suspend' : 'user.unsuspend';
+    } else if ('archived_at' in after) {
+      action = after.archived_at ? 'user.archive' : 'user.unarchive';
     } else if ('mbti_self' in after) {
       action = 'user.update_mbti';
     }

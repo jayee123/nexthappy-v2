@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual, randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createToken, COOKIE_NAME } from '@/lib/auth'
+import { logAdminAction } from '@/lib/admin/auditLog'
 
 // Market → App SSO 接收端（token handoff）
 // GET /sso?token=<jwt>
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
   // 1) 先用 nuwa_user_id 找
   let { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, email, name, mbti_self, suspended_at')
+    .select('id, email, name, mbti_self, suspended_at, archived_at')
     .eq('nuwa_user_id', nuwaUserId)
     .maybeSingle()
 
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
   if (!user && payload.email) {
     const { data: byEmail } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, mbti_self, suspended_at')
+      .select('id, email, name, mbti_self, suspended_at, archived_at')
       .eq('email', payload.email)
       .maybeSingle()
     if (byEmail) {
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
         password_hash: randomBytes(32).toString('hex'),
         current_plan: 'trial',
       })
-      .select('id, email, name, mbti_self, suspended_at')
+      .select('id, email, name, mbti_self, suspended_at, archived_at')
       .single()
     if (error || !created) {
       console.error('[sso] create user failed:', error)
@@ -113,6 +114,36 @@ export async function GET(request: Request) {
   if ((user as { suspended_at?: string | null }).suspended_at) {
     console.warn(`[sso] 停權帳號嘗試進入：${user.id}`)
     return loginFail(request, 'suspended')
+  }
+
+  // 封存的人回來就自動解封存。
+  //
+  // 封存（archived_at）不擋登入 —— 它的用途是「試用完沒回來的人佔著後台列表」，
+  // 不是處分；處分用上面的 suspended_at。所以放在停權檢查「之後」：
+  // 被停權的人連登入都進不來，自然也不該被這次嘗試解封存。
+  //
+  // 解封存失敗不擋登入（封存本來就不影響使用），只記 error 讓後台狀態
+  // 頂多慢一次 SSO 才修正。
+  const archivedAt = (user as { archived_at?: string | null }).archived_at
+  if (archivedAt) {
+    const { error: unarchiveError } = await supabaseAdmin
+      .from('users')
+      .update({ archived_at: null, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+    if (unarchiveError) {
+      console.error(`[sso] 自動解封存失敗（不擋登入）：${user.id}`, unarchiveError)
+    } else {
+      // adminUserId=null：系統動作，沒有 admin 行為人
+      await logAdminAction({
+        request,
+        adminUserId: null,
+        action: 'user.sso_auto_unarchive',
+        targetType: 'user',
+        targetId: user.id,
+        before: { archived_at: archivedAt },
+        after: { archived_at: null },
+      })
+    }
   }
 
   // 發 happy_session cookie
