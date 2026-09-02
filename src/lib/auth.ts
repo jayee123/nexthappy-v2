@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from './supabase';
@@ -47,8 +48,14 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
  *
  * 查詢失敗時**不**擋人（回 false）：DB 短暫不通不應該讓全站登出。
  * 停權是管理動作，不是安全邊界的最後一道；真正不可繞過的檢查在 /sso。
+ *
+ * 用 React cache() 包起來，讓同一個請求裡只查一次：
+ * 一個頁面請求會經過 layout → page →（可能還有）內層元件，各自呼叫一次
+ * getSession()，不去重的話同一筆 suspended_at 會被查三次。
+ * cache() 的作用域是單一請求，所以「這個請求進行到一半被停權」不會被看見 ——
+ * 那沒有影響，下一個請求就擋住了。
  */
-async function isSuspended(userId: string): Promise<boolean> {
+const isSuspended = cache(async function isSuspended(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('suspended_at')
@@ -60,7 +67,7 @@ async function isSuspended(userId: string): Promise<boolean> {
     return false;
   }
   return Boolean(data?.suspended_at);
-}
+});
 
 // 從 Cookie 取得當前 session
 export async function getSession(): Promise<SessionPayload | null> {
