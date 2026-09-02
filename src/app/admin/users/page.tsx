@@ -28,6 +28,7 @@ interface UserListItem {
   mbti_self: string | null;
   is_admin: boolean;
   suspended_at: string | null;
+  archived_at: string | null;
   created_at: string;
   conversation_count: number;
   last_active: string | null;
@@ -36,13 +37,17 @@ interface UserListItem {
   journey_round: number | null;
 }
 
-type FilterType = 'none' | 'admin' | 'active' | 'suspended';
+type FilterType = 'none' | 'admin' | 'active' | 'suspended' | 'archived';
 
+// 「已封存」是獨立的一個檢視，不是「全部」的子集 ——
+// 其餘每個 filter（含全部、搜尋）都會把已封存的人隱藏起來，
+// 那正是封存的用途：把試用完沒回來的人收出視野。
 const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: 'none', label: '全部' },
   { value: 'admin', label: '管理員' },
   { value: 'active', label: '7 天活躍' },
   { value: 'suspended', label: '已停權' },
+  { value: 'archived', label: '已封存' },
 ];
 
 function formatDate(iso: string | null): string {
@@ -263,7 +268,9 @@ export default function AdminUsersPage() {
                       {u.journey_current_day !== null ? `Day ${u.journey_current_day} / 21` : '-'}
                     </td>
                     <td className="px-4 py-3">
-                      {u.suspended_at ? (
+                      {u.archived_at ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">已封存</span>
+                      ) : u.suspended_at ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 text-red-700">停權</span>
                       ) : u.is_admin ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-primary-50 text-primary-700">Admin</span>
