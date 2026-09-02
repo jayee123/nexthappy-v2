@@ -349,15 +349,28 @@ export async function POST(request: NextRequest) {
             savedConvId = newConv?.id || null;
           }
 
-          // ── Auto-title for 新主題（v1.3.3b）──
-          // 只在新主題創建後 trigger、用 user 第一句訊息生成 5-15 字標題
-          if (savedConvId && isNewTopic) {
+          // ── Auto-title（v1.3.3b；重試機制見下）──
+          //
+          // 原本只在「新主題」時 trigger 一次，用 user 第一句訊息下標。
+          // 問題是第一句常常是「你好」這種沒有內容的開場 —— 模型下不出標題，
+          // 而標題只有那一次機會，之後使用者講了真正的問題也不會再更新。
+          // （正式站上就出現過主題叫「無法判斷諮詢主題」—— 那是模型的解釋文字
+          //   被當成標題寫進去了。）
+          //
+          // 改成：新主題、或既有主題還沒有標題時，都用「這一句」再試一次。
+          // convRecord 本來就 select 了 topic_title，不需要額外查詢。
+          const needsTitle = isNewTopic || !convRecord?.topic_title;
+          if (savedConvId && needsTitle) {
             try {
               const title = await generateTopicTitle(message);
-              await supabaseAdmin
-                .from('conversations')
-                .update({ topic_title: title })
-                .eq('id', savedConvId);
+              // null = 這句沒東西可下標。維持 topic_title = NULL，
+              // 前端 fallback 顯示「新主題」，下一句還會再試。
+              if (title) {
+                await supabaseAdmin
+                  .from('conversations')
+                  .update({ topic_title: title })
+                  .eq('id', savedConvId);
+              }
             } catch (titleErr) {
               console.error('[consultant/autoTitle]', titleErr);
               // 失敗不影響主流程、保持 topic_title=NULL（前端顯示「新主題」fallback）
