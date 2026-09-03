@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { looksLikeRefusal } from '../autoTitle';
+import { looksLikeRefusal, hasSimplifiedChars } from '../autoTitle';
 
 // 這支的風險是**不對稱**的：
 //   漏抓一句模型的廢話 → 下一則訊息還會再試，影響很小
@@ -50,5 +50,51 @@ describe('looksLikeRefusal — 合法的諮詢主題標題（誤殺代價最高�
     '開刀後不聽勸、到處跑',
   ])('放行：%s', (text) => {
     expect(looksLikeRefusal(text)).toBe(false);
+  });
+});
+
+// ── 繁體檢查 ────────────────────────────────────────────
+//
+// 正式站出現過「术后不听医嘱、丈夫四处奔波、妻子无法劝阻」——
+// 使用者輸入的原文全是繁體，是模型自己轉成簡體的。
+// autoTitle 的 prompt 原本只寫「中文字」，沒有像 buildContext 那樣寫明「繁體中文」。
+//
+// 偵測只用來決定「要不要重試」，不做轉換。誤判成簡體的代價是多一次 Haiku 呼叫；
+// 漏判的代價是簡體字寫進 DB、使用者直接看到 —— 所以寧可寬一點。
+
+describe('hasSimplifiedChars — 該抓到的簡體', () => {
+  test.each([
+    '术后不听医嘱、丈夫四处奔波、妻子无法劝阻',
+    '儿子玩手机、成绩下滑',
+    '老婆冷战、不肯讲话',
+    '无法沟通',
+    '妈妈总是干涉',
+  ])('抓到：%s', (text) => {
+    expect(hasSimplifiedChars(text)).toBe(true);
+  });
+});
+
+describe('hasSimplifiedChars — 繁體標題不可誤判', () => {
+  test.each([
+    '術後不聽醫囑、丈夫四處奔波、妻子無法勸阻',
+    '兒子玩手機、成績下滑',
+    '老婆冷戰、不肯講話',
+    '無法跟婆婆溝通',
+    '開刀後不聽勸、到處跑',
+    '主管不信任、micromanage',
+    '媽媽總是干涉',
+    '他從不說對不起',
+    // ── 兩邊都合法的字，不可以被當成簡體 ──
+    // 這幾個是第一版真的誤收、被這支測試抓出來的（里 谷 斗 划 淀）。
+    // 判準：這個字在繁體文章裡會不會單獨出現？會的話就不能進字元集。
+    '皇后的心事',
+    '鄰里關係緊張',
+    '公里數算不清',
+    '山谷裡的回音',
+    '划船時吵起來',
+    '一斗米的爭執',
+    '沉淀一下再談',
+  ])('放行：%s', (text) => {
+    expect(hasSimplifiedChars(text)).toBe(false);
   });
 });
