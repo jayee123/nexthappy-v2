@@ -22,9 +22,10 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   // 1. 檢查登入
+  // 管理者走獨立登入頁（/admin-login），不經過 NUWA SSO 那套一般會員流程
   const session = await getSession();
   if (!session) {
-    redirect('/auth/login?from=/admin');
+    redirect('/admin-login');
   }
 
   // 2. 查 is_admin

@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   '/sso', // Market → App SSO 接收端（未登入時帶 token 進來）
   '/welcome',
   '/images',
+  '/admin-login', // 管理者獨立登入頁，不經過 NUWA、未登入時必須進得去
 ];
 
 export function middleware(request: NextRequest) {
