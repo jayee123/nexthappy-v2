@@ -1,6 +1,6 @@
 // 放置路徑：src/lib/ai/autoTitle.ts
 // v1.3.3a 新增：諮詢主題 auto-titling
-// 用 Claude Haiku 4.5（fast + cheap）從 user 第一句訊息生成 5-15 字主題標題
+// 用 GPT-4o mini（fast + cheap）從 user 第一句訊息生成 5-15 字主題標題
 //
 // 對應：Migration 006 conversations.topic_title 欄位
 //       docs/architecture-phase-2-proposal.md §3.4 auto-titling 機制
@@ -10,11 +10,7 @@
 //   const title = await generateTopicTitle(userFirstMessage);
 //   // → e.g. "兒子玩手機、成績掉、絕食"
 
-import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { callOpenAIChat } from '@/lib/ai/openai';
 
 const FALLBACK_TITLE = '新主題';
 const MAX_TITLE_LENGTH = 20;
@@ -38,9 +34,9 @@ export async function generateTopicTitle(userMessage: string): Promise<string> {
   if (!trimmed) return FALLBACK_TITLE;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 30,
+    const text = await callOpenAIChat({
+      model: 'gpt-4o-mini',
+      maxTokens: 30,
       messages: [
         {
           role: 'user',
@@ -62,11 +58,10 @@ ${trimmed}
       ],
     });
 
-    const block = response.content[0];
-    if (!block || block.type !== 'text') return FALLBACK_TITLE;
+    if (!text) return FALLBACK_TITLE;
 
     // 清理：去引號、去換行、去前後空白、限制長度
-    let title = block.text.trim()
+    let title = text.trim()
       .replace(/^["「『'`]+|["」』'`]+$/g, '')
       .replace(/[\n\r]+/g, ' ')
       .replace(/^標題[：:\s]*/, '') // 去掉模型可能殘留的「標題：」前綴

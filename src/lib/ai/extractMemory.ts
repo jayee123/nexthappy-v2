@@ -1,10 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callOpenAIChat } from '@/lib/ai/openai';
 import { supabaseAdmin } from '../supabase';
 import type { ChatMessage } from '@/types';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 interface DailyMemoryExtract {
   emotion_note: string;
@@ -21,9 +17,10 @@ export async function extractDailyMemory(
   conversation: ChatMessage[]
 ): Promise<void> {
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 500,
+    const text = await callOpenAIChat({
+      model: 'gpt-4o',
+      maxTokens: 500,
+      jsonMode: true,
       system: `請從以下對話中萃取重點，以 JSON 格式回覆，不要有其他文字：
 {
   "emotion_note": "一句話描述今天學員的情緒狀態（例：今天情緒偏積極，有嘗試新方法）",
@@ -39,8 +36,6 @@ export async function extractDailyMemory(
         },
       ],
     });
-
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
 
     let memory: DailyMemoryExtract;
     try {

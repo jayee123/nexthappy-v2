@@ -21,7 +21,7 @@
 | **AI 教練名稱** | **小羽老師**（2026-06-14 拍板「小羽」→ 2026-07-08 Pearl Cover 定稿補「老師」尾綴、對外統一為「小羽老師」）— 對外用戶介面、所有 UI 文案、行銷素材**統一**用「小羽老師」；不再用「Angel」「Angel 老師」等其他名稱。內部技術文件（spec / code comment / Claude 助理協作）沿用「小羽」（不加老師、簡潔內部代號） |
 | 商業模式 | 訂閱制（trial / basic / advanced / premium）+ 邀請碼制 onboarding |
 | 當前狀態 | Phase 1A（訂閱系統）已完成、Phase 1B（紅陽金流串接）2026-06-12 交接 Jeff |
-| 技術棧 | Next.js 14 + Supabase + Anthropic Claude（文字）+ OpenAI Realtime（語音、未上線） |
+| 技術棧 | Next.js 14 + Supabase + OpenAI（文字 GPT-4o + Realtime 語音、未上線） |
 | Repo | https://github.com/SteveWeng1108/happy-relationship-app（branch: `main`） |
 | 部署 | Vercel（Production: `happy-nuwa-app-v3.vercel.app`） |
 | Spec 版本 | v1.4.x（記錄在 `docs/v2.1-course-spec.md`） |
@@ -50,7 +50,7 @@ Next.js 14.2.29 (App Router + TypeScript)
 React 18
 Tailwind CSS（**無**其他 UI library、請勿擅自加）
 Supabase (PostgreSQL + Auth + JSONB)
-@anthropic-ai/sdk ^0.39.0     ← 文字模式 AI
+OpenAI（fetch 直打 REST API、見 src/lib/ai/openai.ts）  ← 文字 + 語音模式 AI
 @supabase/supabase-js ^2.49.4
 jose ^5.10.0                  ← JWT 處理
 framer-motion ^12             ← 動畫
@@ -59,7 +59,7 @@ lucide-react                  ← icon
 ```
 
 **外部服務**：
-- **Anthropic Claude**（已用、付費）— 文字模式 AI Tutor
+- **OpenAI**（已用、付費）— 文字模式 AI Tutor（`gpt-4o`，見 src/lib/ai/openai.ts）
 - **OpenAI Realtime API**（已連、按鈕隱藏中）— 未來語音模式、model 用 `gpt-realtime`
 - **紅陽金流**（Phase 1B 待串）— PCI-DSS 規範、卡號永遠不入庫
 - **Vercel**（部署）
@@ -489,12 +489,6 @@ vercel --prod
 curl -s https://api.openai.com/v1/models \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   | grep '"id"' | head -5
-
-# 測 Anthropic key 是否 valid
-curl -s https://api.anthropic.com/v1/models \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  | head -20
 ```
 
 ### 9.4 Supabase

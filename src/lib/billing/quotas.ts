@@ -17,7 +17,7 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { getMarketPlan } from '@/lib/market/plan';
 import { reportUsageToMarket } from '@/lib/market/usage';
-import { PLANS, type PlanTier, estimateClaudeCallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
+import { PLANS, type PlanTier, estimateOpenAICallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
 
 // ============================================================
 // Env var：是否啟用額度檢查
@@ -241,7 +241,7 @@ export interface RecordUsageParams {
  */
 export async function recordUsage(params: RecordUsageParams): Promise<void> {
   const { userId, conversationId, contextType, model, inputTokens, outputTokens } = params;
-  const costTwd = estimateClaudeCallCostTwd(inputTokens, outputTokens);
+  const costTwd = estimateOpenAICallCostTwd(inputTokens, outputTokens);
   const periodStart = getCurrentPeriodStart();
 
   // 1. 寫精準 log

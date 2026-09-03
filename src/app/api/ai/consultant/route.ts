@@ -18,7 +18,7 @@
 //   docs/architecture-phase-2-proposal.md §3
 
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { streamOpenAIChat } from '@/lib/ai/openai';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getSessionFromRequest } from '@/lib/auth';
 import {
@@ -30,13 +30,9 @@ import {
 } from '@/lib/ai/buildContext';
 import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
 
-const MODEL_NAME = 'claude-sonnet-4-5';
+const MODEL_NAME = 'gpt-4o';
 import { generateTopicTitle } from '@/lib/ai/autoTitle';
 import type { ChatMessage } from '@/types';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; date: string }>();
@@ -283,31 +279,32 @@ export async function POST(request: NextRequest) {
       systemPrompt = buildConsultantPromptLite(liteContext, declaredMbtis, modeBEngagementCount);
     }
 
-    // 呼叫 Claude API（Streaming）
-    const anthropicMessages = messages.slice(-30).map(m => ({
+    // 呼叫 OpenAI API（Streaming）
+    const openaiMessages = messages.slice(-30).map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
 
-    const stream = await anthropic.messages.stream({
+    const stream = streamOpenAIChat({
       model: MODEL_NAME,
-      max_tokens: 2500,
       system: systemPrompt,
-      messages: anthropicMessages,
+      messages: openaiMessages,
+      maxTokens: 2500,
     });
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
         let fullResponse = '';
+        let usage: { inputTokens: number; outputTokens: number } | null = null;
 
         try {
           for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-              const text = chunk.delta.text;
-              fullResponse += text;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+            if (chunk.text) {
+              fullResponse += chunk.text;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.text })}\n\n`));
             }
+            if (chunk.usage) usage = chunk.usage;
           }
 
           messages.push({
@@ -373,16 +370,13 @@ export async function POST(request: NextRequest) {
 
           // Phase 1A：精準 token usage tracking（fail-soft）
           try {
-            const finalMsg = await stream.finalMessage();
-            const inputTokens = finalMsg.usage?.input_tokens ?? 0;
-            const outputTokens = finalMsg.usage?.output_tokens ?? 0;
             recordUsage({
               userId: session.userId,
               conversationId: savedConvId,
               contextType: 'consultant',
               model: MODEL_NAME,
-              inputTokens,
-              outputTokens,
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
             }).catch(err => console.error('[ai/consultant] recordUsage failed:', err));
           } catch (err) {
             console.error('[ai/consultant] usage tracking failed:', err);

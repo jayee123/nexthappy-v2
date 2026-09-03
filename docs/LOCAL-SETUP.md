@@ -13,7 +13,7 @@
 |---|---|
 | Node.js | 專案使用的版本見 `package.json` |
 | 一個 Supabase project | **用你自己的**，不要連公司正式站 |
-| Anthropic API key | 你自己的（按用量計費） |
+| OpenAI API key | 你自己的（按用量計費，文字對話 + 語音都靠這把） |
 | Docker（選用） | 只有要跑本機 Postgres 才需要 |
 
 ---
@@ -254,4 +254,4 @@ cd nexthappy && PORT=3001 npm run dev
 | 查詢回 `permission denied for schema happy` | 1-2 的 GRANT 沒跑 |
 | 查詢不報錯但一律回空陣列 | 陷阱 3：建表時讓 Supabase 自動開了 RLS |
 | 登出按鈕沒反應 | `NEXT_PUBLIC_MARKET_BASE_URL` 少了 `NEXT_PUBLIC_` 前綴 |
-| `/chat` 沒有回應 | `ANTHROPIC_API_KEY` 未設定或額度用盡 |
+| `/chat` 沒有回應 | `OPENAI_API_KEY` 未設定或額度用盡 |

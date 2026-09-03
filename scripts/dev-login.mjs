@@ -21,7 +21,9 @@
 import { createHmac } from 'crypto';
 import { readFileSync } from 'fs';
 
-const TOKEN_TTL_SECONDS = 120; // 與公版 launch route 一致
+// 本機開發用途，故意拉長（原本 120 秒對照正式站 SSO 交接窗口，但這裡只有你自己會用這把
+// SSO_SECRET，不存在被攔截重放的風險）：連結給 10 年，開發期間不用一直重簽。
+const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 365 * 10;
 
 // --- 讀 .env.local（不覆蓋已存在的環境變數）---
 try {

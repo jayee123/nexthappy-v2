@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { streamOpenAIChat } from '@/lib/ai/openai';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getSessionFromRequest } from '@/lib/auth';
 import { buildContextData, buildSystemPrompt } from '@/lib/ai/buildContext';
@@ -7,11 +7,7 @@ import { addPoints, POINT_RULES } from '@/lib/points';
 import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
 import type { ChatMessage, ContextType } from '@/types';
 
-const MODEL_NAME = 'claude-sonnet-4-5';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const MODEL_NAME = 'gpt-4o';
 
 // Rate limiting: 每用戶每天最多 50 次呼叫（簡易實作）
 const rateLimitMap = new Map<string, { count: number; date: string }>();
@@ -104,17 +100,17 @@ export async function POST(request: NextRequest) {
     }
     const systemPrompt = buildSystemPrompt(contextData);
 
-    // 呼叫 Claude API（Streaming）
-    const anthropicMessages = messages.slice(-20).map(m => ({
+    // 呼叫 OpenAI API（Streaming）
+    const openaiMessages = messages.slice(-20).map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
 
-    const stream = await anthropic.messages.stream({
+    const stream = streamOpenAIChat({
       model: MODEL_NAME,
-      max_tokens: 1500,
       system: systemPrompt,
-      messages: anthropicMessages,
+      messages: openaiMessages,
+      maxTokens: 1500,
     });
 
     // 建立 SSE 回應
@@ -122,14 +118,15 @@ export async function POST(request: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         let fullResponse = '';
+        let usage: { inputTokens: number; outputTokens: number } | null = null;
 
         try {
           for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-              const text = chunk.delta.text;
-              fullResponse += text;
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+            if (chunk.text) {
+              fullResponse += chunk.text;
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.text })}\n\n`));
             }
+            if (chunk.usage) usage = chunk.usage;
           }
 
           // 儲存完整對話
@@ -170,19 +167,15 @@ export async function POST(request: NextRequest) {
           // 加入 AI 諮詢積分
           await addPoints(journey.id, POINT_RULES.AI_CONSULT);
 
-          // Phase 1A：精準 token usage tracking
+          // Phase 1A：精準 token usage tracking（fail-soft）
           try {
-            const finalMsg = await stream.finalMessage();
-            const inputTokens = finalMsg.usage?.input_tokens ?? 0;
-            const outputTokens = finalMsg.usage?.output_tokens ?? 0;
-            // recordUsage fail-soft（不阻塞、log 失敗）
             recordUsage({
               userId: session.userId,
               conversationId: convRecord?.id ?? null,
               contextType: context_type,
               model: MODEL_NAME,
-              inputTokens,
-              outputTokens,
+              inputTokens: usage?.inputTokens ?? 0,
+              outputTokens: usage?.outputTokens ?? 0,
             }).catch(err => console.error('[ai/chat] recordUsage failed:', err));
           } catch (err) {
             console.error('[ai/chat] usage tracking failed:', err);

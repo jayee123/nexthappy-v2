@@ -10,7 +10,7 @@
 // 額度單位：「對話次數」（user 一輪 + AI 一輪 = 1 則）
 // 訂價：TWD / 月（內部 billing 計算用、user 介面顯示時格式化）
 //
-// Token cost rate（Claude Sonnet 4.5、2025 年定價）給 admin / billing reconciliation 用
+// Token cost rate（OpenAI GPT-4o、2025 年定價）給 admin / billing reconciliation 用
 // USD → TWD 用 ~30 估算（admin 後台可調整）
 
 export type PlanTier = 'trial' | 'basic' | 'advanced' | 'premium' | 'cancelled';
@@ -114,10 +114,10 @@ export const PURCHASABLE_PLANS: PlanTier[] = ['basic', 'advanced', 'premium'];
 // Token 成本估算（admin / billing reconciliation 用）
 // ============================================================
 
-/** Claude Sonnet 4.5 定價（USD per million tokens、2025）*/
-export const CLAUDE_SONNET_45_USD_PER_MTOK = {
-  input: 3.0,
-  output: 15.0,
+/** OpenAI GPT-4o 定價（USD per million tokens、2025）*/
+export const GPT4O_USD_PER_MTOK = {
+  input: 2.5,
+  output: 10.0,
 };
 
 /** USD → TWD 估算匯率（admin 可調、保守取 30）*/
@@ -125,12 +125,12 @@ export const USD_TO_TWD = 30;
 
 /**
  * 估算單次 AI 呼叫的 TWD 成本
- * @param input_tokens Anthropic response.usage.input_tokens
- * @param output_tokens Anthropic response.usage.output_tokens
+ * @param input_tokens OpenAI usage.prompt_tokens
+ * @param output_tokens OpenAI usage.completion_tokens
  */
-export function estimateClaudeCallCostTwd(input_tokens: number, output_tokens: number): number {
-  const input_usd = (input_tokens / 1_000_000) * CLAUDE_SONNET_45_USD_PER_MTOK.input;
-  const output_usd = (output_tokens / 1_000_000) * CLAUDE_SONNET_45_USD_PER_MTOK.output;
+export function estimateOpenAICallCostTwd(input_tokens: number, output_tokens: number): number {
+  const input_usd = (input_tokens / 1_000_000) * GPT4O_USD_PER_MTOK.input;
+  const output_usd = (output_tokens / 1_000_000) * GPT4O_USD_PER_MTOK.output;
   return (input_usd + output_usd) * USD_TO_TWD;
 }
 
