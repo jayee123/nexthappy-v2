@@ -273,21 +273,21 @@ export default function WelcomeCarousel({
 
             <H2>＊三種正式方案</H2>
             <PlanCard
-              name="🌱 Basic 啟動｜NT$299 / 月"
+              name="🌱 基本 啟動｜NT$299 / 月"
               meta="給「剛開始接觸的你」｜80 則對話"
             />
             <PlanCard
-              name="🌿 Advanced 深化｜NT$699 / 月"
+              name="🌿 進階 深化｜NT$699 / 月"
               meta="給「想穩穩練的你」｜200 則對話"
             />
             <PlanCard
-              name="🌳 Premium 整合｜NT$1,888 / 月"
+              name="🌳 旗艦 整合｜NT$1,888 / 月"
               meta="給「想真正用在人生裡的你」｜500 則對話"
             />
 
             <H2>＊免費試用</H2>
             <p>
-              🎁 首次註冊送 <Accent>7 天 Premium 體驗</Accent>
+              🎁 首次註冊送 <Accent>7 天旗艦方案體驗</Accent>
               <br />
               最多 100 則對話、體驗完再決定。
             </p>
@@ -337,7 +337,7 @@ export default function WelcomeCarousel({
               ]}
             />
             <p className="mt-2 text-center font-bold text-orange-700">
-              → 立刻獲得 7 天 Premium 免費體驗 🎁
+              → 立刻獲得 7 天旗艦方案免費體驗 🎁
             </p>
 
             <H2>＊有問題？</H2>

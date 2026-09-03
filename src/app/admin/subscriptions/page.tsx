@@ -11,6 +11,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import { planLabel } from '@/lib/plans';
 
 type PlanTier = 'trial' | 'basic' | 'advanced' | 'premium' | 'cancelled';
 
@@ -50,13 +51,24 @@ interface SubscriptionItem {
   }[];
 }
 
-const PLAN_META: Record<PlanTier, { label: string; cls: string }> = {
-  trial: { label: '試用', cls: 'bg-green-50 text-green-700 border-green-200' },
-  basic: { label: 'Basic', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  advanced: { label: 'Advanced', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
-  premium: { label: 'Premium', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-  cancelled: { label: '已取消', cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+// 只留配色，文字一律取自 lib/plans 的 PLAN_LABEL ——
+// 原本是半中半英（試用 / Basic / Advanced / Premium / 已取消），
+// 同一個下拉裡兩種語言混著。
+const PLAN_CLS: Record<PlanTier, string> = {
+  trial: 'bg-green-50 text-green-700 border-green-200',
+  basic: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  advanced: 'bg-orange-50 text-orange-700 border-orange-200',
+  premium: 'bg-purple-50 text-purple-700 border-purple-200',
+  cancelled: 'bg-gray-100 text-gray-600 border-gray-200',
 };
+
+const PLAN_META: Record<PlanTier, { label: string; cls: string }> = Object.fromEntries(
+  (Object.keys(PLAN_CLS) as PlanTier[]).map((t) => [t, { label: planLabel(t), cls: PLAN_CLS[t] }]),
+) as Record<PlanTier, { label: string; cls: string }>;
+
+// 下拉選單的順序 = PLAN_CLS 的宣告順序，文字同樣走 PLAN_META，
+// 不要再手寫 <option>，否則又會回到半中半英。
+const PLAN_TIERS = Object.keys(PLAN_CLS) as PlanTier[];
 
 function formatTime(iso: string | null): string {
   if (!iso) return '—';
@@ -184,11 +196,9 @@ export default function AdminSubscriptionsPage() {
             className="text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-400"
           >
             <option value="">全部</option>
-            <option value="trial">試用</option>
-            <option value="basic">Basic</option>
-            <option value="advanced">Advanced</option>
-            <option value="premium">Premium</option>
-            <option value="cancelled">已取消</option>
+            {PLAN_TIERS.map((t) => (
+              <option key={t} value={t}>{PLAN_META[t].label}</option>
+            ))}
           </select>
         </div>
         <div className="flex-1 min-w-[200px]">
@@ -293,11 +303,9 @@ export default function AdminSubscriptionsPage() {
                             disabled={updating === s.user_id}
                             className="text-xs px-1.5 py-0.5 border border-gray-200 rounded bg-white"
                           >
-                            <option value="trial">試用</option>
-                            <option value="basic">Basic</option>
-                            <option value="advanced">Advanced</option>
-                            <option value="premium">Premium</option>
-                            <option value="cancelled">取消</option>
+                            {PLAN_TIERS.map((t) => (
+                              <option key={t} value={t}>{PLAN_META[t].label}</option>
+                            ))}
                           </select>
                           {!s.trial_started_at && s.current_plan !== 'cancelled' && (
                             <button
