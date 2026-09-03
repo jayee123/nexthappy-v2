@@ -2,7 +2,7 @@
 //
 // 後台 sidebar 導航元件、用於 /admin/layout.tsx
 //
-// 7 個 nav links：Dashboard / 用戶 / Journey / 對話 / 主題 / 課程 / 系統設定
+// 8 個 nav links：Dashboard / 用戶 / Journey / 對話 / 主題 / 課程 / 未來規劃 / 系統設定
 // 自動 highlight 當前 active 頁、含 footer 顯示 admin email + 登出
 
 'use client';
@@ -27,6 +27,7 @@ const NAV = [
   { href: '/admin/subscriptions', icon: '💳', label: '訂閱管理' },
   { href: '/admin/usage', icon: '📈', label: '用量 / 成本' },
   { href: '/admin/spec', icon: '📜', label: '規格文件' },
+  { href: '/admin/roadmap', icon: '🗓', label: '未來規劃' },
   { href: '/admin/prompts', icon: '🤖', label: 'AI Prompt 程式碼' },
   { href: '/admin/settings', icon: '⚙️', label: '系統設定' },
 ];

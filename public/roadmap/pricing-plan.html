@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>差異化定價與調價機制提案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f3f1ec; --surface:#ffffff; --surface-2:#faf8f3;
+    --ink:#221f1a; --muted:#6c6558; --faint:#948c7a;
+    --line:rgba(34,31,26,.12); --line-strong:rgba(34,31,26,.22);
+    --gold:#a8781f; --gold-ink:#7a5714; --gold-soft:#f6ecd6; --gold-line:rgba(168,120,31,.38);
+    --nuwa:#8b6483; --nuwa-ink:#5c4056; --nuwa-soft:#f1e9ef; --nuwa-line:rgba(139,100,131,.35);
+    --happy:#c9642f; --happy-ink:#8a4116; --happy-soft:#fbeee5; --happy-line:rgba(201,100,47,.35);
+    --ok:#2f7a52; --ok-soft:#e6f4ec; --ok-line:rgba(47,122,82,.35);
+    --shadow: 0 1px 2px rgba(34,31,26,.05), 0 8px 24px -12px rgba(34,31,26,.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#191712; --surface:#221f1a; --surface-2:#28251e;
+      --ink:#f0ece2; --muted:#b0a894; --faint:#8a8270;
+      --line:rgba(240,236,226,.13); --line-strong:rgba(240,236,226,.24);
+      --gold:#e6b654; --gold-ink:#ffdf9e; --gold-soft:#382d19; --gold-line:rgba(230,182,84,.4);
+      --nuwa:#cba6c3; --nuwa-ink:#eddaea; --nuwa-soft:#332a34; --nuwa-line:rgba(203,166,195,.35);
+      --happy:#ee9a64; --happy-ink:#ffdcc0; --happy-soft:#3a2a20; --happy-line:rgba(238,154,100,.4);
+      --ok:#7ecba3; --ok-soft:#1f332a; --ok-line:rgba(126,203,163,.4);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans','Noto Sans TC',system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces','Noto Serif TC',serif;font-weight:600;text-wrap:balance;color:var(--ink);margin:0;}
+  code,.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;}
+  a{color:inherit;}
+
+  .topnav{position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .topnav-inner{max-width:1120px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:22px;overflow-x:auto;}
+  .topnav .brand{font-family:'Fraunces',serif;font-weight:600;font-size:14.5px;white-space:nowrap;flex-shrink:0;}
+  .topnav nav{display:flex;gap:2px;}
+  .topnav nav a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:7px 11px;border-radius:7px;white-space:nowrap;}
+  .topnav nav a:hover{background:var(--surface-2);color:var(--ink);}
+
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+  .wrap-wide{max-width:1120px;margin:0 auto;padding:0 24px;}
+
+  .hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);}
+  .hero h1{font-size:clamp(26px,4vw,36px);line-height:1.2;max-width:22ch;}
+  .hero .lede{margin-top:16px;font-size:16.5px;line-height:1.65;color:var(--muted);max-width:66ch;}
+  .hero .lede b{color:var(--ink);font-weight:600;}
+
+  section{padding:52px 0;border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--faint);font-weight:500;}
+  section h2{font-size:clamp(20px,2.4vw,25px);}
+  .sec-dek{color:var(--muted);font-size:14.5px;max-width:66ch;margin-top:10px;line-height:1.65;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+  .chip.nuwa{background:var(--nuwa-soft);color:var(--nuwa-ink);}
+  .chip.happy{background:var(--happy-soft);color:var(--happy-ink);}
+  .chip.gold{background:var(--gold-soft);color:var(--gold-ink);}
+  .chip.ok{background:var(--ok-soft);color:var(--ok);}
+
+  /* ── decision card (Q1) ───────────────────────── */
+  .verdict{border:1px solid var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);border-radius:16px;padding:24px 26px;background:var(--surface);margin-top:26px;}
+  .verdict-tag{display:inline-flex;align-items:center;gap:6px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:14px;}
+  .verdict h3{font-size:16px;margin-bottom:10px;}
+  .verdict-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:16px;}
+  @media (max-width:640px){.verdict-grid{grid-template-columns:1fr;}}
+  .verdict-opt{background:var(--surface-2);padding:16px 18px;}
+  .verdict-opt.chosen{background:var(--ok-soft);}
+  .verdict-opt .lbl{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .verdict-opt.chosen .lbl{color:var(--ok);}
+  .verdict-opt p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.6;}
+
+  /* ── pricing dimension cards ───────────────────────── */
+  .dim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px;}
+  @media (max-width:860px){.dim-grid{grid-template-columns:1fr;}}
+  .dim-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:10px;}
+  .dim-card .num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold-ink);font-weight:700;}
+  .dim-card h3{font-size:15.5px;}
+  .dim-card .eg{font-size:12px;color:var(--muted);line-height:1.6;background:var(--surface-2);border-radius:8px;padding:9px 11px;margin-top:2px;}
+  .dim-card .eg b{color:var(--ink);}
+
+  /* ── figures ───────────────────────── */
+  figure{margin:34px 0 0;}
+  .figure-wide{max-width:1120px;margin-left:auto;margin-right:auto;}
+  .diagram-frame{border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:26px clamp(12px,4vw,30px);overflow-x:auto;box-shadow:var(--shadow);}
+  .diagram-frame svg{display:block;margin:0 auto;max-width:100%;height:auto;color:var(--ink);}
+  figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;}
+  figcaption b{color:var(--ink);font-weight:600;}
+
+  /* ── adjustment mode cards ───────────────────────── */
+  .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px;}
+  @media (max-width:700px){.mode-grid{grid-template-columns:1fr;}}
+  .mode-card{border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:var(--surface);}
+  .mode-card h4{font-size:14px;margin-bottom:8px;}
+  .mode-card p{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0;}
+
+  /* ── interactive simulator ───────────────────────── */
+  .sim-frame{border:1px solid var(--line-strong);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-top:28px;}
+  .sim-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:var(--surface-2);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .sim-topbar .t{font-size:12.5px;color:var(--muted);}
+  .sim-reset{font-size:11.5px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);border-radius:7px;padding:5px 11px;cursor:pointer;}
+  .sim-reset:hover{color:var(--ink);border-color:var(--line-strong);}
+  .sim-body{display:grid;grid-template-columns:280px 1fr;}
+  @media (max-width:760px){.sim-body{grid-template-columns:1fr;}}
+  .sim-fields{border-right:1px solid var(--line);padding:18px;background:var(--surface-2);}
+  @media (max-width:760px){.sim-fields{border-right:none;border-bottom:1px solid var(--line);}}
+  .field-group{margin-bottom:18px;}
+  .field-group:last-child{margin-bottom:0;}
+  .field-group h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;margin-bottom:8px;}
+  .field-group label{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;color:var(--ink);padding:5px 0;cursor:pointer;line-height:1.4;}
+  .field-group input[type="checkbox"]{margin-top:2px;accent-color:var(--gold);width:14px;height:14px;flex-shrink:0;}
+  .sim-preview{padding:20px 22px;min-height:380px;}
+  .sim-preview .ph{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;}
+  #previewRows{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .prow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);padding:9px 13px;font-size:12.5px;}
+  .prow .rl{color:var(--ink);}
+  .prow .rl .grp{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-right:6px;}
+  .prow .rv{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11.5px;flex-shrink:0;}
+  .sim-empty{padding:26px;text-align:center;font-size:12.5px;color:var(--faint);border:1px dashed var(--line);border-radius:10px;}
+  .formula{margin-top:16px;padding:14px 16px;border-radius:10px;background:var(--gold-soft);border:1px solid var(--gold-line);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold-ink);line-height:1.7;overflow-x:auto;white-space:nowrap;}
+  .sim-note{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6;}
+
+  footer{padding:40px 0 70px;border-top:1px solid var(--line);margin-top:20px;}
+  footer p{font-size:12.5px;color:var(--faint);line-height:1.7;max-width:62ch;}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">差異化定價與調價機制</div>
+    <nav>
+      <a href="#overview">總覽</a>
+      <a href="#q1">系統設定歸屬</a>
+      <a href="#dims">定價維度</a>
+      <a href="#adjust">調整機制</a>
+      <a href="#sim">欄位模擬器</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <section id="overview" class="hero" style="border-top:none;">
+    <div class="eyebrow"><span class="dot"></span>功能提案 · 待你與主管決定欄位組合</div>
+    <h1>差異化定價與調價機制：先看模型，再用模擬器組出你要的欄位</h1>
+    <p class="lede">
+      之後 NUWA 平台上的 App 會愈來愈多，統一單一定價會不夠用——有些功能（語音、圖片）本來就比較耗成本，有些是加值服務（客製版面）。這份文件把「定價要看哪些維度」跟「價格怎麼調」講清楚，最後有一個<b>可以勾選欄位、即時看到後台介面長什麼樣子</b>的模擬器，你可以自己組、也可以帶去給主管跟老闆一起勾，勾完的組合就是最終要開發的規格——不是單選題，是複選題。
+    </p>
+  </section>
+
+  <section id="q1">
+    <div class="sec-head"><span class="sec-num">01</span><h2>差異定價要不要跟通知設定合併寫？</h2></div>
+    <p class="sec-dek">你問的第一個問題：差異定價、通知，這兩個系統設定功能能不能寫在一起。</p>
+
+    <div class="verdict">
+      <span class="verdict-tag">建議：分開寫，各自獨立一頁</span>
+      <h3>理由：這兩個功能的「誰能改、改錯的代價」完全不同</h3>
+      <p style="font-size:13px;color:var(--muted);line-height:1.7;margin:0;">
+        通知設定改錯，最多是使用者少收到一封信；差異定價改錯，是全站營收直接受影響，需要更嚴謹的異動紀錄與審核（誰改的、什麼時候生效、改之前的價格是多少）。合併在同一頁，容易讓低風險操作跟高風險操作混在一起，之後想針對「定價變更」單獨加簽核流程也會比較難切。
+      </p>
+      <div class="verdict-grid">
+        <div class="verdict-opt chosen">
+          <div class="lbl">採用：分開兩個設定頁</div>
+          <p>系統設定選單下各自獨立：<code>/admin/pricing</code>、<code>/admin/notifications</code>。定價頁之後可以單獨加「送出審核」「異動紀錄」，不影響通知頁。</p>
+        </div>
+        <div class="verdict-opt">
+          <div class="lbl">替代方案：合併一頁多分頁</div>
+          <p>用 tab 切換「定價」「通知」，省一個選單項目，但兩者資料結構、權限需求都不同，之後要加審核流程時，還是得把兩塊邏輯拆開，等於白合併一次。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dims">
+    <div class="sec-head"><span class="sec-num">02</span><h2>差異定價的三個維度</h2></div>
+    <p class="sec-dek">你提到「權重」的概念——最終價格不是一個固定數字，而是這三個維度疊加出來的結果。</p>
+
+    <div class="dim-grid">
+      <div class="dim-card">
+        <div class="num">維度一</div>
+        <h3>基礎定價</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0;">最單純的一層：這個 App 本身要收多少錢，跟使用行為無關。</p>
+        <div class="eg"><b>例：</b>幸福關係 App 基礎月費 <code>NT$299</code>，另一個 App 基礎月費可能是 <code>NT$199</code>——每個 App 各自設定，不用一樣。</div>
+      </div>
+      <div class="dim-card">
+        <div class="num">維度二</div>
+        <h3>成本權重定價</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0;">依「這個使用者實際耗掉多少成本」動態疊加，你提到的語音、圖片就是這一類。</p>
+        <div class="eg"><b>例：</b>純文字對話 AI Token 成本低；語音互動要先轉文字再回應，圖片辨識也吃更多 Token——這兩種功能可以各自設一個<b>權重倍數</b>，用量愈高、疊加的費用愈高。</div>
+      </div>
+      <div class="dim-card">
+        <div class="num">維度三</div>
+        <h3>特殊功能加值</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin:0;">不是用量計費，是「有開通就加錢」的加購項目。</p>
+        <div class="eg"><b>例：</b>幫忙做版面佈局／客製設計是人工服務，不是 AI 用量，適合用「固定加購金額」而不是權重公式。</div>
+      </div>
+    </div>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 1000 190" role="img" aria-label="定價計算流程圖：基礎定價加上成本權重乘以用量，再加上特殊功能加值，得出調整前價格，最後套用調漲或調降百分比得出使用者最終看到的價格">
+          <defs>
+            <marker id="arrP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect x="10" y="55" width="150" height="80" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="85" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">基礎定價</text>
+          <text x="85" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">每個 App 各自設定</text>
+
+          <text x="180" y="100" text-anchor="middle" font-size="16" fill="var(--faint)">+</text>
+
+          <rect x="200" y="45" width="170" height="100" rx="12" fill="var(--gold-soft)" stroke="var(--gold-line)" stroke-width="1.3"/>
+          <text x="285" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="var(--gold-ink)">成本權重 × 用量</text>
+          <text x="285" y="92" text-anchor="middle" font-size="9.5" fill="var(--gold-ink)" opacity="0.85">語音權重 × 語音用量</text>
+          <text x="285" y="108" text-anchor="middle" font-size="9.5" fill="var(--gold-ink)" opacity="0.85">圖片權重 × 圖片用量</text>
+
+          <text x="395" y="100" text-anchor="middle" font-size="16" fill="var(--faint)">+</text>
+
+          <rect x="415" y="55" width="150" height="80" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="490" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">特殊功能加值</text>
+          <text x="490" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">固定加購金額</text>
+
+          <text x="585" y="100" text-anchor="middle" font-size="14" fill="var(--faint)">=</text>
+
+          <rect x="605" y="55" width="150" height="80" rx="12" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.3" stroke-dasharray="4 3"/>
+          <text x="680" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">調整前價格</text>
+          <text x="680" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">三個維度加總</text>
+
+          <line x1="765" y1="95" x2="815" y2="95" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrP)"/>
+
+          <rect x="825" y="45" width="165" height="100" rx="12" fill="var(--ok-soft)" stroke="var(--ok-line)" stroke-width="1.3"/>
+          <text x="907" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ok)">套用調漲／調降</text>
+          <text x="907" y="92" text-anchor="middle" font-size="9.5" fill="var(--ok)" opacity="0.85">統一 % 或個別 App %</text>
+          <text x="907" y="112" text-anchor="middle" font-size="9.5" fill="var(--ok)" opacity="0.85">→ 使用者最終看到的價格</text>
+        </svg>
+      </div>
+      <figcaption>「調漲／調降」不是獨立的第四個維度——它是套用在<b>三個維度加總後的結果</b>上的一層乘數，這就是為什麼調價機制要跟差異定價模型綁在一起講。</figcaption>
+    </figure>
+  </section>
+
+  <section id="adjust">
+    <div class="sec-head"><span class="sec-num">03</span><h2>價格調整機制：統一 vs 個別</h2></div>
+    <p class="sec-dek">調漲、調降走同一套機制，差別只是百分比正負號。畫面上要呈現兩種調整範圍：</p>
+
+    <div class="mode-grid">
+      <div class="mode-card">
+        <h4>🔘 統一調整</h4>
+        <p>一次對全部 App 套用同一個百分比（例：全站 +5%）。適合通貨膨脹、AI 供應商全面漲價這種全域性成本變動。</p>
+      </div>
+      <div class="mode-card">
+        <h4>🔘 按 API／APP 個別調整</h4>
+        <p>只調整某一個 App 或某一個成本權重欄位（例：只有語音這條線漲價，其他不動）。適合單一供應商調價、或某個功能用量暴增需要單獨反映成本。</p>
+      </div>
+    </div>
+    <p class="sec-dek" style="margin-top:16px;">兩種模式不是互斥的——實務上通常是「個別調整」為主、「統一調整」備用在真的要全站一起動的時候，兩個開關會同時存在於同一個調價表單。</p>
+  </section>
+
+  <section id="sim">
+    <div class="sec-head"><span class="sec-num">04</span><h2>互動欄位模擬器</h2></div>
+    <p class="sec-dek">
+      這是你要的「每加一個欄位就有一個粗略模擬介面」——左邊勾欄位（可以複選，不是單選），右邊即時組出對應的後台設定介面草稿跟計價公式。你可以自己勾一輪，也可以直接把這頁帶去給主管、老闆勾，勾完的組合就是最終規格。
+    </p>
+
+    <div class="sim-frame">
+      <div class="sim-topbar">
+        <span class="t">勾選你想要的欄位組合 → 右側即時顯示對應介面</span>
+        <button class="sim-reset" id="simReset" type="button">重設</button>
+      </div>
+      <div class="sim-body">
+        <div class="sim-fields">
+          <div class="field-group">
+            <h4>基礎定價方式</h4>
+            <label><input type="checkbox" class="field-toggle" data-group="基礎定價" data-label="統一定價（所有 App 同價）" data-value="固定金額" checked> 統一定價（所有 App 同價）</label>
+            <label><input type="checkbox" class="field-toggle" data-group="基礎定價" data-label="按 API／APP 個別定價" data-value="每 App 各自一個金額欄位"> 按 API／APP 個別定價</label>
+          </div>
+          <div class="field-group">
+            <h4>成本權重欄位</h4>
+            <label><input type="checkbox" class="field-toggle" data-group="成本權重" data-label="語音互動消耗" data-value="權重倍數 × 語音用量"> 語音互動消耗</label>
+            <label><input type="checkbox" class="field-toggle" data-group="成本權重" data-label="圖片傳送消耗" data-value="權重倍數 × 圖片用量"> 圖片傳送消耗</label>
+            <label><input type="checkbox" class="field-toggle" data-group="成本權重" data-label="對話輪數／長度" data-value="權重倍數 × 對話輪數"> 對話輪數／長度</label>
+            <label><input type="checkbox" class="field-toggle" data-group="成本權重" data-label="模型等級（4o／mini）" data-value="不同模型各自權重"> 模型等級（4o／mini）</label>
+          </div>
+          <div class="field-group">
+            <h4>特殊功能加值欄位</h4>
+            <label><input type="checkbox" class="field-toggle" data-group="加值服務" data-label="版面／介面客製化" data-value="固定加購金額"> 版面／介面客製化</label>
+            <label><input type="checkbox" class="field-toggle" data-group="加值服務" data-label="優先技術支援" data-value="固定加購金額"> 優先技術支援</label>
+            <label><input type="checkbox" class="field-toggle" data-group="加值服務" data-label="白牌網域" data-value="固定加購金額"> 白牌網域</label>
+          </div>
+          <div class="field-group">
+            <h4>調整機制欄位</h4>
+            <label><input type="checkbox" class="field-toggle" data-group="調整機制" data-label="統一調漲／調降（%）" data-value="全站套用同一個 %" checked> 統一調漲／調降（%）</label>
+            <label><input type="checkbox" class="field-toggle" data-group="調整機制" data-label="按 API／APP 個別調整" data-value="每 App 各自一個 %"> 按 API／APP 個別調整</label>
+            <label><input type="checkbox" class="field-toggle" data-group="調整機制" data-label="生效時間排程" data-value="設定未來某日生效"> 生效時間排程</label>
+            <label><input type="checkbox" class="field-toggle" data-group="調整機制" data-label="舊戶保價" data-value="既有訂閱不受調價影響"> 舊戶保價</label>
+          </div>
+        </div>
+        <div class="sim-preview">
+          <div class="ph">模擬後台介面 · 依左側勾選即時組成</div>
+          <div id="previewRows"></div>
+          <div class="formula mono" id="formulaLine"></div>
+          <p class="sim-note">這裡的欄位只是「粗略」呈現要有哪些設定項目，不是最終視覺設計——目的是先確認要開發哪些欄位，畫面細節之後再精修。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      本文件為功能提案。定價的三維度模型（基礎／成本權重／加值）與調整機制（統一／個別）已依需求推導；
+      具體要開發哪些欄位，請用上方模擬器勾出主管與老闆都同意的組合，再回來確認開發範圍。
+    </p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var toggles = Array.prototype.slice.call(document.querySelectorAll('.field-toggle'));
+  var rowsEl = document.getElementById('previewRows');
+  var formulaEl = document.getElementById('formulaLine');
+  var resetBtn = document.getElementById('simReset');
+  var defaults = toggles.map(function (el) { return el.checked; });
+
+  function render() {
+    var groups = {};
+    var order = [];
+    toggles.forEach(function (el) {
+      if (!el.checked) return;
+      var g = el.dataset.group;
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push({ label: el.dataset.label, value: el.dataset.value });
+    });
+
+    rowsEl.innerHTML = '';
+    if (order.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'sim-empty';
+      empty.textContent = '尚未勾選任何欄位 —— 左側至少勾一項來看模擬介面';
+      rowsEl.appendChild(empty);
+    } else {
+      order.forEach(function (g) {
+        groups[g].forEach(function (item) {
+          var row = document.createElement('div');
+          row.className = 'prow';
+          var left = document.createElement('div');
+          left.className = 'rl';
+          var grpSpan = document.createElement('span');
+          grpSpan.className = 'grp';
+          grpSpan.textContent = g;
+          left.appendChild(grpSpan);
+          left.appendChild(document.createTextNode(item.label));
+          var right = document.createElement('div');
+          right.className = 'rv';
+          right.textContent = item.value;
+          row.appendChild(left);
+          row.appendChild(right);
+          rowsEl.appendChild(row);
+        });
+      });
+    }
+
+    // formula line
+    var hasFlat = toggles.some(function (el) { return el.checked && el.dataset.label.indexOf('統一定價') === 0; });
+    var hasPerApp = toggles.some(function (el) { return el.checked && el.dataset.label.indexOf('按 API／APP 個別定價') === 0; });
+    var costFields = toggles.filter(function (el) { return el.checked && el.dataset.group === '成本權重'; }).map(function (el) { return el.dataset.label; });
+    var addonFields = toggles.filter(function (el) { return el.checked && el.dataset.group === '加值服務'; }).map(function (el) { return el.dataset.label; });
+    var hasUniformAdj = toggles.some(function (el) { return el.checked && el.dataset.label.indexOf('統一調漲') === 0; });
+    var hasPerAppAdj = toggles.some(function (el) { return el.checked && el.dataset.label.indexOf('按 API／APP 個別調整') === 0; });
+
+    var base = hasPerApp ? '各 App 基礎價' : (hasFlat ? '統一基礎價' : '（未設定基礎定價）');
+    var costPart = costFields.length ? ' + Σ(' + costFields.join(' + ') + ')' : '';
+    var addonPart = addonFields.length ? ' + Σ(' + addonFields.join(' + ') + ')' : '';
+    var adjParts = [];
+    if (hasUniformAdj) adjParts.push('全站 %');
+    if (hasPerAppAdj) adjParts.push('各 App %');
+    var adjPart = adjParts.length ? ' × (1 + ' + adjParts.join(' 或 ') + ')' : '';
+
+    formulaEl.textContent = '最終價格 = [ ' + base + costPart + addonPart + ' ]' + adjPart;
+  }
+
+  toggles.forEach(function (el) { el.addEventListener('change', render); });
+  resetBtn.addEventListener('click', function () {
+    toggles.forEach(function (el, i) { el.checked = defaults[i]; });
+    render();
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

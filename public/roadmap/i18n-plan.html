@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>多語系功能提案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f2f2f5; --surface:#ffffff; --surface-2:#fafafa;
+    --ink:#201e2b; --muted:#6b6878; --faint:#928da0;
+    --line:rgba(32,30,43,.12); --line-strong:rgba(32,30,43,.22);
+    --nuwa:#8b6483; --nuwa-ink:#5c4056; --nuwa-soft:#f1e9ef; --nuwa-line:rgba(139,100,131,.35);
+    --happy:#c9642f; --happy-ink:#8a4116; --happy-soft:#fbeee5; --happy-line:rgba(201,100,47,.35);
+    --ok:#2f7a52; --ok-soft:#e6f4ec; --ok-line:rgba(47,122,82,.35);
+    --warn:#a5741f; --warn-soft:#fbf1de;
+    --shadow: 0 1px 2px rgba(32,30,43,.04), 0 8px 24px -12px rgba(32,30,43,.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#18161f; --surface:#221f2c; --surface-2:#272432;
+      --ink:#edeaf2; --muted:#a79fb0; --faint:#7c7688;
+      --line:rgba(237,234,242,.13); --line-strong:rgba(237,234,242,.24);
+      --nuwa:#cba6c3; --nuwa-ink:#eddaea; --nuwa-soft:#332a34; --nuwa-line:rgba(203,166,195,.35);
+      --happy:#ee9a64; --happy-ink:#ffdcc0; --happy-soft:#3a2a20; --happy-line:rgba(238,154,100,.4);
+      --ok:#7ecba3; --ok-soft:#1f332a; --ok-line:rgba(126,203,163,.4);
+      --warn:#e0b25e; --warn-soft:#332a1a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans','Noto Sans TC',system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces','Noto Serif TC',serif;font-weight:600;text-wrap:balance;color:var(--ink);margin:0;}
+  code,.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;}
+  a{color:inherit;}
+
+  .topnav{position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .topnav-inner{max-width:1080px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:22px;overflow-x:auto;}
+  .topnav .brand{font-family:'Fraunces',serif;font-weight:600;font-size:14.5px;white-space:nowrap;flex-shrink:0;}
+  .topnav nav{display:flex;gap:2px;}
+  .topnav nav a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:7px 11px;border-radius:7px;white-space:nowrap;}
+  .topnav nav a:hover{background:var(--surface-2);color:var(--ink);}
+
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+
+  .hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--happy);}
+  .hero h1{font-size:clamp(26px,4vw,36px);line-height:1.2;max-width:20ch;}
+  .hero .lede{margin-top:16px;font-size:16.5px;line-height:1.65;color:var(--muted);max-width:64ch;}
+  .hero .lede b{color:var(--ink);font-weight:600;}
+
+  section{padding:52px 0;border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--faint);font-weight:500;}
+  section h2{font-size:clamp(20px,2.4vw,25px);}
+  .sec-dek{color:var(--muted);font-size:14.5px;max-width:64ch;margin-top:10px;line-height:1.65;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+  .chip.nuwa{background:var(--nuwa-soft);color:var(--nuwa-ink);}
+  .chip.happy{background:var(--happy-soft);color:var(--happy-ink);}
+  .chip.ok{background:var(--ok-soft);color:var(--ok);}
+
+  .arch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px;}
+  @media (max-width:820px){.arch-grid{grid-template-columns:1fr;}}
+  .arch-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:12px;position:relative;}
+  .arch-card.rec{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);}
+  .rec-tag{position:absolute;top:-11px;left:16px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;}
+  .arch-card h3{font-size:15.5px;}
+  .arch-card .tag{font-size:11.5px;color:var(--faint);}
+  .arch-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12.5px;}
+  .arch-list li{padding-left:15px;position:relative;color:var(--muted);line-height:1.5;}
+  .arch-list li.good::before{content:"＋";position:absolute;left:0;color:var(--ok);font-weight:700;}
+  .arch-list li.bad::before{content:"－";position:absolute;left:0;color:var(--happy);font-weight:700;}
+  .consequence{margin-top:auto;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);line-height:1.6;}
+  .consequence b{color:var(--ink);}
+
+  figure{margin:34px 0 0;}
+  .figure-wide{max-width:1080px;margin-left:auto;margin-right:auto;}
+  .diagram-frame{border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:26px clamp(12px,4vw,30px);overflow-x:auto;box-shadow:var(--shadow);}
+  .diagram-frame svg{display:block;margin:0 auto;max-width:100%;height:auto;color:var(--ink);}
+  figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;}
+  figcaption b{color:var(--ink);font-weight:600;}
+
+  .scope-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:28px;}
+  .scope-col{background:var(--surface);padding:22px 24px;}
+  .scope-col h3{font-size:16px;margin-bottom:3px;}
+  .scope-col .sub{font-size:12px;color:var(--faint);margin-bottom:14px;}
+  .scope-field{padding:9px 0;border-top:1px solid var(--line);}
+  .scope-field:first-of-type{border-top:none;}
+  .scope-field .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:4px;}
+  .scope-field .v{font-size:13px;line-height:1.55;color:var(--muted);}
+  .scope-field .v code{font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:4px;}
+  @media (max-width:680px){.scope-grid{grid-template-columns:1fr;}}
+
+  .mock-frame{border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);}
+  .mock-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .mock-bar span{width:9px;height:9px;border-radius:50%;background:var(--line-strong);}
+  .mock-bar .url{margin-left:10px;font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace;}
+  .mock-body{display:flex;min-height:360px;}
+  .mock-side{width:170px;flex-shrink:0;border-right:1px solid var(--line);padding:14px 10px;background:var(--surface-2);}
+  .mock-side .item{font-size:12px;padding:7px 10px;border-radius:8px;color:var(--muted);margin-bottom:2px;}
+  .mock-side .item.on{background:var(--happy-soft);color:var(--happy-ink);font-weight:600;}
+  .mock-main{flex:1;padding:18px 20px;min-width:0;}
+  .mock-main h4{font-size:13.5px;margin:0 0 3px;font-weight:700;}
+  .mock-main .desc{font-size:11.5px;color:var(--faint);margin-bottom:14px;}
+  .mock-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .mock-select,.mock-search{font-size:11.5px;border:1px solid var(--line-strong);border-radius:7px;padding:6px 10px;color:var(--muted);background:var(--surface);}
+  .mock-btn{font-size:11.5px;border:none;border-radius:7px;padding:6px 12px;background:var(--happy);color:#fff;font-weight:600;margin-left:auto;}
+  table.mock-table{width:100%;border-collapse:collapse;font-size:11.8px;}
+  .mock-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:600;padding:7px 10px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .mock-table td{padding:8px 10px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .mock-table td.key{font-family:'IBM Plex Mono',monospace;color:var(--ink);font-size:11px;}
+  .mock-table input{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:11.5px;background:var(--surface);color:var(--ink);font-family:inherit;}
+  .mock-table input.override{border-color:var(--happy-line);background:var(--happy-soft);}
+  .src-badge{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:99px;}
+  .src-badge.pub{background:var(--nuwa-soft);color:var(--nuwa-ink);}
+  .src-badge.ovr{background:var(--happy-soft);color:var(--happy-ink);}
+
+  .decision{border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:16px;background:var(--surface);}
+  .decision h3{font-size:14.5px;margin-bottom:12px;}
+  .branch-row{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:8px 0;border-top:1px dashed var(--line);align-items:start;}
+  .branch-row:first-of-type{border-top:none;}
+  .branch-row .opt{font-size:12px;font-weight:700;color:var(--happy-ink);background:var(--happy-soft);border-radius:7px;padding:4px 9px;text-align:center;height:fit-content;}
+  .branch-row .out{font-size:12.5px;color:var(--muted);line-height:1.6;}
+
+  footer{padding:40px 0 70px;border-top:1px solid var(--line);margin-top:20px;}
+  footer p{font-size:12.5px;color:var(--faint);line-height:1.7;max-width:60ch;}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">多語系功能提案</div>
+    <nav>
+      <a href="#overview">總覽</a>
+      <a href="#arch">架構選擇</a>
+      <a href="#flow">資料流程</a>
+      <a href="#scope">翻譯範圍</a>
+      <a href="#admin-ui">後台介面草稿</a>
+      <a href="#open">還沒決定的</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <section id="overview" class="hero" style="border-top:none;">
+    <div class="eyebrow"><span class="dot"></span>功能提案 · 待你決定</div>
+    <h1>多語系功能：架構、資料流程、後台介面，一次看完再決定</h1>
+    <p class="lede">
+      起因是之後可能會找其他國家的老師來開課，公版跟私版後台都要支援多語系，而且翻譯完的專有名詞/教材要能讓管理者自己編輯。這份文件把技術選項攤開，<b>每個選項底下都寫了「選這個會怎樣」</b>，你可以直接照著文件決定，不用再一輪一輪來回問答。
+    </p>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">01</span><h2>核心決策：翻譯架構</h2></div>
+    <p class="sec-dek">你會議記錄裡提的兩個方案，加上我建議的第三個混合方案。</p>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>方案一</h3>
+        <div class="tag">公版統一提供 API，私版即時呼叫</div>
+        <ul class="arch-list">
+          <li class="good">集中管理，改一次全站同步</li>
+          <li class="good">私版不用包字典檔，bundle 小</li>
+          <li class="bad">每次切語言／渲染都要打 API，有延遲</li>
+          <li class="bad">公版掛掉＝所有私版語系一起壞</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>私版完全不能離線使用多語系；公版必須做好高可用性，出事影響範圍最大。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>方案二</h3>
+        <div class="tag">每個私版自帶字典檔</div>
+        <ul class="arch-list">
+          <li class="good">前端讀本地字典，切換語言瞬間完成</li>
+          <li class="good">各私版可以高度客製化用語</li>
+          <li class="bad">字典更新要各自重新部署</li>
+          <li class="bad">公版新增語言，私版要自己跟進</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>你之後每加一個新老師的私版，都要重新設定一次翻譯，維護成本會隨私版數量線性增加。</div>
+      </div>
+
+      <div class="arch-card rec">
+        <span class="rec-tag">建議採用</span>
+        <h3>方案三</h3>
+        <div class="tag">公版提供預設字典 + 私版覆寫字典</div>
+        <ul class="arch-list">
+          <li class="good">渲染時讀「私版覆寫→找不到→退回公版預設」</li>
+          <li class="good">切換語言瞬間完成（字典已預先載入，不用每次打 API）</li>
+          <li class="good">直接對應「翻譯完要能給管理者編輯」這個需求——覆寫字典本身就是編輯結果</li>
+          <li class="bad">架構比方案二多一層，初期要多做一點</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>公版負責打底（AI 初翻或人工建立預設值），每個私版的管理者可以在後台個別修改任何一個詞，改完立刻生效、不用重新部署。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="flow">
+    <div class="sec-head"><span class="sec-num">02</span><h2>資料流程</h2></div>
+    <p class="sec-dek">你要的「使用者點日文就變日文、點英文就變英文」是即時的——重點是<b>「即時」靠的是預先建好的字典表，不是每次都叫 AI 即時翻譯</b>。AI／人工翻譯只在「建立或修改字典」的時候發生一次，之後使用者切語言只是讀表、換字，完全不用等待、也不會一直產生 AI 費用。</p>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 980 300" role="img" aria-label="翻譯資料流程圖：左側管理者或AI在後台建立公版預設字典，中間私版管理者可以個別覆寫字典裡的任一詞，右側使用者的瀏覽器在頁面載入時一次拿到合併後的完整字典，之後切換語言只是在本機瞬間換字，不會再呼叫任何翻譯API">
+          <defs>
+            <marker id="arrF" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect x="20" y="40" width="220" height="150" rx="14" fill="var(--nuwa-soft)" stroke="var(--nuwa-line)" stroke-width="1.4"/>
+          <text x="130" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--nuwa-ink)">① 建立公版預設字典</text>
+          <text x="130" y="90" text-anchor="middle" font-size="10.5" fill="var(--nuwa-ink)" opacity="0.85">AI 初翻 或 人工建立</text>
+          <rect x="45" y="106" width="170" height="30" rx="7" fill="var(--surface)" stroke="var(--nuwa-line)"/>
+          <text x="130" y="125" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ink)">"day1_title": "..."</text>
+          <text x="130" y="168" text-anchor="middle" font-size="10" fill="var(--nuwa-ink)" opacity="0.75">存在公版 DB · 全部私版共用</text>
+
+          <line x1="240" y1="115" x2="330" y2="115" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrF)"/>
+
+          <rect x="340" y="40" width="220" height="150" rx="14" fill="var(--happy-soft)" stroke="var(--happy-line)" stroke-width="1.4"/>
+          <text x="450" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--happy-ink)">② 私版管理者覆寫</text>
+          <text x="450" y="90" text-anchor="middle" font-size="10.5" fill="var(--happy-ink)" opacity="0.85">在後台編輯任一個詞</text>
+          <rect x="365" y="106" width="170" height="30" rx="7" fill="var(--surface)" stroke="var(--happy-line)"/>
+          <text x="450" y="125" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ink)">"day1_title": "自訂…"</text>
+          <text x="450" y="168" text-anchor="middle" font-size="10" fill="var(--happy-ink)" opacity="0.8">只存差異，沒改的詞不用複製</text>
+
+          <line x1="560" y1="115" x2="650" y2="115" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrF)"/>
+          <text x="605" y="105" text-anchor="middle" font-size="9.5" fill="var(--muted)">頁面載入時</text>
+          <text x="605" y="130" text-anchor="middle" font-size="9.5" fill="var(--muted)">合併一次</text>
+
+          <rect x="660" y="40" width="300" height="150" rx="14" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <text x="810" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">③ 使用者瀏覽器</text>
+          <text x="810" y="90" text-anchor="middle" font-size="10.5" fill="var(--muted)">拿到「覆寫優先、找不到退回預設」後的完整字典</text>
+          <rect x="685" y="106" width="250" height="30" rx="7" fill="var(--surface)" stroke="var(--line-strong)"/>
+          <text x="810" y="125" text-anchor="middle" font-size="10.5" fill="var(--ink)">🇹🇼 中文　🇺🇸 English　🇯🇵 日本語</text>
+          <text x="810" y="168" text-anchor="middle" font-size="10" fill="var(--muted)">點語言 = 本機瞬間換字，不再打 API</text>
+
+          <line x1="810" y1="190" x2="810" y2="210" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <text x="810" y="228" text-anchor="middle" font-size="10.5" fill="var(--faint)">✕ 不會每次切換都呼叫 AI 翻譯（沒有這條線）</text>
+        </svg>
+      </div>
+      <figcaption>翻譯只在①②「建立/編輯」時發生一次；③「使用者切換語言」完全是本機動作，這就是為什麼能做到你要的「點了立刻變」，同時不會累積 AI 費用。</figcaption>
+    </figure>
+  </section>
+
+  <section id="scope">
+    <div class="sec-head"><span class="sec-num">03</span><h2>要翻譯的範圍：兩者都要，但機制不同</h2></div>
+    <p class="sec-dek">介面文字跟課程教材，長得差很多，適合的做法也不一樣，不能用同一套機制硬套。</p>
+
+    <div class="scope-grid">
+      <div class="scope-col">
+        <h3>介面文字</h3>
+        <div class="sub">按鈕、標籤、提示訊息……短字串</div>
+        <div class="scope-field"><div class="k">機制</div><div class="v">上面說的 key-value 字典（<code>"login_button": "登入"</code>），就是一般網站多語系標準做法，術語叫 <b>i18n 字典</b></div></div>
+        <div class="scope-field"><div class="k">數量</div><div class="v">整站大概幾百到一千多組，管理起來還算單純</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">AI 一次批次翻完全部（一次性成本，不是每次使用者切換都花錢）</div></div>
+      </div>
+      <div class="scope-col">
+        <h3>課程教材</h3>
+        <div class="sub">21 天課程內容、心法說明……長篇文字</div>
+        <div class="scope-field"><div class="k">機制</div><div class="v">不是字典替換，是每天課程內容各語言各存一份完整段落（例如 <code>knowledge_point_en</code>、<code>knowledge_point_ja</code> 欄位）</div></div>
+        <div class="scope-field"><div class="k">數量</div><div class="v">每種語言 22 天 × 每天好幾段，篇幅大很多</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">建議 AI 先翻一版，但這種長文更需要真人（尤其是找的外國老師本人）校對過再上線，機器翻譯直接拿來教學風險較高</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="admin-ui">
+    <div class="sec-head"><span class="sec-num">04</span><h2>後台管理介面草稿</h2></div>
+    <p class="sec-dek">新增一個「多語系管理」頁面，公版跟私版後台都要有，但看到的範圍不同：<span class="chip nuwa">公版</span> 管全站的預設字典；<span class="chip happy">私版</span> 只能管自己的覆寫，改了不影響其他私版。下面是私版視角的草稿。</p>
+
+    <div class="mock-frame">
+      <div class="mock-bar"><span></span><span></span><span></span><span class="url">nexthappy-v2.vercel.app/admin/i18n</span></div>
+      <div class="mock-body">
+        <div class="mock-side">
+          <div class="item">📊 Dashboard</div>
+          <div class="item">👥 學員管理</div>
+          <div class="item">📚 課程內容</div>
+          <div class="item on">🌐 多語系管理</div>
+          <div class="item">⚙️ 系統設定</div>
+        </div>
+        <div class="mock-main">
+          <h4>🌐 多語系管理</h4>
+          <div class="desc">左邊是公版預設值（唯讀），右邊是你的覆寫——留空就自動使用公版預設</div>
+          <div class="mock-toolbar">
+            <select class="mock-select"><option>語言：English</option></select>
+            <input class="mock-search" placeholder="搜尋 key 或中文…">
+            <button class="mock-btn">＋ 新增課程翻譯</button>
+          </div>
+          <table class="mock-table">
+            <thead><tr><th style="width:32%">Key / 原文</th><th style="width:30%">公版預設</th><th>你的覆寫</th><th style="width:60px">來源</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="key">chat.send_button<br><span style="color:var(--faint);">送出</span></td>
+                <td style="color:var(--faint);">Send</td>
+                <td><input value="Send"></td>
+                <td><span class="src-badge pub">公版</span></td>
+              </tr>
+              <tr>
+                <td class="key">journey.day_label<br><span style="color:var(--faint);">第 {n} 天</span></td>
+                <td style="color:var(--faint);">Day {n}</td>
+                <td><input class="override" value="Day {n} of Journey"></td>
+                <td><span class="src-badge ovr">已覆寫</span></td>
+              </tr>
+              <tr>
+                <td class="key">course.day1_theme<br><span style="color:var(--faint);">開始你的 21 天旅程</span></td>
+                <td style="color:var(--faint);">Begin Your 21-Day Journey</td>
+                <td><input placeholder="留空 = 使用公版預設"></td>
+                <td><span class="src-badge pub">公版</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:14px;">「來源」欄一眼看出這個詞現在是誰決定的——這樣不管詞典多大，管理者都不用擔心改壞了公版的東西。</figcaption>
+  </section>
+
+  <section id="open">
+    <div class="sec-head"><span class="sec-num">05</span><h2>還沒決定的部分</h2></div>
+    <p class="sec-dek">這幾個我先不幫你選，因為後果會直接影響你之後找老師合作的節奏，你自己決定比較好。</p>
+
+    <div class="decision">
+      <h3>優先支援幾種語言？</h3>
+      <div class="branch-row"><div class="opt">先做 1 種</div><div class="out">最快能上線測試，之後每加一種語言，介面草稿裡的「語言」下拉選單直接多一個選項，架構不用改</div></div>
+      <div class="branch-row"><div class="opt">一次做 3-5 種</div><div class="out">前期規劃時間拉長，但省下之後反覆修架構的成本，適合你已經知道大概會找哪幾國老師的話</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>私版覆寫字典要存在哪裡？</h3>
+      <div class="branch-row"><div class="opt">存私版<br>自己的 DB</div><div class="out">跟這次 nexthappy 的 <code>happy</code> schema 原則一致（鬆耦合、不共用資料庫表），符合你們「私版之後可能搬去獨立 Supabase」的既有設計方向</div></div>
+      <div class="branch-row"><div class="opt">集中存<br>公版一張表</div><div class="out">公版可以一次看到「所有私版改了哪些詞」，方便稽核，但私版要搬家時多一道遷移工程</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      本文件為功能提案、非最終規格。架構決策（方案三、i18n 字典 + 課程內容多欄位）已依需求推導，
+      剩下兩項「還沒決定的部分」需要管理者確認後才會繼續往下規劃時程與開發任務拆解。
+    </p>
+  </footer>
+</div>
+</body>
+</html>
