@@ -42,13 +42,13 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   trial: {
     tier: 'trial',
     label: '免費試用',
-    tagline: '7 天嚐到 Premium 完整體驗',
+    tagline: '7 天嚐到旗艦方案完整體驗',
     monthly_messages: 100,   // 7 天 cap、防濫用
     price_twd: 0,
     trial_days: 7,
     suitable_for: '首次接觸、想先體驗的人',
     features: [
-      '✨ 7 天 Premium 級體驗',
+      '✨ 7 天旗艦級體驗',
       '🤝 Mode B 諮詢深度版完整使用',
       '🌱 21 天練習任意對話',
       '⚠️ 試用期最多 100 則對話',
@@ -56,7 +56,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   basic: {
     tier: 'basic',
-    label: 'Basic 啟動練習階段',
+    label: '基本 啟動練習階段',
     tagline: '開啟你的幸福練習旅程',
     monthly_messages: 50,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
@@ -70,7 +70,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   advanced: {
     tier: 'advanced',
-    label: 'Advanced 深化練習階段',
+    label: '進階 深化練習階段',
     tagline: '讓你的改變開始穩定發生',
     monthly_messages: 100,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
@@ -84,7 +84,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   premium: {
     tier: 'premium',
-    label: 'Premium 整合與達成階段',
+    label: '旗艦 整合與達成階段',
     tagline: '真正用在你的人生裡',
     monthly_messages: 200,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
