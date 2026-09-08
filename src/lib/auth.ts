@@ -14,11 +14,19 @@ export interface SessionPayload {
 }
 
 // 產生 JWT Token
-export async function createToken(payload: SessionPayload): Promise<string> {
+//
+// accessUntilSec（epoch 秒）：這張 session 的效期上限，來自公版 SSO token 的
+// access_until —— 試用進場時 = 試用到期。少了它，30 天的 session 會比 14 天的
+// 試用活得久：試用到期後直接打私版網址、cookie 還在，launch gate 形同虛設。
+// 效期直接烙進 JWT 的 exp（簽發當下試用到期日已知，不用每請求查 DB）；
+// 試用中途被後台延長的人，從公版再點一次「進入 App」就會拿到新效期的 session。
+export async function createToken(payload: SessionPayload, accessUntilSec?: number): Promise<string> {
+  const thirtyDaysSec = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+  const expSec = accessUntilSec ? Math.min(accessUntilSec, thirtyDaysSec) : thirtyDaysSec;
   return await new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('30d')
+    .setExpirationTime(expSec)
     .sign(JWT_SECRET);
 }
 

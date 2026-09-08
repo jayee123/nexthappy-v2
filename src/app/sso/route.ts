@@ -16,6 +16,7 @@ interface SsoPayload {
   name?: string
   app?: string
   to?: string // 'welcome' | 'app' | 'admin'：公版指定進來後導向（未帶 → 交給首頁判斷）
+  access_until?: number // epoch 秒：試用進場時 = 試用到期；未帶 = 不設限（方案達標）
   exp?: number
 }
 
@@ -147,7 +148,16 @@ export async function GET(request: Request) {
   }
 
   // 發 happy_session cookie
-  const sessionToken = await createToken({ userId: user.id, email: user.email, name: user.name })
+  //
+  // 公版帶了 access_until（試用進場）→ session 效期壓到試用到期，
+  // cookie 的 maxAge 也一起壓：試用結束 cookie 就消失，直接打私版網址
+  // 不會再繞過公版的 launch gate（發現 04）。過去或非法的值一律忽略。
+  const nowSec = Math.floor(Date.now() / 1000)
+  const accessUntil =
+    typeof payload.access_until === 'number' && payload.access_until > nowSec
+      ? payload.access_until
+      : undefined
+  const sessionToken = await createToken({ userId: user.id, email: user.email, name: user.name }, accessUntil)
   const isProd = process.env.NODE_ENV === 'production'
 
   // 公版指定導向：
@@ -166,7 +176,7 @@ export async function GET(request: Request) {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax', // 允許跨站導向後帶 cookie
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: accessUntil ? Math.min(accessUntil - nowSec, 60 * 60 * 24 * 30) : 60 * 60 * 24 * 30,
     path: '/',
   })
   return res
