@@ -73,6 +73,15 @@ export async function POST(request: NextRequest) {
     }
     const nextDay = dayNumber < 21 ? dayNumber + 1 : dayNumber;
 
+    // 測試用開關：DAY_ADVANCE_INSTANT=true 時，完成當下就推進 current_day，
+    // 不必等到隔天 /api/day/today 的日界推進。正式環境不設此變數 → 維持一天一天的節奏。
+    if (process.env.DAY_ADVANCE_INSTANT === 'true' && isCompleted && nextDay !== dayNumber) {
+      await supabaseAdmin
+        .from('journeys')
+        .update({ current_day: nextDay })
+        .eq('id', journey.id);
+    }
+
     // 檢查里程碑徽章
     const newBadges = await checkMilestones(journey.id, dayNumber);
 

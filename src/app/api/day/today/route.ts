@@ -61,10 +61,12 @@ export async function GET(request: NextRequest) {
         .eq('day_number', dayNumber)
         .maybeSingle();
 
+      // 測試用開關：DAY_ADVANCE_INSTANT=true 時放寬日界條件，完成即可推進（不必隔天）。
+      const instantAdvance = process.env.DAY_ADVANCE_INSTANT === 'true';
       if (
         currentRecord?.task_completed === true &&
         currentRecord.date &&
-        currentRecord.date < today
+        (instantAdvance || currentRecord.date < today)
       ) {
         const advancedDay = dayNumber + 1;
         const { error: advanceError } = await supabaseAdmin
