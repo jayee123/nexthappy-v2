@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   '/welcome',
   '/images',
   '/admin-login', // 管理者獨立登入頁，不經過 NUWA、未登入時必須進得去
+  '/roadmap', // 「未來規劃」提案文件（public/roadmap/*.html）—— /admin/roadmap 頁面用 iframe 嵌它，靜態檔本身不能被 middleware 攔去登入頁
 ];
 
 export function middleware(request: NextRequest) {

@@ -49,13 +49,22 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
-          // 禁止被嵌進 iframe，防點擊劫持
-          { key: 'X-Frame-Options', value: 'DENY' },
           // 禁止瀏覽器自行猜測 MIME type
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           // 跨站導向時不外洩完整路徑（SSO token 會出現在網址上）
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
+      },
+      // 全站禁止被嵌 iframe（防點擊劫持）—— 但排除 /roadmap/*。
+      {
+        source: '/((?!roadmap).*)',
+        headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
+      },
+      // 「未來規劃」提案文件要能被 /admin/roadmap 頁面同源 iframe 嵌入。
+      // 這些是純資訊 HTML（無表單、無登入、無動作），放行同源框架不構成點擊劫持風險。
+      {
+        source: '/roadmap/:path*',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
       },
     ];
   },
