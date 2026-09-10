@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { supabaseAdmin } from './supabase';
@@ -13,11 +14,19 @@ export interface SessionPayload {
 }
 
 // 產生 JWT Token
-export async function createToken(payload: SessionPayload): Promise<string> {
+//
+// accessUntilSec（epoch 秒）：這張 session 的效期上限，來自公版 SSO token 的
+// access_until —— 試用進場時 = 試用到期。少了它，30 天的 session 會比 14 天的
+// 試用活得久：試用到期後直接打私版網址、cookie 還在，launch gate 形同虛設。
+// 效期直接烙進 JWT 的 exp（簽發當下試用到期日已知，不用每請求查 DB）；
+// 試用中途被後台延長的人，從公版再點一次「進入 App」就會拿到新效期的 session。
+export async function createToken(payload: SessionPayload, accessUntilSec?: number): Promise<string> {
+  const thirtyDaysSec = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
+  const expSec = accessUntilSec ? Math.min(accessUntilSec, thirtyDaysSec) : thirtyDaysSec;
   return await new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('30d')
+    .setExpirationTime(expSec)
     .sign(JWT_SECRET);
 }
 
@@ -47,8 +56,14 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
  *
  * 查詢失敗時**不**擋人（回 false）：DB 短暫不通不應該讓全站登出。
  * 停權是管理動作，不是安全邊界的最後一道；真正不可繞過的檢查在 /sso。
+ *
+ * 用 React cache() 包起來，讓同一個請求裡只查一次：
+ * 一個頁面請求會經過 layout → page →（可能還有）內層元件，各自呼叫一次
+ * getSession()，不去重的話同一筆 suspended_at 會被查三次。
+ * cache() 的作用域是單一請求，所以「這個請求進行到一半被停權」不會被看見 ——
+ * 那沒有影響，下一個請求就擋住了。
  */
-async function isSuspended(userId: string): Promise<boolean> {
+const isSuspended = cache(async function isSuspended(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('suspended_at')
@@ -60,7 +75,7 @@ async function isSuspended(userId: string): Promise<boolean> {
     return false;
   }
   return Boolean(data?.suspended_at);
-}
+});
 
 // 從 Cookie 取得當前 session
 export async function getSession(): Promise<SessionPayload | null> {

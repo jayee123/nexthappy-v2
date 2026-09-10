@@ -3,7 +3,7 @@
 // Week 5 Session 5E：邀請碼管理 API
 //
 // GET  /api/admin/invites   → 列出邀請碼（含 status filter + search + cursor pagination + counts）
-// POST /api/admin/invites   → 批次生成邀請碼（prefix + count + expires_in_days）
+// POST /api/admin/invites   → 410：批次生成已停用，邀請碼一律由公版發放（2026-09 定案）
 //
 // Status 邏輯：
 //   - available（未使用、未過期）：used_by IS NULL AND (expires_at IS NULL OR expires_at > NOW())
@@ -12,7 +12,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { logAdminAction } from '@/lib/admin/auditLog';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { ApiResponse } from '@/types';
 
@@ -182,182 +181,19 @@ export async function GET(request: NextRequest) {
 }
 
 // ============================================================
-// POST：批次生成邀請碼
+// POST：批次生成邀請碼（已停用）
 // ============================================================
 
-interface CreateBatchBody {
-  prefix?: unknown;
-  count?: unknown;
-  expires_in_days?: unknown; // null = 永不過期、number = 從現在算 N 天後
-}
-
 export async function POST(request: NextRequest) {
-  const { error: authError, adminUser } = await requireAdmin(request);
+  const { error: authError } = await requireAdmin(request);
   if (authError) return authError;
 
-  let body: CreateBatchBody;
-  try {
-    body = (await request.json()) as CreateBatchBody;
-  } catch {
-    return NextResponse.json<ApiResponse>(
-      { data: null, error: '請求 body 不是有效 JSON', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
-  }
-
-  // ─────────────────────────────────────────
-  // Validate prefix
-  // ─────────────────────────────────────────
-  if (typeof body.prefix !== 'string') {
-    return NextResponse.json<ApiResponse>(
-      { data: null, error: 'prefix 為必填字串', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
-  }
-  const prefix = body.prefix.trim().toUpperCase();
-  if (prefix.length < 3 || prefix.length > 30) {
-    return NextResponse.json<ApiResponse>(
-      { data: null, error: 'prefix 長度需在 3-30 字之間', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
-  }
-  if (!/^[A-Z0-9-]+$/.test(prefix)) {
-    return NextResponse.json<ApiResponse>(
-      {
-        data: null,
-        error: 'prefix 只允許英文字母、數字、橫線 -',
-        timestamp: new Date().toISOString(),
-      },
-      { status: 400 }
-    );
-  }
-
-  // ─────────────────────────────────────────
-  // Validate count
-  // ─────────────────────────────────────────
-  const count = Number(body.count);
-  if (!Number.isInteger(count) || count < 1 || count > 100) {
-    return NextResponse.json<ApiResponse>(
-      { data: null, error: 'count 必須是 1-100 的整數', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
-  }
-
-  // ─────────────────────────────────────────
-  // Validate expires_in_days
-  // ─────────────────────────────────────────
-  let expiresAt: string | null = null;
-  if (body.expires_in_days !== null && body.expires_in_days !== undefined) {
-    const days = Number(body.expires_in_days);
-    if (!Number.isFinite(days) || days < 1 || days > 3650) {
-      return NextResponse.json<ApiResponse>(
-        {
-          data: null,
-          error: 'expires_in_days 必須是 1-3650 之間（或 null 表示永不過期）',
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 }
-      );
-    }
-    const exp = new Date();
-    exp.setDate(exp.getDate() + days);
-    expiresAt = exp.toISOString();
-  }
-
-  try {
-    // ─────────────────────────────────────────
-    // 找這個 prefix 的下一個流水號 + 偵測既有 padding 寬度
-    //
-    // 規則：
-    //   - 既有 codes 有 3 位數 → 新生繼承 3 位數（NUWA-TEST-001 → ...-006）
-    //   - 既有 codes 有 2 位數 → 新生繼承 2 位數
-    //   - 既有 codes 是混合 → 取最大寬度（避免 padding 太短溢出）
-    //   - 沒既有 codes（新 prefix）→ 預設 3 位數
-    //   - 數字超過 padding 容量 → 自動加位數（譬如 3 位數既有、新號到 1000 → 4 位數）
-    // ─────────────────────────────────────────
-    const { data: allExisting } = await supabaseAdmin
-      .from('invite_codes')
-      .select('code')
-      .ilike('code', `${prefix}-%`);
-
-    let maxNum = 0;
-    let detectedPadding = 3; // 新 prefix 預設 3 位
-
-    if (allExisting && allExisting.length > 0) {
-      let maxSuffixLen = 0;
-      for (const row of allExisting) {
-        const code = row.code as string;
-        const suffix = code.slice(prefix.length + 1); // 拿掉 "PREFIX-"
-        const num = parseInt(suffix, 10);
-        if (Number.isInteger(num) && num > maxNum) maxNum = num;
-        if (suffix.length > maxSuffixLen) maxSuffixLen = suffix.length;
-      }
-      if (maxSuffixLen > 0) detectedPadding = maxSuffixLen;
-    }
-
-    const startNum = maxNum + 1;
-
-    // 產生 codes（按偵測到的 padding 寬度補齊；若數字超出寬度則自然展開）
-    const codes: string[] = [];
-    for (let i = 0; i < count; i++) {
-      const num = startNum + i;
-      const numStr = num.toString();
-      const padded = numStr.length > detectedPadding ? numStr : numStr.padStart(detectedPadding, '0');
-      codes.push(`${prefix}-${padded}`);
-    }
-
-    // ─────────────────────────────────────────
-    // 批次 INSERT
-    // ─────────────────────────────────────────
-    const rows = codes.map(code => ({
-      code,
-      expires_at: expiresAt,
-    }));
-
-    const { error: insertError } = await supabaseAdmin.from('invite_codes').insert(rows);
-
-    if (insertError) {
-      console.error('[POST /api/admin/invites] insert failed:', insertError);
-      return NextResponse.json<ApiResponse>(
-        { data: null, error: '生成失敗：' + insertError.message, timestamp: new Date().toISOString() },
-        { status: 500 }
-      );
-    }
-
-    // ─────────────────────────────────────────
-    // Audit log
-    // ─────────────────────────────────────────
-    if (adminUser) {
-      await logAdminAction({
-        request,
-        adminUserId: adminUser.id,
-        action: 'invite.create_batch',
-        targetType: 'invite_batch',
-        targetId: prefix,
-        after: {
-          prefix,
-          count,
-          first_code: codes[0],
-          last_code: codes[codes.length - 1],
-          expires_at: expiresAt,
-        },
-      });
-    }
-
-    return NextResponse.json<ApiResponse>({
-      data: {
-        created: count,
-        codes,
-        expires_at: expiresAt,
-      },
-      error: null,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error('[POST /api/admin/invites] unexpected error:', err);
-    return NextResponse.json<ApiResponse>(
-      { data: null, error: '伺服器錯誤', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
-  }
+  // 2026-09：邀請碼一律由公版發放（金流與試用架構定案 §01/§06）。
+  // 私版停止生成 —— 留著 handler 回 410 而不是整段刪掉，
+  // 是為了讓還開著舊頁面的人得到明確訊息，而非 404 誤判成部署壞了。
+  return NextResponse.json<ApiResponse>(
+    { data: null, error: '邀請碼已改由公版後台統一發放，此功能已停用', timestamp: new Date().toISOString() },
+    { status: 410 }
+  );
 }
+

@@ -25,6 +25,7 @@ interface UserDetail {
   mbti_set_at: string | null;
   is_admin: boolean;
   suspended_at: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
   /** 公版 users.id。null = 這筆還沒跟公版綁定 */
@@ -116,6 +117,7 @@ export default function AdminUserDetailPage() {
   const [suspending, setSuspending] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const router = useRouter();
 
   // 抓當前 admin id（從 /api/user/me）
@@ -201,13 +203,42 @@ export default function AdminUserDetailPage() {
     }
   }
 
-  
+  // 封存 / 解封存。
+  //
+  // 跟停權是兩件不同的事：停權擋登入、是處分；封存只是把人收出後台視野，
+  // 不擋登入 —— 他自己從公版走 SSO 回來時後端會自動解封存。
+  // 因為可逆而且不影響對方，所以不需要二次確認，也不需要防自鎖。
+  async function handleArchiveToggle(archive: boolean) {
+    if (!data) return;
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${data.user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived_at: archive ? new Date().toISOString() : null }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        throw new Error(json.error || (archive ? '封存失敗' : '解封存失敗'));
+      }
+      await loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : (archive ? '封存失敗' : '解封存失敗'));
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   async function handleDelete() {
     if (!data) return;
 
-    // 第 1 次 confirm：基本確認
+    // 第 1 次 confirm：先把「封存」這個選項講出來。
+    // 多數情況下管理員想要的是「從列表移開」，不是銷毀資料 ——
+    // 那應該按封存。這裡先問一次，避免把封存當成刪除用。
     const firstConfirm = confirm(
-      `⚠️ 確定要刪除 ${data.user.email}？\n\n` +
+      `⚠️ 確定要「永久刪除」${data.user.email}？\n\n` +
+      `如果你只是想把他從列表移開，請按取消、改用「📦 封存」——\n` +
+      `封存可以隨時還原，而且他自己回來時會自動解封存。\n\n` +
       `下一步會問你「再次確認」、按是才真的刪。`
     );
     if (!firstConfirm) return;
@@ -278,6 +309,9 @@ export default function AdminUserDetailPage() {
             {user.suspended_at && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700">已停權</span>
             )}
+            {user.archived_at && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">已封存</span>
+            )}
             {isSelf && (
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700">這是你</span>
             )}
@@ -313,17 +347,37 @@ export default function AdminUserDetailPage() {
               {suspending ? '處理中⋯' : '🚫 停權'}
             </button>
           )}
+          {user.archived_at ? (
+            <button
+              onClick={() => handleArchiveToggle(false)}
+              disabled={archiving}
+              title="解封存：讓他重新出現在後台列表"
+              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {archiving ? '處理中⋯' : '📤 解封存'}
+            </button>
+          ) : (
+            <button
+              onClick={() => handleArchiveToggle(true)}
+              disabled={archiving}
+              title="封存：從後台列表收起來。不擋登入，他自己回來時會自動解封存"
+              className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {archiving ? '處理中⋯' : '📦 封存'}
+            </button>
+          )}
+
           <button
             onClick={handleDelete}
-            disabled={isSelf || suspending || deleting || user.is_admin}
+            disabled={isSelf || suspending || deleting || archiving || user.is_admin}
             title={
               isSelf ? 'admin 不可刪除自己'
               : user.is_admin ? '不可刪除其他 admin、請先降為一般 user'
-              : '永久刪除（cascade）'
+              : '永久刪除：資料連帶消失、無法復原。只是想收出列表請用封存'
             }
             className="px-3 py-1.5 text-sm border border-red-300 text-red-700 rounded-md hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {deleting ? '刪除中⋯' : '🗑 刪除'}
+            {deleting ? '刪除中⋯' : '🗑 永久刪除'}
           </button>
         </div>
       </div>

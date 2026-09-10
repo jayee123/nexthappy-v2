@@ -168,7 +168,7 @@ export async function checkQuotaAvailable(userId: string): Promise<QuotaCheckRes
       allowed: true,
       usage: {
         plan: 'premium',
-        plan_label: 'Premium 整合（fallback）',
+        plan_label: '旗艦 整合與達成階段（fallback）',
         period_start: getCurrentPeriodStart(),
         messages_used: 0,
         messages_limit: 999_999,

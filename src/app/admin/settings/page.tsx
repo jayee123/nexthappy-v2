@@ -48,7 +48,10 @@ const KNOWN_ACTIONS: { value: string; label: string }[] = [
   { value: 'user.unsuspend', label: '解除停權' },
   { value: 'user.update_mbti', label: '改 MBTI' },
   { value: 'user.update', label: '更新 user 資料' },
-  { value: 'user.delete', label: '刪除 user' },
+  { value: 'user.archive', label: '封存 user' },
+  { value: 'user.unarchive', label: '解封存 user' },
+  { value: 'user.sso_auto_unarchive', label: '自動解封存（SSO）' },
+  { value: 'user.delete', label: '永久刪除 user' },
   { value: 'course.edit_day', label: '編輯課程內容' },
   { value: 'conversation.view', label: '查看對話' },
   { value: 'invite.create_batch', label: '批次建立邀請碼' },
@@ -62,6 +65,13 @@ const KNOWN_ACTIONS: { value: string; label: string }[] = [
 ];
 
 const ACTION_LABEL = new Map(KNOWN_ACTIONS.map(a => [a.value, a.label]));
+
+// admin_user_id 為 NULL 有兩種完全不同的意思：
+//   ① 系統自己做的（migration 018 起：/sso 自動解封存）
+//   ② 當初那個 admin 已經被刪掉了（011 把欄位改成 nullable 之後的原意）
+// 光看 NULL 分不出來，但 action 分得出來 —— 系統動作的 action 是固定那幾個。
+// 不分的話，系統做的事會被標成「已刪除 user」，看起來像資料壞掉。
+const SYSTEM_ACTIONS = new Set(['user.sso_auto_unarchive']);
 
 function formatFullTime(iso: string): string {
   const d = new Date(iso);
@@ -502,6 +512,8 @@ function AuditTab() {
                               <div className="text-gray-400 text-[10px]">{log.admin_name}</div>
                             )}
                           </>
+                        ) : SYSTEM_ACTIONS.has(log.action) ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-blue-50 text-blue-700">系統</span>
                         ) : (
                           <span className="text-gray-400 text-xs italic">已刪除 user</span>
                         )}

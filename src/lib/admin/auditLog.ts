@@ -17,14 +17,19 @@
 //   範例：'user.update_mbti' / 'user.suspend' / 'admin.grant'
 //        / 'course.edit_day' / 'conversation.view'
 //
+// adminUserId 可以是 null：代表「系統動作」（例如 /sso 自動解封存），
+// 沒有 admin 行為人。不要拿當事用戶自己充當 actor —— audit 列表會把他
+// 顯示成執行者，而且歷史紀錄掛著 FK 也會干擾之後的永久刪除語意。
+// （欄位自 migration 011 起 nullable，查詢端已把 NULL 顯示為「已刪除 user」。）
+//
 // 失敗時 console.error 但不 throw（不要阻塞主要操作）
 
-import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 interface LogAdminActionParams {
-  request: NextRequest;
-  adminUserId: string;
+  /** 只用到 headers（IP / UA），所以收最寬的 Request，route handler 傳什麼都行 */
+  request: Request;
+  adminUserId: string | null;
   action: string;
   targetType?: string;
   targetId?: string;

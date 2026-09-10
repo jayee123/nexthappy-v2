@@ -6,6 +6,18 @@
 //    改動前先確認公版 public.plans，兩邊不一致會讓用戶看到互相矛盾的數字。
 //    付費一律在公版，私版只讀方案（見 src/lib/market/plan.ts）。
 //
+// 🔁 下面 PLANS 的 label 是公版 public.plans.name 的**手抄副本**，不會自動同步。
+//    公版那一份可以從後台「方案定價」直接編輯（/manage/services），
+//    所以它會在沒有任何人改程式碼的情況下變動 —— 改完請回來把這裡一起改。
+//
+//    2026-09-04 對齊過一次：公版原本是「基本方案 啟動練習階段」、
+//    這裡是「基本 啟動練習階段」，差「方案」二字，使用者在兩站會看到不同寫法。
+//    最後統一成無「方案」二字的版本。
+//
+//    這是 AI-COLLABORATION §7.6 第 4 條（跨 repo 的同一份文案）的實例。
+//    長期解是私版改成透過 API 讀公版的方案名，讓它只有一份；
+//    在那之前，這段註解就是唯一的提醒。
+//
 // 4 個方案：trial（7 天試用、Premium 級別功能）/ basic / advanced / premium / cancelled
 // 額度單位：「對話次數」（user 一輪 + AI 一輪 = 1 則）
 // 訂價：TWD / 月（內部 billing 計算用、user 介面顯示時格式化）
@@ -42,13 +54,13 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   trial: {
     tier: 'trial',
     label: '免費試用',
-    tagline: '7 天嚐到 Premium 完整體驗',
+    tagline: '7 天嚐到旗艦方案完整體驗',
     monthly_messages: 100,   // 7 天 cap、防濫用
     price_twd: 0,
     trial_days: 7,
     suitable_for: '首次接觸、想先體驗的人',
     features: [
-      '✨ 7 天 Premium 級體驗',
+      '✨ 7 天旗艦級體驗',
       '🤝 Mode B 諮詢深度版完整使用',
       '🌱 21 天練習任意對話',
       '⚠️ 試用期最多 100 則對話',
@@ -56,7 +68,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   basic: {
     tier: 'basic',
-    label: 'Basic 啟動練習階段',
+    label: '基本 啟動練習階段',
     tagline: '開啟你的幸福練習旅程',
     monthly_messages: 50,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
@@ -70,7 +82,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   advanced: {
     tier: 'advanced',
-    label: 'Advanced 深化練習階段',
+    label: '進階 深化練習階段',
     tagline: '讓你的改變開始穩定發生',
     monthly_messages: 100,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
@@ -84,7 +96,7 @@ export const PLANS: Record<PlanTier, PlanSpec> = {
   },
   premium: {
     tier: 'premium',
-    label: 'Premium 整合與達成階段',
+    label: '旗艦 整合與達成階段',
     tagline: '真正用在你的人生裡',
     monthly_messages: 200,
     price_twd: 5, // 測試階段統一價（真值在公版 plans 表）
