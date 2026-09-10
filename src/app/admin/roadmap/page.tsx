@@ -33,6 +33,14 @@ const ITEMS: RoadmapItem[] = [
     status: '待決策',
     icon: '💰',
   },
+  {
+    slug: 'vendor',
+    title: '廠商模組',
+    summary:
+      '對應 Steve 9/3 會議「以廠商取代教師」。類比蝦皮商城，加一層「擁有者」：一廠商多門課、自有成員、自有拆帳比例。內含層級三選一、資料結構 ERD、權限模型、後台草稿與四項待決策。',
+    status: '待決策',
+    icon: '🏢',
+  },
 ];
 
 const STATUS_STYLE: Record<RoadmapItem['status'], string> = {

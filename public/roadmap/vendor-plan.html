@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>廠商模組提案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#f1f2f5; --surface:#ffffff; --surface-2:#f8f9fb;
+    --ink:#1c2030; --muted:#5f6577; --faint:#8b90a3;
+    --line:rgba(28,32,48,.12); --line-strong:rgba(28,32,48,.22);
+    --brand:#4257a3; --brand-ink:#31407a; --brand-soft:#e8ebf7; --brand-line:rgba(66,87,163,.35);
+    --nuwa:#8b6483; --nuwa-ink:#5c4056; --nuwa-soft:#f1e9ef; --nuwa-line:rgba(139,100,131,.35);
+    --happy:#c9642f; --happy-ink:#8a4116; --happy-soft:#fbeee5; --happy-line:rgba(201,100,47,.35);
+    --ok:#2f7a52; --ok-soft:#e6f4ec; --ok-line:rgba(47,122,82,.35);
+    --shadow: 0 1px 2px rgba(28,32,48,.05), 0 8px 24px -12px rgba(28,32,48,.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#15171e; --surface:#1e212b; --surface-2:#242833;
+      --ink:#e9ebf2; --muted:#a5abbd; --faint:#7b8093;
+      --line:rgba(233,235,242,.13); --line-strong:rgba(233,235,242,.24);
+      --brand:#9fb0e6; --brand-ink:#d5deff; --brand-soft:#28304a; --brand-line:rgba(159,176,230,.4);
+      --nuwa:#cba6c3; --nuwa-ink:#eddaea; --nuwa-soft:#332a34; --nuwa-line:rgba(203,166,195,.35);
+      --happy:#ee9a64; --happy-ink:#ffdcc0; --happy-soft:#3a2a20; --happy-line:rgba(238,154,100,.4);
+      --ok:#7ecba3; --ok-soft:#1f332a; --ok-line:rgba(126,203,163,.4);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans','Noto Sans TC',system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces','Noto Serif TC',serif;font-weight:600;text-wrap:balance;color:var(--ink);margin:0;}
+  code,.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;}
+  a{color:inherit;}
+
+  .topnav{position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .topnav-inner{max-width:1120px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:22px;overflow-x:auto;}
+  .topnav .brand{font-family:'Fraunces',serif;font-weight:600;font-size:14.5px;white-space:nowrap;flex-shrink:0;}
+  .topnav nav{display:flex;gap:2px;}
+  .topnav nav a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:7px 11px;border-radius:7px;white-space:nowrap;}
+  .topnav nav a:hover{background:var(--surface-2);color:var(--ink);}
+
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+  .wrap-wide{max-width:1120px;margin:0 auto;padding:0 24px;}
+
+  .hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--brand);}
+  .hero h1{font-size:clamp(26px,4vw,36px);line-height:1.2;max-width:22ch;}
+  .hero .lede{margin-top:16px;font-size:16.5px;line-height:1.65;color:var(--muted);max-width:66ch;}
+  .hero .lede b{color:var(--ink);font-weight:600;}
+
+  section{padding:52px 0;border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--faint);font-weight:500;}
+  section h2{font-size:clamp(20px,2.4vw,25px);}
+  .sec-dek{color:var(--muted);font-size:14.5px;max-width:66ch;margin-top:10px;line-height:1.65;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+  .chip.nuwa{background:var(--nuwa-soft);color:var(--nuwa-ink);}
+  .chip.happy{background:var(--happy-soft);color:var(--happy-ink);}
+  .chip.brand{background:var(--brand-soft);color:var(--brand-ink);}
+
+  /* mapping table */
+  .map-table{width:100%;border-collapse:collapse;margin-top:24px;font-size:13.5px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .map-table th{background:var(--surface-2);text-align:left;padding:11px 16px;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:700;}
+  .map-table td{padding:11px 16px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .map-table td:first-child{color:var(--ink);font-weight:600;white-space:nowrap;}
+  .map-table tr td:nth-child(2){color:var(--brand-ink);font-weight:600;white-space:nowrap;}
+
+  /* option cards */
+  .arch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px;}
+  @media (max-width:860px){.arch-grid{grid-template-columns:1fr;}}
+  .arch-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:12px;position:relative;}
+  .arch-card.rec{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);}
+  .rec-tag{position:absolute;top:-11px;left:16px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;}
+  .arch-card h3{font-size:15.5px;}
+  .arch-card .tag{font-size:11.5px;color:var(--faint);}
+  .arch-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12.5px;}
+  .arch-list li{padding-left:15px;position:relative;color:var(--muted);line-height:1.5;}
+  .arch-list li.good::before{content:"＋";position:absolute;left:0;color:var(--ok);font-weight:700;}
+  .arch-list li.bad::before{content:"－";position:absolute;left:0;color:var(--happy);font-weight:700;}
+  .consequence{margin-top:auto;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);line-height:1.6;}
+  .consequence b{color:var(--ink);}
+
+  /* figures */
+  figure{margin:34px 0 0;}
+  .figure-wide{max-width:1120px;margin-left:auto;margin-right:auto;}
+  .diagram-frame{border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:26px clamp(12px,4vw,30px);overflow-x:auto;box-shadow:var(--shadow);}
+  .diagram-frame svg{display:block;margin:0 auto;max-width:100%;height:auto;color:var(--ink);}
+  figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;}
+  figcaption b{color:var(--ink);font-weight:600;}
+
+  /* permission table */
+  .perm-table{width:100%;border-collapse:collapse;margin-top:26px;font-size:12.5px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .perm-table th{background:var(--surface-2);padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--faint);font-weight:700;}
+  .perm-table th:first-child{width:34%;}
+  .perm-table td{padding:9px 12px;border-top:1px solid var(--line);color:var(--muted);}
+  .perm-table td:first-child{color:var(--ink);}
+  .yes{color:var(--ok);font-weight:700;}
+  .no{color:var(--faint);}
+  .partial{color:var(--happy-ink);font-weight:600;}
+
+  /* admin mock */
+  .mock-frame{border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-top:26px;}
+  .mock-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .mock-bar span{width:9px;height:9px;border-radius:50%;background:var(--line-strong);}
+  .mock-bar .url{margin-left:10px;font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace;}
+  .mock-body{display:flex;min-height:340px;}
+  .mock-side{width:160px;flex-shrink:0;border-right:1px solid var(--line);padding:14px 10px;background:var(--surface-2);}
+  .mock-side .item{font-size:12px;padding:7px 10px;border-radius:8px;color:var(--muted);margin-bottom:2px;}
+  .mock-side .item.on{background:var(--brand-soft);color:var(--brand-ink);font-weight:600;}
+  .mock-main{flex:1;padding:18px 20px;min-width:0;}
+  .mock-main h4{font-size:13.5px;margin:0 0 3px;font-weight:700;}
+  .mock-main .desc{font-size:11.5px;color:var(--faint);margin-bottom:14px;}
+  .vendor-row{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+  .vendor-head{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--surface-2);font-size:12.5px;}
+  .vendor-head .vn{font-weight:700;color:var(--ink);}
+  .vendor-head .badge{font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;background:var(--brand-soft);color:var(--brand-ink);}
+  .vendor-head .split{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .vendor-body{padding:10px 13px;display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:11.5px;}
+  @media (max-width:620px){.vendor-body{grid-template-columns:1fr;}}
+  .vendor-body .k{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);margin-bottom:4px;}
+  .vendor-body .v{color:var(--muted);line-height:1.7;}
+  .vendor-body .v .pill{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin:0 4px 4px 0;color:var(--ink);}
+
+  /* decisions */
+  .decision{border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:16px;background:var(--surface);}
+  .decision h3{font-size:14.5px;margin-bottom:12px;}
+  .branch-row{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:8px 0;border-top:1px dashed var(--line);align-items:start;}
+  .branch-row:first-of-type{border-top:none;}
+  .branch-row .opt{font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);border-radius:7px;padding:4px 9px;text-align:center;height:fit-content;}
+  .branch-row .out{font-size:12.5px;color:var(--muted);line-height:1.6;}
+  .branch-row .out code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface-2);padding:1px 5px;border-radius:4px;}
+
+  footer{padding:40px 0 70px;border-top:1px solid var(--line);margin-top:20px;}
+  footer p{font-size:12.5px;color:var(--faint);line-height:1.7;max-width:62ch;}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">廠商模組提案</div>
+    <nav>
+      <a href="#overview">總覽</a>
+      <a href="#shopee">對照蝦皮商城</a>
+      <a href="#arch">層級決策</a>
+      <a href="#data">資料結構</a>
+      <a href="#perm">權限模型</a>
+      <a href="#admin-ui">後台介面草稿</a>
+      <a href="#open">待決策</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <section id="overview" class="hero" style="border-top:none;">
+    <div class="eyebrow"><span class="dot"></span>功能提案 · 對應 Steve 9/3 會議「廠商模組定義」</div>
+    <h1>廠商模組：讓「誰擁有哪些課、誰能改、金流怎麼分」有結構</h1>
+    <p class="lede">
+      之後要找外國老師／機構來開課，就不能再假設「一個 App = 平台自營」。需要一層<b>擁有者</b>的概念：一個廠商可以有多門課、有自己的成員、有自己的拆帳比例。會議上講的方向是<b>類比蝦皮商城</b>——這份文件把「要做幾層」攤開，每個選項寫清楚「選這個會怎樣」，並把跟現有 <code>public.apps</code> 的接法畫出來。
+    </p>
+  </section>
+
+  <section id="shopee">
+    <div class="sec-head"><span class="sec-num">01</span><h2>對照蝦皮商城</h2></div>
+    <p class="sec-dek">會議上用蝦皮商城當比喻。先把角色對上，後面討論才不會各自想像不同的東西。</p>
+    <table class="map-table">
+      <thead><tr><th>蝦皮商城</th><th>NUWA 對應</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td>蝦皮平台</td><td>NUWA 公版</td><td>提供帳號、金流、上架審核、抽成規則的那一層。已存在。</td></tr>
+        <tr><td>賣場 / 店家</td><td>廠商（Vendor）</td><td>新的一層。一個廠商 = 一間開課的機構或一位獨立老師，底下可掛多門課。</td></tr>
+        <tr><td>商品</td><td>App / 課程</td><td>現在的 <code>public.apps</code>（例：幸福關係）。之後每一筆會屬於某個廠商。</td></tr>
+        <tr><td>店員 / 小編</td><td>廠商成員（教師、助教、客服）</td><td>被指派到某廠商、帶角色。能不能獨立成一層 = 下面要決策的重點。</td></tr>
+        <tr><td>蝦皮抽成</td><td>平台拆帳比例</td><td>設在廠商層或 App 層 = 下面要決策的重點。跟「差異化定價」提案相關。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">02</span><h2>核心決策：要做幾層</h2></div>
+    <p class="sec-dek">會議記錄寫「以廠商取代教師，<b>或</b>建立廠商→教師→多 App 的層級」。這其實是三個選項。</p>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>方案 A</h3>
+        <div class="tag">廠商取代教師（扁平）</div>
+        <ul class="arch-list">
+          <li class="good">改動最小：等於把「教師」欄位改名叫「廠商」</li>
+          <li class="good">一個廠商就是一門課的提供者，概念單純</li>
+          <li class="bad">一個機構要開兩門課 = 得建兩個廠商、成員重複維護</li>
+          <li class="bad">之後想加「同機構共用拆帳、共用成員」會卡住</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>現在最快，但只要有任何一個機構要開第二門課，就得回頭重做成三層——等於白做一次。</div>
+      </div>
+
+      <div class="arch-card rec">
+        <span class="rec-tag">建議採用</span>
+        <h3>方案 B</h3>
+        <div class="tag">廠商 → App（兩層，教師是廠商成員的一個角色）</div>
+        <ul class="arch-list">
+          <li class="good">一個廠商掛多門 App，成員／拆帳只設一次</li>
+          <li class="good">「教師」不獨立成表，只是 <code>vendor_members.role</code> 的一個值</li>
+          <li class="good">跟現有 <code>apps</code> 接法乾淨：只加一個 <code>vendor_id</code></li>
+          <li class="bad">「某老師只負責這門課、不能碰同廠商其他課」要靠 App 層權限另做</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>涵蓋「一個機構多門課、成員共用」的實際需求，又不會為了還用不到的細分權限提前複雜化。要細分時再補 App 層授權表即可。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>方案 C</h3>
+        <div class="tag">廠商 → 教師 → App（三層，完整蝦皮模式）</div>
+        <ul class="arch-list">
+          <li class="good">最貼近蝦皮：教師是獨立實體，可跨廠商、可綁多課</li>
+          <li class="good">「這門課的主講老師是誰」是一級資料，好做前台展示</li>
+          <li class="bad">三張關聯表 + 三層權限，一開始就要全做</li>
+          <li class="bad">目前沒有「教師跨廠商」的實際案例，等於為假設做工</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>如果確定教師會跨機構接課、或前台要主打老師個人品牌，值得一次到位；否則是提前過度設計。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="data">
+    <div class="sec-head"><span class="sec-num">03</span><h2>資料結構（以方案 B 為準）</h2></div>
+    <p class="sec-dek">新增 2 張表、既有 <code>apps</code> 加 1 個欄位。全部在公版 <code>public</code> schema，因為金流與上架審核本來就在公版。</p>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 980 340" role="img" aria-label="廠商模組資料結構：vendors 表存廠商基本資料與拆帳比例；vendor_members 表把 users 以角色（owner／teacher／staff）指派到 vendor；既有的 apps 表新增 vendor_id 外鍵指向 vendors；user_apps 綁定關係與 users 表維持不變">
+          <defs>
+            <marker id="fk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- vendors -->
+          <rect x="30" y="40" width="210" height="150" rx="12" fill="var(--brand-soft)" stroke="var(--brand-line)" stroke-width="1.4"/>
+          <text x="45" y="63" font-size="12.5" font-weight="700" fill="var(--brand-ink)">vendors  （新）</text>
+          <line x1="30" y1="72" x2="240" y2="72" stroke="var(--brand-line)"/>
+          <text x="45" y="92" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--ink)">id  (PK)</text>
+          <text x="45" y="110" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">name</text>
+          <text x="45" y="128" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">country</text>
+          <text x="45" y="146" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">status  draft|active</text>
+          <text x="45" y="164" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">revenue_share_pct</text>
+          <text x="45" y="182" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">payout_account</text>
+
+          <!-- vendor_members -->
+          <rect x="30" y="230" width="210" height="90" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <text x="45" y="253" font-size="12.5" font-weight="700" fill="var(--ink)">vendor_members  （新）</text>
+          <line x1="30" y1="262" x2="240" y2="262" stroke="var(--line-strong)"/>
+          <text x="45" y="282" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">vendor_id  (FK)</text>
+          <text x="45" y="300" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">user_id  (FK)</text>
+          <text x="45" y="315" font-size="10" font-family="IBM Plex Mono,monospace" fill="var(--muted)">role  owner|teacher|staff</text>
+
+          <!-- apps -->
+          <rect x="420" y="60" width="200" height="120" rx="12" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <text x="435" y="83" font-size="12.5" font-weight="700" fill="var(--ink)">apps  （既有）</text>
+          <line x1="420" y1="92" x2="620" y2="92" stroke="var(--line-strong)"/>
+          <text x="435" y="112" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--ink)">id  (PK)</text>
+          <text x="435" y="130" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">slug, name, app_url…</text>
+          <text x="435" y="150" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--brand-ink)" font-weight="700">vendor_id  (FK, 可空)</text>
+          <text x="435" y="168" font-size="9.5" fill="var(--faint)">NULL = 平台自營</text>
+
+          <!-- users -->
+          <rect x="750" y="230" width="200" height="90" rx="12" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <text x="765" y="253" font-size="12.5" font-weight="700" fill="var(--ink)">users  （既有）</text>
+          <line x1="750" y1="262" x2="950" y2="262" stroke="var(--line-strong)"/>
+          <text x="765" y="282" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--ink)">id  (PK)</text>
+          <text x="765" y="300" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">email, name, role…</text>
+
+          <!-- user_apps -->
+          <rect x="750" y="60" width="200" height="90" rx="12" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.4"/>
+          <text x="765" y="83" font-size="12.5" font-weight="700" fill="var(--ink)">user_apps （既有）</text>
+          <line x1="750" y1="92" x2="950" y2="92" stroke="var(--line-strong)"/>
+          <text x="765" y="112" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">user_id  (FK)</text>
+          <text x="765" y="130" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--muted)">app_id  (FK)</text>
+
+          <!-- relations -->
+          <line x1="135" y1="230" x2="135" y2="190" stroke="currentColor" stroke-width="1.5" marker-end="url(#fk)"/>
+          <text x="145" y="214" font-size="9.5" fill="var(--muted)">members → vendor</text>
+
+          <line x1="240" y1="150" x2="420" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#fk)"/>
+          <text x="255" y="132" font-size="9.5" fill="var(--brand-ink)">apps.vendor_id → vendors.id（1 廠商 : N App）</text>
+
+          <line x1="240" y1="292" x2="750" y2="278" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+          <text x="360" y="300" font-size="9.5" fill="var(--muted)">member.user_id → users.id</text>
+
+          <line x1="850" y1="150" x2="850" y2="230" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+          <line x1="620" y1="120" x2="750" y2="105" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+        </svg>
+      </div>
+      <figcaption>只加 <b>vendors</b>、<b>vendor_members</b> 兩張表和 <b>apps.vendor_id</b> 一個可空外鍵。既有的 <code>users</code> / <code>user_apps</code> / SSO 流程<b>完全不動</b>。<code>vendor_id = NULL</code> 代表平台自營（幸福關係現在就是這種）。</figcaption>
+    </figure>
+  </section>
+
+  <section id="perm">
+    <div class="sec-head"><span class="sec-num">04</span><h2>權限模型</h2></div>
+    <p class="sec-dek">三種角色，各能碰什麼。廠商管理者進的是公版後台的「廠商」區，看不到別的廠商，也看不到平台層設定。</p>
+    <table class="perm-table">
+      <thead><tr><th>能做的事</th><th>公版管理員</th><th>廠商管理者<br>(role=owner)</th><th>教師成員<br>(role=teacher)</th></tr></thead>
+      <tbody>
+        <tr><td>建立 / 停用廠商</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>設定平台拆帳比例</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>邀請 / 移除本廠商成員</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+        <tr><td>建立 / 編輯本廠商的 App</td><td class="yes">✓</td><td class="yes">✓</td><td class="partial">僅被指派的課</td></tr>
+        <tr><td>編輯課程內容 / 多語系覆寫</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>看本廠商的對帳報表</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+        <tr><td>看其他廠商的任何資料</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="admin-ui">
+    <div class="sec-head"><span class="sec-num">05</span><h2>後台介面草稿</h2></div>
+    <p class="sec-dek">公版後台新增「<span class="chip brand">廠商管理</span>」。每一列是一個廠商，展開看成員、擁有的 App、拆帳比例。</p>
+
+    <div class="mock-frame">
+      <div class="mock-bar"><span></span><span></span><span></span><span class="url">nuwa-v2.vercel.app/manage/vendors</span></div>
+      <div class="mock-body">
+        <div class="mock-side">
+          <div class="item">📊 總覽</div>
+          <div class="item">👥 用戶管理</div>
+          <div class="item">📦 App 管理</div>
+          <div class="item on">🏢 廠商管理</div>
+          <div class="item">💳 訂閱 / 金流</div>
+          <div class="item">⚙️ 系統設定</div>
+        </div>
+        <div class="mock-main">
+          <h4>🏢 廠商管理</h4>
+          <div class="desc">共 3 個廠商 · 平台自營的 App 不歸任何廠商（vendor_id = NULL）</div>
+
+          <div class="vendor-row">
+            <div class="vendor-head">
+              <span class="vn">羽升幸福（內部）</span>
+              <span class="badge">平台自營</span>
+              <span class="split">拆帳 0%</span>
+            </div>
+            <div class="vendor-body">
+              <div><div class="k">成員</div><div class="v"><span class="pill">admin@nuwa · owner</span></div></div>
+              <div><div class="k">擁有的 App</div><div class="v"><span class="pill">幸福關係</span></div></div>
+            </div>
+          </div>
+
+          <div class="vendor-row">
+            <div class="vendor-head">
+              <span class="vn">Tokyo Relations Lab</span>
+              <span class="badge">active</span>
+              <span class="split">拆帳 30%</span>
+            </div>
+            <div class="vendor-body">
+              <div><div class="k">成員</div><div class="v"><span class="pill">yuki · owner</span><span class="pill">sato · teacher</span></div></div>
+              <div><div class="k">擁有的 App</div><div class="v"><span class="pill">日式親密關係</span><span class="pill">職場人際・日本篇</span></div></div>
+            </div>
+          </div>
+
+          <div class="vendor-row">
+            <div class="vendor-head">
+              <span class="vn">Seoul Mind Studio</span>
+              <span class="badge">draft</span>
+              <span class="split">拆帳 —</span>
+            </div>
+            <div class="vendor-body">
+              <div><div class="k">成員</div><div class="v"><span class="pill">jihoon · owner</span></div></div>
+              <div><div class="k">擁有的 App</div><div class="v" style="color:var(--faint)">尚未建立</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:14px;">廠商管理者登入後看到的是<b>同一頁但只有自己那一列</b>，且沒有「建立廠商」「設拆帳」的按鈕——靠上一節的權限模型控制。</figcaption>
+  </section>
+
+  <section id="open">
+    <div class="sec-head"><span class="sec-num">06</span><h2>待決策</h2></div>
+    <p class="sec-dek">這幾個會影響資料表怎麼開，先決定再動工。</p>
+
+    <div class="decision">
+      <h3>教師要獨立成一層，還是當廠商成員的一個角色？（＝方案 B vs C）</h3>
+      <div class="branch-row"><div class="opt">當角色<br>（方案 B）</div><div class="out">教師 = <code>vendor_members.role='teacher'</code>。夠用、改動小。「教師跨廠商接課」做不到（但目前沒這需求）。</div></div>
+      <div class="branch-row"><div class="opt">獨立一層<br>（方案 C）</div><div class="out">多一張 <code>teachers</code> 表 + <code>app_teachers</code> 關聯。教師可跨廠商、前台可主打老師個人品牌。三層權限一開始就要全做。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>平台拆帳比例設在哪一層？</h3>
+      <div class="branch-row"><div class="opt">廠商層</div><div class="out"><code>vendors.revenue_share_pct</code>。同廠商所有課同一個比例，設定簡單，跟蝦皮一致。</div></div>
+      <div class="branch-row"><div class="opt">App 層</div><div class="out"><code>apps.revenue_share_pct</code>（覆寫廠商預設）。同廠商不同課能給不同比例，彈性大但要跟「差異化定價」提案的調價機制一起想。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>一個 App 能不能同時屬於多個廠商（共同開發）？</h3>
+      <div class="branch-row"><div class="opt">不行<br>（預設）</div><div class="out"><code>apps.vendor_id</code> 單一外鍵。最單純，對帳清楚。共同開發用「一方當擁有者、另一方當成員」處理。</div></div>
+      <div class="branch-row"><div class="opt">可以</div><div class="out">改成 <code>app_vendors</code> 多對多 + 每方分潤比例。真正的合資才需要，現在做是提前複雜化。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>現有的「幸福關係」App 怎麼歸屬？</h3>
+      <div class="branch-row"><div class="opt">vendor_id<br>= NULL</div><div class="out">當平台自營，不建內部廠商。報表要另外處理「自營」這個特例。</div></div>
+      <div class="branch-row"><div class="opt">回填一個<br>內部廠商</div><div class="out">建一個「羽升幸福（內部）」廠商、拆帳 0%。所有 App 一律有 <code>vendor_id</code>，報表邏輯不用寫特例。<b>建議這個</b>。</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      本文件為功能提案、非最終規格，對應 Steve 2026-09-03 會議「廠商模組定義」與 jay 的行動項目「實作廠商模組並整合至系統中」。
+      建議採方案 B（廠商 → App 兩層），四項待決策確認後才會往下拆 migration 與開發任務。
+      與「差異化定價」提案在「拆帳／調價」有交集，兩份一起看。
+    </p>
+  </footer>
+</div>
+</body>
+</html>
