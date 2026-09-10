@@ -66,6 +66,12 @@
 
   .arch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px;}
   @media (max-width:820px){.arch-grid{grid-template-columns:1fr;}}
+  .src-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px;}
+  @media (max-width:900px){.src-grid{grid-template-columns:1fr 1fr;}}
+  @media (max-width:540px){.src-grid{grid-template-columns:1fr;}}
+  .src-workflow{margin-top:22px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);font-size:13px;color:var(--muted);line-height:1.7;}
+  .src-workflow b{color:var(--ink);}
+  .src-workflow code{font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--surface);padding:1px 5px;border-radius:4px;}
   .arch-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:12px;position:relative;}
   .arch-card.rec{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);}
   .rec-tag{position:absolute;top:-11px;left:16px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;}
@@ -141,6 +147,7 @@
       <a href="#arch">架構選擇</a>
       <a href="#flow">資料流程</a>
       <a href="#scope">翻譯範圍</a>
+      <a href="#source">翻譯來源</a>
       <a href="#admin-ui">後台介面草稿</a>
       <a href="#open">還沒決定的</a>
     </nav>
@@ -202,7 +209,7 @@
 
   <section id="flow">
     <div class="sec-head"><span class="sec-num">02</span><h2>資料流程</h2></div>
-    <p class="sec-dek">你要的「使用者點日文就變日文、點英文就變英文」是即時的——重點是<b>「即時」靠的是預先建好的字典表，不是每次都叫 AI 即時翻譯</b>。AI／人工翻譯只在「建立或修改字典」的時候發生一次，之後使用者切語言只是讀表、換字，完全不用等待、也不會一直產生 AI 費用。</p>
+    <p class="sec-dek">你要的「使用者點日文就變日文、點英文就變英文」是即時的——重點是<b>「即時」靠的是預先建好的字典表，不是每次都叫翻譯 API</b>。翻譯（DeepL API 打初稿、真人校對）只在「建立或修改字典」的時候發生一次，之後使用者切語言只是讀表、換字，完全不用等待、也不會一直產生翻譯費用。</p>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
@@ -215,7 +222,7 @@
 
           <rect x="20" y="40" width="220" height="150" rx="14" fill="var(--nuwa-soft)" stroke="var(--nuwa-line)" stroke-width="1.4"/>
           <text x="130" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--nuwa-ink)">① 建立公版預設字典</text>
-          <text x="130" y="90" text-anchor="middle" font-size="10.5" fill="var(--nuwa-ink)" opacity="0.85">AI 初翻 或 人工建立</text>
+          <text x="130" y="90" text-anchor="middle" font-size="10.5" fill="var(--nuwa-ink)" opacity="0.85">DeepL API 初翻 → 真人校對</text>
           <rect x="45" y="106" width="170" height="30" rx="7" fill="var(--surface)" stroke="var(--nuwa-line)"/>
           <text x="130" y="125" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="var(--ink)">"day1_title": "..."</text>
           <text x="130" y="168" text-anchor="middle" font-size="10" fill="var(--nuwa-ink)" opacity="0.75">存在公版 DB · 全部私版共用</text>
@@ -241,10 +248,10 @@
           <text x="810" y="168" text-anchor="middle" font-size="10" fill="var(--muted)">點語言 = 本機瞬間換字，不再打 API</text>
 
           <line x1="810" y1="190" x2="810" y2="210" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
-          <text x="810" y="228" text-anchor="middle" font-size="10.5" fill="var(--faint)">✕ 不會每次切換都呼叫 AI 翻譯（沒有這條線）</text>
+          <text x="810" y="228" text-anchor="middle" font-size="10.5" fill="var(--faint)">✕ 不會每次切換都呼叫翻譯 API（沒有這條線）</text>
         </svg>
       </div>
-      <figcaption>翻譯只在①②「建立/編輯」時發生一次；③「使用者切換語言」完全是本機動作，這就是為什麼能做到你要的「點了立刻變」，同時不會累積 AI 費用。</figcaption>
+      <figcaption>翻譯只在①②「建立/編輯」時發生一次；③「使用者切換語言」完全是本機動作，這就是為什麼能做到你要的「點了立刻變」，同時不會累積翻譯 API 費用。</figcaption>
     </figure>
   </section>
 
@@ -258,14 +265,14 @@
         <div class="sub">按鈕、標籤、提示訊息……短字串</div>
         <div class="scope-field"><div class="k">機制</div><div class="v">上面說的 key-value 字典（<code>"login_button": "登入"</code>），就是一般網站多語系標準做法，術語叫 <b>i18n 字典</b></div></div>
         <div class="scope-field"><div class="k">數量</div><div class="v">整站大概幾百到一千多組，管理起來還算單純</div></div>
-        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">AI 一次批次翻完全部（一次性成本，不是每次使用者切換都花錢）</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">專用 MT API（DeepL）一次批次翻完全部 → 團隊審一遍（一次性成本，不是每次使用者切換都花錢）</div></div>
       </div>
       <div class="scope-col">
         <h3>課程教材</h3>
         <div class="sub">21 天課程內容、心法說明……長篇文字</div>
         <div class="scope-field"><div class="k">機制</div><div class="v">不是字典替換，是每天課程內容各語言各存一份完整段落（例如 <code>knowledge_point_en</code>、<code>knowledge_point_ja</code> 欄位）</div></div>
         <div class="scope-field"><div class="k">數量</div><div class="v">每種語言 22 天 × 每天好幾段，篇幅大很多</div></div>
-        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">建議 AI 先翻一版，但這種長文更需要真人（尤其是找的外國老師本人）校對過再上線，機器翻譯直接拿來教學風險較高</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">找來的外國老師<b>本人就是譯者</b>——直接用母語寫/校；真的要機器初稿也用 DeepL，但長文一定要真人審過再上線，機器翻譯直接拿來教學風險較高</div></div>
       </div>
     </div>
   </section>
@@ -321,8 +328,73 @@
     <figcaption style="margin-top:14px;">「來源」欄一眼看出這個詞現在是誰決定的——這樣不管詞典多大，管理者都不用擔心改壞了公版的東西。</figcaption>
   </section>
 
+  <section id="source">
+    <div class="sec-head"><span class="sec-num">05</span><h2>翻譯來源：用專用機器翻譯 API</h2></div>
+    <p class="sec-dek">
+      填字典的初稿建議走<b>專用機器翻譯 API</b>（不是 LLM）——這類引擎專門做翻譯、品質穩定、每千字成本固定。不管初稿來自哪一種，上面第 02 節那張 runtime 圖<b>完全不變</b>：翻譯只發生在「建字典」這一步，使用者切語言永遠是本機讀表。
+    </p>
+
+    <div class="src-grid">
+      <div class="arch-card rec">
+        <span class="rec-tag">建議採用</span>
+        <h3>DeepL API</h3>
+        <div class="tag">專用 MT · 高準確度</div>
+        <ul class="arch-list">
+          <li class="good">品質公認最好，中→英/日尤佳</li>
+          <li class="good">免費額度每月 50 萬字元，付費約 US$25 / 100 萬字元</li>
+          <li class="good">支援 glossary（詞彙表）鎖定專有名詞譯法</li>
+          <li class="bad">語言數比 Google 少（但你要的英日中都有）</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>UI 幾百組字串一次批次翻完成本近乎零，團隊只需審一遍；專有名詞用 glossary 綁死，不會每次翻出不同講法。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>Google Cloud Translation</h3>
+        <div class="tag">專用 MT · 語言最多</div>
+        <ul class="arch-list">
+          <li class="good">100+ 語言，之後要擴很多國最保險</li>
+          <li class="good">穩定、文件完整</li>
+          <li class="bad">中文品質略遜 DeepL，句子偏直譯</li>
+          <li class="bad">無免費額度（前 50 萬字元/月有折抵）</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>初期成本比 DeepL 高一點，換到的是「未來要加冷門語言不用換供應商」。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>自架 LibreTranslate</h3>
+        <div class="tag">開源 · 可離線</div>
+        <ul class="arch-list">
+          <li class="good">完全開源、自己架，零 API 費用</li>
+          <li class="good">資料不出自己的伺服器</li>
+          <li class="bad">品質明顯低於 DeepL / Google</li>
+          <li class="bad">要自己顧一台機器、GPU 才快</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>省掉 API 錢，但省下的錢遠少於多花的維運工時；只有在「翻譯量極大且對品質容忍度高」時才划算。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>LLM（GPT 等）</h3>
+        <div class="tag">通用模型 · 較新做法</div>
+        <ul class="arch-list">
+          <li class="good">能吃上下文、語氣指示，長文較自然</li>
+          <li class="good">專案已經在用 OpenAI，不必再接一家</li>
+          <li class="bad">同一句每次結果可能不同，較難鎖定</li>
+          <li class="bad">長文成本比專用 MT 高、速度慢</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>適合拿來翻「課程長文」的初稿（要語氣），不適合大量 UI 短字串（用 DeepL 更穩更便宜）。</div>
+      </div>
+    </div>
+
+    <div class="src-workflow">
+      <b>實際流程（業界標準，叫 MTPE）：</b>
+      <code>DeepL 產生初稿</code> → 塞進翻譯管理工具（開源 <b>Weblate</b> / <b>Tolgee</b>，或 SaaS <b>Crowdin</b>）
+      → 真人逐句 post-edit → 同步回字典。<br>
+      關鍵是<b>「機器翻初稿、真人只校對」</b>，不是純機器、也不是純真人從零翻。
+    </div>
+  </section>
+
   <section id="open">
-    <div class="sec-head"><span class="sec-num">05</span><h2>還沒決定的部分</h2></div>
+    <div class="sec-head"><span class="sec-num">06</span><h2>還沒決定的部分</h2></div>
     <p class="sec-dek">這幾個我先不幫你選，因為後果會直接影響你之後找老師合作的節奏，你自己決定比較好。</p>
 
     <div class="decision">
@@ -340,7 +412,7 @@
 
   <footer>
     <p>
-      本文件為功能提案、非最終規格。架構決策（方案三、i18n 字典 + 課程內容多欄位）已依需求推導，
+      本文件為功能提案、非最終規格。架構決策（方案三、i18n 字典 + 課程內容多欄位）與翻譯來源建議（DeepL API 初稿 + 真人校對）已依需求推導，
       剩下兩項「還沒決定的部分」需要管理者確認後才會繼續往下規劃時程與開發任務拆解。
     </p>
   </footer>
