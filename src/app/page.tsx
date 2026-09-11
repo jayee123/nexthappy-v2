@@ -17,7 +17,9 @@ import { hasSeenIntro } from '@/lib/welcome';
 export default function HomePage() {
   const router = useRouter();
   // 回訪已登入用戶 → 顯示「導覽 / 直接開始」；appPath = 「直接開始」要去的地方
-  const [chooser, setChooser] = useState<{ appPath: string } | null>(null);
+  // greeting：註冊 7 天內的人看「哈囉」而不是「歡迎回來」——
+  // 封測受邀者當天註冊、第一次進來就被說「回來」很出戲（Steve 測試回報・發現 08）
+  const [chooser, setChooser] = useState<{ appPath: string; greeting: string } | null>(null);
 
   useEffect(() => {
     async function checkStatus() {
@@ -45,7 +47,11 @@ export default function HomePage() {
           router.replace('/welcome?next=' + encodeURIComponent(appPath));
         } else {
           // 回訪 → 顯示兩顆按鈕
-          setChooser({ appPath });
+          const isNewish =
+            user.created_at &&
+            Date.now() - new Date(user.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
+          const greeting = isNewish ? `哈囉${user.name ? `，${user.name}` : ''}` : '歡迎回來';
+          setChooser({ appPath, greeting });
         }
       } catch {
         router.replace('/welcome');
@@ -70,7 +76,7 @@ export default function HomePage() {
               className="object-contain"
             />
           </div>
-          <h1 className="text-xl font-semibold text-gray-800">歡迎回來</h1>
+          <h1 className="text-xl font-semibold text-gray-800">{chooser.greeting}</h1>
           <p className="mt-2 text-sm text-gray-500">要先看一次導覽，還是直接開始？</p>
 
           <div className="mt-8 space-y-3">
