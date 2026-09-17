@@ -23,7 +23,8 @@ const NAV = [
   { href: '/admin/conversations', icon: '💬', label: '對話歷史' },
   { href: '/admin/topics', icon: '📁', label: '諮詢主題' },
   { href: '/admin/course', icon: '📚', label: '課程內容' },
-  { href: '/admin/invites', icon: '📨', label: '邀請碼管理' },
+  // 邀請碼管理 2026-09-10 從側欄移除（Jeff）：發放/兌換一律在公版
+  //（金流與試用架構定案 §01/§06）。唯讀歷史頁 /admin/invites 仍可直接輸網址查。
   { href: '/admin/subscriptions', icon: '💳', label: '訂閱管理' },
   { href: '/admin/usage', icon: '📈', label: '用量 / 成本' },
   { href: '/admin/spec', icon: '📜', label: '規格文件' },
