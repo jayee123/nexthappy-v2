@@ -16,6 +16,9 @@
 import type { PlanTier } from '@/lib/billing/plans';
 import { getMarketClient } from './client';
 
+/** 這支私版對應公版 apps.slug。與 market/usage.ts 的 APP_SLUG 同值。 */
+const MARKET_APP_SLUG = 'happy';
+
 /**
  * 公版 current_plan → 私版 PlanTier
  * 公版有 'free'（未訂閱），私版沒有對應層級，對到 'trial'（免費體驗額度）。
@@ -78,4 +81,45 @@ export async function getMarketPlan(nuwaUserId: string | null): Promise<MarketPl
     marketPlan,
     planDeadline: data.plan_deadline ?? null,
   };
+}
+
+/**
+ * 讀公版的「這支 App 的試用到期日」。
+ *
+ * 試用到期的唯一真值在公版 `public.user_app_trials.expires_at`
+ * （兌換或自動開試用時由 `apps.trial_days` 算出來）。私版不該自己推算 ——
+ * 公版 happy 設 14 天、私版常數寫死 7 天，各算各的就會在第 8 天起
+ * 擋掉還在試用期內的人（Steve 2026-09-23 §四）。
+ *
+ * @param nuwaUserId happy.users.nuwa_user_id（未歸戶為 null）
+ * @returns ISO 字串；未歸戶 / 查無紀錄 / 查詢失敗一律回 null，由呼叫端 fallback
+ */
+export async function getMarketTrialExpiry(nuwaUserId: string | null): Promise<string | null> {
+  if (!nuwaUserId) return null;
+
+  const market = getMarketClient();
+
+  const { data: app, error: appErr } = await market
+    .from('apps')
+    .select('id')
+    .eq('slug', MARKET_APP_SLUG)
+    .maybeSingle();
+
+  if (appErr || !app) {
+    console.error('[market/plan] 讀不到公版 App 紀錄:', appErr?.message ?? 'not found');
+    return null;
+  }
+
+  const { data, error } = await market
+    .from('user_app_trials')
+    .select('expires_at')
+    .eq('user_id', nuwaUserId)
+    .eq('app_id', app.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[market/plan] 讀取公版試用到期日失敗:', error.message);
+    return null;
+  }
+  return data?.expires_at ? String(data.expires_at) : null;
 }

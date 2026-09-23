@@ -15,7 +15,7 @@
 //   - 失敗（譬如 DB error）不阻塞主流程、log 後 fail-open allow
 
 import { supabaseAdmin } from '@/lib/supabase';
-import { getMarketPlan } from '@/lib/market/plan';
+import { getMarketPlan, getMarketTrialExpiry } from '@/lib/market/plan';
 import { reportUsageToMarket } from '@/lib/market/usage';
 import { PLANS, type PlanTier, estimateClaudeCallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
 
@@ -111,12 +111,21 @@ export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
   }
 
   // Trial 資訊
+  //
+  // 試用到期日的**唯一真值在公版** user_app_trials.expires_at（由 apps.trial_days 決定）。
+  // 原本這裡用 trial_started_at + 寫死的 7 天自己推算 —— 公版 happy 設的是 14 天，
+  // 兩邊各算各的，第 8 天起私版就會擋掉還在試用期內的人（Steve 2026-09-23 §四）。
+  // 改成直接讀公版；讀不到才退回本地推算，並明確 log 是走了 fallback。
   const is_trial = plan === 'trial';
   let trial_expires_at: string | null = null;
-  if (is_trial && user.trial_started_at) {
-    const exp = new Date(user.trial_started_at);
-    exp.setDate(exp.getDate() + (planSpec.trial_days || 7));
-    trial_expires_at = exp.toISOString();
+  if (is_trial) {
+    trial_expires_at = await getMarketTrialExpiry(user.nuwa_user_id);
+    if (!trial_expires_at && user.trial_started_at) {
+      console.warn('[quotas] 讀不到公版試用到期日，fallback 用本地推算:', user.id);
+      const exp = new Date(user.trial_started_at);
+      exp.setDate(exp.getDate() + (planSpec.trial_days || 7));
+      trial_expires_at = exp.toISOString();
+    }
   }
 
   const limit = getMonthlyMessageQuota(plan);
@@ -208,7 +217,9 @@ export async function checkQuotaAvailable(userId: string): Promise<QuotaCheckRes
         allowed: false,
         reason: 'trial_expired',
         usage,
-        user_message: '7 天免費試用已結束、請選擇訂閱方案以繼續使用。',
+        // 4.6：試用到期 = 擋在 App 門口，要引導去「訂閱基本方案以上」。
+        // 原文寫死「7 天」且與額度用完的訊息語氣混在一起 —— 使用者看到錯的訊息會買錯東西。
+        user_message: '試用已結束，訂閱基本方案以上即可繼續使用。',
       };
     }
   }
@@ -219,7 +230,11 @@ export async function checkQuotaAvailable(userId: string): Promise<QuotaCheckRes
       allowed: false,
       reason: 'monthly_quota_exceeded',
       usage,
-      user_message: `本月 ${usage.plan_label} 方案 ${usage.messages_limit} 則對話額度已用完、升級享更多、或下月 1 號重置。`,
+      // 4.6：額度用完 = 只擋 AI 對話，App 仍然進得去，要引導去「進階方案」（買的是次數）。
+      // 跟上面的試用到期訊息刻意分開 —— 使用者看到錯的訊息會去買錯的東西，
+      // 額度用完的人被導去買基本方案，買了次數還是一樣，那是會退費的那種誤導。
+      // 也刻意不寫「下月 1 號重置」：重置時點即將改成訂閱週期起算日（§4.4）。
+      user_message: `這個週期的 AI 對話次數已用完（${usage.messages_limit} 則），升級到進階方案可以繼續使用。`,
     };
   }
 
