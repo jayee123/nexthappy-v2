@@ -15,7 +15,8 @@
 //   - 失敗（譬如 DB error）不阻塞主流程、log 後 fail-open allow
 
 import { supabaseAdmin } from '@/lib/supabase';
-import { getMarketPlan, getMarketTrialExpiry } from '@/lib/market/plan';
+import { MARKET_APP_SLUG, getMarketPlan, getMarketTrialExpiry } from '@/lib/market/plan';
+import { getMarketClient } from '@/lib/market/client';
 import { reportUsageToMarket } from '@/lib/market/usage';
 import { PLANS, type PlanTier, estimateClaudeCallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
 
@@ -330,6 +331,20 @@ export async function recordUsage(params: RecordUsageParams): Promise<void> {
       outputTokens,
       costTwd,
     });
+
+    // 4. 全平台額度 —— 階段 1 影子記錄（nuwa/v2 docs/QUOTA-PLAN.md）
+    //    額度改成全平台一池、存在公版 ai_dialog_usage（Jeff 2026-09-25 決定 2A）。
+    //    這個階段只記不擋：上面第 2 步的 usage_quotas 仍是私版現行帳本，
+    //    跑一週比對兩邊數字對得上，才在階段 2 改用公版 consume_dialog 擋人。
+    if (user?.nuwa_user_id) {
+      const { error: shadowError } = await getMarketClient().rpc('record_dialog', {
+        p_user: user.nuwa_user_id,
+        p_source: MARKET_APP_SLUG,
+      });
+      if (shadowError) {
+        console.error('[quotas recordUsage] 全平台額度影子記錄失敗:', shadowError.message);
+      }
+    }
   } catch (err) {
     console.error('[quotas recordUsage] 回寫公版用量失敗:', err);
   }

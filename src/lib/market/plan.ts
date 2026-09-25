@@ -17,7 +17,7 @@ import type { PlanTier } from '@/lib/billing/plans';
 import { getMarketClient } from './client';
 
 /** 這支私版對應公版 apps.slug。與 market/usage.ts 的 APP_SLUG 同值。 */
-const MARKET_APP_SLUG = 'happy';
+export const MARKET_APP_SLUG = 'happy';
 
 /**
  * 公版 current_plan → 私版 PlanTier
