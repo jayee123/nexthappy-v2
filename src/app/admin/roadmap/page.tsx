@@ -41,6 +41,14 @@ const ITEMS: RoadmapItem[] = [
     status: '待決策',
     icon: '🏢',
   },
+  {
+    slug: 'guardrail',
+    title: '對話範疇防護',
+    summary:
+      '防止使用者拿小羽問作業、算數學等跟關係諮詢無關的問題。用輕量分類 Step 判斷三態(相關／不相關／模稜兩可)，模稜兩可時反問釐清而非亂猜。內含業界做法對照、判斷範例、後台複查介面與三項待決策。',
+    status: '待決策',
+    icon: '🛡',
+  },
 ];
 
 const STATUS_STYLE: Record<RoadmapItem['status'], string> = {

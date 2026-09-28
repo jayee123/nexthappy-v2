@@ -14,6 +14,7 @@ const KNOWN_SLUGS: Record<string, { title: string; file: string }> = {
   i18n: { title: '多語言處理', file: 'i18n-plan.html' },
   pricing: { title: '差異化定價', file: 'pricing-plan.html' },
   vendor: { title: '廠商模組', file: 'vendor-plan.html' },
+  guardrail: { title: '對話範疇防護', file: 'guardrail-plan.html' },
 };
 
 export default function RoadmapDetailPage({

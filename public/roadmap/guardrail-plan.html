@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>對話範疇防護提案</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#eef1f1; --surface:#ffffff; --surface-2:#f6f9f9;
+    --ink:#152125; --muted:#57696d; --faint:#849294;
+    --line:rgba(21,33,37,.12); --line-strong:rgba(21,33,37,.22);
+    --guard:#2a7d78; --guard-ink:#1c5652; --guard-soft:#e3f1ef; --guard-line:rgba(42,125,120,.35);
+    --nuwa:#8b6483; --nuwa-ink:#5c4056; --nuwa-soft:#f1e9ef; --nuwa-line:rgba(139,100,131,.35);
+    --happy:#c9642f; --happy-ink:#8a4116; --happy-soft:#fbeee5; --happy-line:rgba(201,100,47,.35);
+    --ok:#2f7a52; --ok-soft:#e6f4ec; --ok-line:rgba(47,122,82,.35);
+    --warn:#a5741f; --warn-soft:#fbf1de;
+    --shadow: 0 1px 2px rgba(21,33,37,.05), 0 8px 24px -12px rgba(21,33,37,.16);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141a1a; --surface:#1c2424; --surface-2:#212b2a;
+      --ink:#e7edec; --muted:#a3b4b3; --faint:#758484;
+      --line:rgba(231,237,236,.13); --line-strong:rgba(231,237,236,.24);
+      --guard:#6cc7c0; --guard-ink:#c3ece8; --guard-soft:#1e3634; --guard-line:rgba(108,199,192,.4);
+      --nuwa:#cba6c3; --nuwa-ink:#eddaea; --nuwa-soft:#332a34; --nuwa-line:rgba(203,166,195,.35);
+      --happy:#ee9a64; --happy-ink:#ffdcc0; --happy-soft:#3a2a20; --happy-line:rgba(238,154,100,.4);
+      --ok:#7ecba3; --ok-soft:#1f332a; --ok-line:rgba(126,203,163,.4);
+      --warn:#e0b25e; --warn-soft:#332a1a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -12px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans','Noto Sans TC',system-ui,-apple-system,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces','Noto Serif TC',serif;font-weight:600;text-wrap:balance;color:var(--ink);margin:0;}
+  code,.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;}
+  a{color:inherit;}
+
+  .topnav{position:sticky;top:0;z-index:40;background:color-mix(in srgb, var(--bg) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  .topnav-inner{max-width:1120px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:22px;overflow-x:auto;}
+  .topnav .brand{font-family:'Fraunces',serif;font-weight:600;font-size:14.5px;white-space:nowrap;flex-shrink:0;}
+  .topnav nav{display:flex;gap:2px;}
+  .topnav nav a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:7px 11px;border-radius:7px;white-space:nowrap;}
+  .topnav nav a:hover{background:var(--surface-2);color:var(--ink);}
+
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px;}
+  .wrap-wide{max-width:1120px;margin:0 auto;padding:0 24px;}
+
+  .hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--guard);}
+  .hero h1{font-size:clamp(26px,4vw,36px);line-height:1.2;max-width:22ch;}
+  .hero .lede{margin-top:16px;font-size:16.5px;line-height:1.65;color:var(--muted);max-width:66ch;}
+  .hero .lede b{color:var(--ink);font-weight:600;}
+
+  section{padding:52px 0;border-top:1px solid var(--line);}
+  section:first-of-type{border-top:none;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--faint);font-weight:500;}
+  section h2{font-size:clamp(20px,2.4vw,25px);}
+  .sec-dek{color:var(--muted);font-size:14.5px;max-width:66ch;margin-top:10px;line-height:1.65;}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+  .chip.guard{background:var(--guard-soft);color:var(--guard-ink);}
+  .chip.happy{background:var(--happy-soft);color:var(--happy-ink);}
+  .chip.ok{background:var(--ok-soft);color:var(--ok);}
+
+  /* misconception box */
+  .misconception{margin-top:26px;border:1px solid var(--warn-soft);background:var(--warn-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--warn);line-height:1.7;}
+  .misconception b{font-weight:700;}
+
+  /* option cards */
+  .arch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px;}
+  @media (max-width:860px){.arch-grid{grid-template-columns:1fr;}}
+  .arch-card{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--surface);display:flex;flex-direction:column;gap:12px;position:relative;}
+  .arch-card.rec{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);}
+  .rec-tag{position:absolute;top:-11px;left:16px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;}
+  .arch-card h3{font-size:15.5px;}
+  .arch-card .tag{font-size:11.5px;color:var(--faint);}
+  .arch-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:12.5px;}
+  .arch-list li{padding-left:15px;position:relative;color:var(--muted);line-height:1.5;}
+  .arch-list li.good::before{content:"＋";position:absolute;left:0;color:var(--ok);font-weight:700;}
+  .arch-list li.bad::before{content:"－";position:absolute;left:0;color:var(--happy);font-weight:700;}
+  .consequence{margin-top:auto;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted);line-height:1.6;}
+  .consequence b{color:var(--ink);}
+
+  /* tool reference row */
+  .tool-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px;}
+  @media (max-width:820px){.tool-row{grid-template-columns:1fr 1fr;}}
+  @media (max-width:480px){.tool-row{grid-template-columns:1fr;}}
+  .tool-card{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--surface);}
+  .tool-card .n{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+  .tool-card .t{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+  .tool-card .d{font-size:11.5px;color:var(--muted);line-height:1.55;}
+
+  /* figures */
+  figure{margin:34px 0 0;}
+  .figure-wide{max-width:1120px;margin-left:auto;margin-right:auto;}
+  .diagram-frame{border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:26px clamp(12px,4vw,30px);overflow-x:auto;box-shadow:var(--shadow);}
+  .diagram-frame svg{display:block;margin:0 auto;max-width:100%;height:auto;color:var(--ink);}
+  figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;}
+  figcaption b{color:var(--ink);font-weight:600;}
+
+  /* example table */
+  .ex-table{width:100%;border-collapse:collapse;margin-top:24px;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .ex-table th{background:var(--surface-2);text-align:left;padding:10px 14px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);font-weight:700;}
+  .ex-table td{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .ex-table td.msg{color:var(--ink);font-style:italic;}
+  .verdict-pill{display:inline-flex;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+  .verdict-pill.in{background:var(--ok-soft);color:var(--ok);}
+  .verdict-pill.out{background:var(--happy-soft);color:var(--happy-ink);}
+  .verdict-pill.gray{background:var(--warn-soft);color:var(--warn);}
+
+  /* admin mock */
+  .mock-frame{border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-top:26px;}
+  .mock-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .mock-bar span{width:9px;height:9px;border-radius:50%;background:var(--line-strong);}
+  .mock-bar .url{margin-left:10px;font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace;}
+  .mock-body{display:flex;min-height:300px;}
+  .mock-side{width:160px;flex-shrink:0;border-right:1px solid var(--line);padding:14px 10px;background:var(--surface-2);}
+  .mock-side .item{font-size:12px;padding:7px 10px;border-radius:8px;color:var(--muted);margin-bottom:2px;}
+  .mock-side .item.on{background:var(--guard-soft);color:var(--guard-ink);font-weight:600;}
+  .mock-main{flex:1;padding:18px 20px;min-width:0;}
+  .mock-main h4{font-size:13.5px;margin:0 0 3px;font-weight:700;}
+  .mock-main .desc{font-size:11.5px;color:var(--faint);margin-bottom:14px;}
+  table.mock-table{width:100%;border-collapse:collapse;font-size:11.8px;}
+  .mock-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:600;padding:7px 10px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .mock-table td{padding:8px 10px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;}
+  .mock-table td.msg{color:var(--ink);max-width:220px;}
+
+  /* decisions */
+  .decision{border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:16px;background:var(--surface);}
+  .decision h3{font-size:14.5px;margin-bottom:12px;}
+  .branch-row{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:8px 0;border-top:1px dashed var(--line);align-items:start;}
+  .branch-row:first-of-type{border-top:none;}
+  .branch-row .opt{font-size:12px;font-weight:700;color:var(--guard-ink);background:var(--guard-soft);border-radius:7px;padding:4px 9px;text-align:center;height:fit-content;}
+  .branch-row .out{font-size:12.5px;color:var(--muted);line-height:1.6;}
+  .branch-row .out code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface-2);padding:1px 5px;border-radius:4px;}
+
+  footer{padding:40px 0 70px;border-top:1px solid var(--line);margin-top:20px;}
+  footer p{font-size:12.5px;color:var(--faint);line-height:1.7;max-width:62ch;}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">對話範疇防護提案</div>
+    <nav>
+      <a href="#overview">總覽</a>
+      <a href="#industry">業界怎麼做</a>
+      <a href="#arch">核心決策</a>
+      <a href="#examples">判斷範例</a>
+      <a href="#flow">資料流程</a>
+      <a href="#admin-ui">後台介面草稿</a>
+      <a href="#open">待決策</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <section id="overview" class="hero" style="border-top:none;">
+    <div class="eyebrow"><span class="dot"></span>功能提案 · 產品邊界與信任</div>
+    <h1>對話範疇防護：讓小羽只做它該做的事</h1>
+    <p class="lede">
+      我們賣的是「陪你梳理關係卡點」，不是通用 AI 助理。如果使用者能拿它寫作業、問程式、問股票，那小羽的角色就模糊了——不只偏離產品定位，一個定位在心理陪伴的產品，被期待要有清楚的邊界，這也是使用者信任感的一部分。這份文件把「業界實際怎麼做這件事」攤開，再給一個可以動工的方案。
+    </p>
+  </section>
+
+  <section id="industry">
+    <div class="sec-head"><span class="sec-num">01</span><h2>業界怎麼做</h2></div>
+    <p class="sec-dek">你問的「業界怎麼阻擋掉那些東西」——這個題目在 AI 產品圈有專門的名字，叫 <b>topical guardrail（主題護欄）</b>，跟「內容安全審查」是兩件不同的事，先把這個常見誤解說清楚。</p>
+
+    <div class="misconception">
+      <b>常見誤解：</b>OpenAI 的 Moderation API、Azure AI Content Safety 這類工具，抓的是「暴力、色情、仇恨言論」這種<b>違法違規內容</b>，不是「這句話跟關係諮詢有沒有關」。一個使用者問「幫我寫 Python 作業」完全不違規，Moderation API 不會擋——但那正是我們要擋的東西。內容安全跟主題範疇，是兩層完全不同的防護，不能只做一個就以為夠了。
+    </div>
+
+    <div class="tool-row">
+      <div class="tool-card">
+        <div class="n">NeMo Guardrails</div>
+        <div class="t">開源 · NVIDIA</div>
+        <div class="d">用「對話流程規則」定義能聊什麼、不能聊什麼，偵測到離題會自動接管回應。功能完整但要學一套設定語法（Colang）。</div>
+      </div>
+      <div class="tool-card">
+        <div class="n">Guardrails AI</div>
+        <div class="t">開源</div>
+        <div class="d">著重「驗證 AI 輸出格式/內容是否合規」，也支援自訂主題驗證器。社群外掛多，彈性高。</div>
+      </div>
+      <div class="tool-card">
+        <div class="n">LlamaGuard</div>
+        <div class="t">開源模型 · Meta</div>
+        <div class="d">專門的分類模型，判斷一段對話落在哪個風險/主題類別。要自己部署模型，較重。</div>
+      </div>
+      <div class="tool-card">
+        <div class="n">自訂輕量分類</div>
+        <div class="t">最多團隊實際採用</div>
+        <div class="d">不裝框架，自己寫一個「先分類、再決定要不要正常回答」的步驟，用一次便宜的 LLM 呼叫做。多數中小產品最後都是走這條路。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">02</span><h2>核心決策：怎麼判斷「這是不是關係相關的問題」</h2></div>
+    <p class="sec-dek">三種做法，複雜度跟準確度是取捨關係。</p>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>方案 A</h3>
+        <div class="tag">只靠 system prompt 約束（現況）</div>
+        <ul class="arch-list">
+          <li class="good">不用改架構，一段文字就能上</li>
+          <li class="bad">使用者換個問法就能繞過（「假裝你是工程師…」）</li>
+          <li class="bad">沒有紀錄、無法追蹤攔了多少次、攔對了沒</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>等於現在的狀態，你會一直看到使用者反應「它什麼都回」，因為 prompt 約束本來就擋不住刻意繞過。</div>
+      </div>
+
+      <div class="arch-card rec">
+        <span class="rec-tag">建議採用</span>
+        <h3>方案 B</h3>
+        <div class="tag">輕量分類 Step（先判斷、再決定要不要正常回答）</div>
+        <ul class="arch-list">
+          <li class="good">每則訊息先過一次 <code>gpt-4o-mini</code> 分類，便宜（比正式回應輕很多）</li>
+          <li class="good">分類結果三態：<code>in_scope</code> / <code>out_of_scope</code> / <code>ambiguous</code></li>
+          <li class="good">攔下的訊息會記錄，後台看得到、能微調規則</li>
+          <li class="bad">多一次 API 呼叫，回應會多 200-400ms 延遲</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>大多數中小型 AI 產品實際採用的做法——不用裝重框架，一週內可以做完，且能持續看數據調整「多嚴/多鬆」。</div>
+      </div>
+
+      <div class="arch-card">
+        <h3>方案 C</h3>
+        <div class="tag">導入完整防護框架（NeMo Guardrails 等）</div>
+        <ul class="arch-list">
+          <li class="good">功能最完整，未來要加更多規則（安全風險偵測等）都有現成機制</li>
+          <li class="bad">要學一套新的設定語法、多一層維運成本</li>
+          <li class="bad">對現在的規模是殺雞用牛刀</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>值得先記在待辦，等產品規模變大、規則變多（不只範疇，還要防詐騙誘導等）時再升級過去，現在做投報率低。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="examples">
+    <div class="sec-head"><span class="sec-num">03</span><h2>判斷範例——三態，不是是非題</h2></div>
+    <p class="sec-dek">你說的「有什麼需求的問題你再跟我確認一下」，就是這裡的<b>第三態：模稜兩可</b>。不是每句話都能一刀切成「相關／不相關」，硬要二選一，反而容易把正常但講法特殊的關係問題誤攔下來。</p>
+
+    <table class="ex-table">
+      <thead><tr><th style="width:38%">使用者訊息</th><th style="width:16%">判斷</th><th>小羽的處理方式</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="msg">「我男朋友已經三天不讀不回了」</td>
+          <td><span class="verdict-pill in">in_scope</span></td>
+          <td>正常走原本的諮詢對話流程</td>
+        </tr>
+        <tr>
+          <td class="msg">「幫我寫一篇 500 字的企業倫理報告」</td>
+          <td><span class="verdict-pill out">out_of_scope</span></td>
+          <td>不回答內容，委婉說明角色定位，引導回關係相關的話題</td>
+        </tr>
+        <tr>
+          <td class="msg">「我覺得我最近工作壓力很大」</td>
+          <td><span class="verdict-pill gray">ambiguous</span></td>
+          <td>可能是「職場人際卡點」也可能只是抱怨工作量——<b>反問 1-2 個釐清問題</b>，不用猜的直接答</td>
+        </tr>
+        <tr>
+          <td class="msg">「幫我算一下 87 乘以 34」</td>
+          <td><span class="verdict-pill out">out_of_scope</span></td>
+          <td>不回答，說明這不是它能協助的範圍</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="flow">
+    <div class="sec-head"><span class="sec-num">04</span><h2>資料流程</h2></div>
+    <p class="sec-dek">分類這一步插在「使用者送出訊息」跟「正式產生回覆」中間，多一個路口，不動原本的對話邏輯。</p>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 1000 280" role="img" aria-label="資料流程圖：使用者送出訊息後，先經過一個範疇分類步驟，用輕量模型判斷這則訊息是否屬於關係諮詢的範疇，分類結果分三種——屬於範疇內就正常走原本的AI對話生成回覆，不屬於範疇內則不產生正式回覆、改用委婉引導語回應並記錄一筆，屬於模稜兩可則由AI反問一到兩個釐清問題而不是直接猜測回答；不論哪一種結果都會寫入範疇防護記錄表供後台複查">
+          <defs>
+            <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect x="20" y="105" width="170" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="105" y="135" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">使用者送出訊息</text>
+          <text x="105" y="155" text-anchor="middle" font-size="10" fill="var(--muted)">/api/ai/chat｜/consultant</text>
+
+          <line x1="190" y1="140" x2="250" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrG)"/>
+
+          <rect x="258" y="90" width="190" height="100" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
+          <text x="353" y="118" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">範疇分類</text>
+          <text x="353" y="138" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">gpt-4o-mini，一次輕量呼叫</text>
+          <text x="353" y="158" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">回傳三態判斷結果</text>
+          <text x="353" y="176" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.7">不是回答內容，只是分類</text>
+
+          <line x1="448" y1="115" x2="510" y2="60" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
+          <line x1="448" y1="140" x2="510" y2="140" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
+          <line x1="448" y1="165" x2="510" y2="220" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
+
+          <rect x="518" y="26" width="200" height="68" rx="10" fill="var(--ok-soft)" stroke="var(--ok-line)" stroke-width="1.3"/>
+          <text x="618" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ok)">in_scope</text>
+          <text x="618" y="70" text-anchor="middle" font-size="10" fill="var(--ok)" opacity="0.85">正常走原本的 AI 對話</text>
+
+          <rect x="518" y="106" width="200" height="68" rx="10" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.3"/>
+          <text x="618" y="132" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--warn)">ambiguous</text>
+          <text x="618" y="150" text-anchor="middle" font-size="10" fill="var(--warn)" opacity="0.9">反問 1-2 個釐清問題</text>
+
+          <rect x="518" y="186" width="200" height="68" rx="10" fill="var(--happy-soft)" stroke="var(--happy-line)" stroke-width="1.3"/>
+          <text x="618" y="212" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--happy-ink)">out_of_scope</text>
+          <text x="618" y="230" text-anchor="middle" font-size="10" fill="var(--happy-ink)" opacity="0.9">不答內容，委婉引導回主題</text>
+
+          <line x1="720" y1="60" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <line x1="720" y1="140" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <line x1="720" y1="220" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
+
+          <rect x="808" y="105" width="175" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="895" y="133" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink)">範疇防護記錄表</text>
+          <text x="895" y="153" text-anchor="middle" font-size="9.5" fill="var(--muted)">三種結果都寫入，供後台複查</text>
+        </svg>
+      </div>
+      <figcaption>三態都會留一筆記錄——即使是 <code>in_scope</code> 也記，這樣後台才能算出「攔下比例」「誤判率」這些數字，而不是只看到被擋掉的那一半。</figcaption>
+    </figure>
+  </section>
+
+  <section id="admin-ui">
+    <div class="sec-head"><span class="sec-num">05</span><h2>後台介面草稿</h2></div>
+    <p class="sec-dek">新增一個「<span class="chip guard">範疇防護記錄</span>」頁面，管理者能看到被攔下 / 判斷模糊的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。</p>
+
+    <div class="mock-frame">
+      <div class="mock-bar"><span></span><span></span><span></span><span class="url">nexthappy-v2.vercel.app/admin/guardrail</span></div>
+      <div class="mock-body">
+        <div class="mock-side">
+          <div class="item">📊 Dashboard</div>
+          <div class="item">👥 學員管理</div>
+          <div class="item">💬 對話歷史</div>
+          <div class="item on">🛡 範疇防護記錄</div>
+          <div class="item">⚙️ 系統設定</div>
+        </div>
+        <div class="mock-main">
+          <h4>🛡 範疇防護記錄</h4>
+          <div class="desc">近 7 天：攔下 <b>3.2%</b>、反問澄清 <b>1.8%</b>（分母為全部訊息）</div>
+          <table class="mock-table">
+            <thead><tr><th style="width:16%">時間</th><th>訊息（節錄）</th><th style="width:14%">判斷</th><th style="width:14%">處理</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>14:02</td>
+                <td class="msg">「幫我寫一篇 500 字的企業倫理報告」</td>
+                <td><span class="verdict-pill out">out_of_scope</span></td>
+                <td>委婉引導</td>
+              </tr>
+              <tr>
+                <td>13:47</td>
+                <td class="msg">「我覺得我最近工作壓力很大」</td>
+                <td><span class="verdict-pill gray">ambiguous</span></td>
+                <td>反問澄清</td>
+              </tr>
+              <tr>
+                <td>13:20</td>
+                <td class="msg">「幫我算一下 87 乘以 34」</td>
+                <td><span class="verdict-pill out">out_of_scope</span></td>
+                <td>委婉引導</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <figcaption style="margin-top:14px;">管理者看到「這則明明是關係問題卻被判 out_of_scope」，可以直接把它加進分類 prompt 的範例——規則會越用越準，不是寫死一次就不管了。</figcaption>
+  </section>
+
+  <section id="open">
+    <div class="sec-head"><span class="sec-num">06</span><h2>待決策</h2></div>
+    <p class="sec-dek">邏輯方向已經定了（方案 B），這幾個細節會影響使用者的實際體感，你來拍板。</p>
+
+    <div class="decision">
+      <h3>攔下離題訊息時，怎麼回應使用者？</h3>
+      <div class="branch-row"><div class="opt">委婉引導<br>（建議）</div><div class="out">不直接說「我不能回答」，改成「這裡比較適合聊關係方面的事，你今天有沒有什麼想聊的？」——保持陪伴的語氣，不製造被拒絕的感覺。</div></div>
+      <div class="branch-row"><div class="opt">明確說明<br>範圍</div><div class="out">直接告知「我只能協助關係諮詢相關的問題」。更清楚但比較生硬，適合如果你們發現使用者一直搞不懂它的定位。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>分類要多嚴格？</h3>
+      <div class="branch-row"><div class="opt">寬鬆</div><div class="out">只擋明顯離題（寫作業、算數學），語意模糊的一律當 <code>ambiguous</code> 反問。誤攔風險低，但攔截率也低。</div></div>
+      <div class="branch-row"><div class="opt">嚴格</div><div class="out">模糊訊息傾向判 <code>out_of_scope</code>。攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者——<b>建議先從寬鬆開始，用後台數據滾動調整</b>。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>範疇防護記錄要不要存訊息原文？</h3>
+      <div class="branch-row"><div class="opt">存原文</div><div class="out">後台微調規則時最好用，能直接看到判斷錯在哪。但這是使用者的對話內容，存起來要考慮隱私揭露範圍、留存期限。</div></div>
+      <div class="branch-row"><div class="opt">只存分類結果</div><div class="out">不留原文，只記「這則被判什麼、幾點」。隱私風險最低，但後台没辦法回頭檢討具體判斷是否合理，微調規則會比較憑感覺。</div></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      本文件為功能提案、非最終規格。核心決策（方案 B：輕量分類 Step、三態判斷）已依需求推導；
+      三項待決策（回應語氣、嚴格程度、記錄是否存原文）確認後才會往下拆 migration 與開發任務。
+    </p>
+  </footer>
+</div>
+</body>
+</html>
