@@ -18,6 +18,7 @@ interface BillingMe {
   plan: PlanTier;
   plan_label: string;
   period_start: string;
+  next_reset: string | null;
   messages_used: number;
   messages_limit: number;
   messages_remaining: number;
@@ -115,7 +116,7 @@ function BillingPage() {
         ← 回對話
       </Link>
       <h1 className="text-2xl font-bold text-gray-800 mt-3 mb-1">我的方案</h1>
-      <p className="text-sm text-gray-500 mb-6">查看目前方案與本月對話額度</p>
+      <p className="text-sm text-gray-500 mb-6">查看目前方案與本期對話額度（各 App 共用）</p>
 
       {/* 目前方案 */}
       <section className="rounded-2xl border border-gray-200 bg-white p-5 mb-4">
@@ -124,7 +125,7 @@ function BillingPage() {
 
         <div className="mt-4">
           <div className="flex items-baseline justify-between text-sm">
-            <span className="text-gray-600">本月已用對話次數</span>
+            <span className="text-gray-600">本期已用對話次數</span>
             <span className="tabular-nums text-gray-800">
               {me.messages_used} / {me.messages_limit}
               <span className="ml-2 text-xs text-gray-400">（剩 {me.messages_remaining}）</span>
@@ -137,8 +138,12 @@ function BillingPage() {
 
         <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-500">
           <div>
-            <dt>計算週期</dt>
-            <dd className="text-gray-700">{formatDate(me.period_start)} 起（每月重置）</dd>
+            <dt>本期</dt>
+            {/* 週期從訂閱起算日算（§4.4），不是每月 1 號；重置日由公版算好送來 */}
+            <dd className="text-gray-700">
+              {formatDate(me.period_start)} 起
+              {me.next_reset ? `・${formatDate(me.next_reset)} 重置` : ''}
+            </dd>
           </div>
           {me.is_trial && me.trial_expires_at && (
             <div>

@@ -74,7 +74,7 @@ export default function AdminUsagePage() {
     <div className="p-6 lg:p-8 max-w-6xl">
       <div className="mb-5">
         <h1 className="text-2xl font-bold text-gray-800">📈 用量 / 成本</h1>
-        <p className="text-sm text-gray-500 mt-1">API 成本追蹤、cost vs revenue 平衡監控</p>
+        <p className="text-sm text-gray-500 mt-1">API 成本追蹤（唯讀）。方案與額度由 NUWA 平台決定，這裡只看 App 自己花了多少</p>
       </div>
 
       <div className="mb-4 bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3 flex-wrap">
@@ -170,8 +170,8 @@ export default function AdminUsagePage() {
                   <tr>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 w-8">#</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-600">User</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-24">方案</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">對話數</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-24" title="讀自 NUWA 平台">方案（NUWA）</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28" title="期間內的 AI 呼叫次數，不是額度已用數">AI 呼叫數</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-600 w-32">Tokens</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">成本</th>
                   </tr>

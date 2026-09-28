@@ -203,9 +203,12 @@ export default function AdminUsersPage() {
                 {/* 以下為私版自己的資料 */}
                 <th className="text-left px-4 py-3 font-medium text-gray-600">學員暱稱</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">MBTI</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">註冊</th>
+                {/* 「註冊」其實是私版帳號建立日（第一次 SSO 進來），跟公版的註冊日不同；
+                    「對話數」是對話串數，不是額度已用數 —— 同一個人在三個畫面看到三種數字，
+                    是因為三個欄位定義不同（Steve 09-28 §二），名字寫清楚就不會被當 bug */}
+                <th className="text-left px-4 py-3 font-medium text-gray-600" title="第一次從 NUWA 進入 App 的日期，不是 NUWA 註冊日">首次進入</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">最後活躍</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">對話數</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600" title="對話串數，不是額度已用數">對話串</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">21 天</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">狀態</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">動作</th>
