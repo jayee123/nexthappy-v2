@@ -223,7 +223,7 @@
         <div class="tag">輕量分類 Step（先判斷、再決定要不要正常回答）</div>
         <ul class="arch-list">
           <li class="good">每則訊息先過一次 <code>gpt-4o-mini</code> 分類，便宜（比正式回應輕很多）</li>
-          <li class="good">分類結果三態：<code>in_scope</code> / <code>out_of_scope</code> / <code>ambiguous</code></li>
+          <li class="good">輸出是機率分數 <code>p ∈ [0,1]</code>，用門檻值切成兩類：<code>relevant</code> / <code>off_topic</code></li>
           <li class="good">攔下的訊息會記錄，後台看得到、能微調規則</li>
           <li class="bad">多一次 API 呼叫，回應會多 200-400ms 延遲</li>
         </ul>
@@ -244,30 +244,33 @@
   </section>
 
   <section id="examples">
-    <div class="sec-head"><span class="sec-num">03</span><h2>判斷範例——三態，不是是非題</h2></div>
-    <p class="sec-dek">你說的「有什麼需求的問題你再跟我確認一下」，就是這裡的<b>第三態：模稜兩可</b>。不是每句話都能一刀切成「相關／不相關」，硬要二選一，反而容易把正常但講法特殊的關係問題誤攔下來。</p>
+    <div class="sec-head"><span class="sec-num">03</span><h2>判斷範例——二元分類，拿不準就當相關</h2></div>
+    <p class="sec-dek">
+      改成兩類：<b>相關</b>／<b>離題</b>。拿不準的中間地帶，不另外反問使用者，<b>直接當「相關」正常認真回答</b>——不製造「被盤問」的體感，也不會把正常但講法特殊的關係問題卡住。這個做法對應新加坡 GovTech 團隊發表的
+      <a href="https://arxiv.org/abs/2411.12946" target="_blank" rel="noopener" style="text-decoration:underline;">離題提示偵測論文</a>（ICLR 2025）——論文裡的分類器本來就是標準二元分類，輸出一個機率分數，由門檻值決定要不要攔，不是三分類。
+    </p>
 
     <table class="ex-table">
       <thead><tr><th style="width:38%">使用者訊息</th><th style="width:16%">判斷</th><th>小羽的處理方式</th></tr></thead>
       <tbody>
         <tr>
           <td class="msg">「我男朋友已經三天不讀不回了」</td>
-          <td><span class="verdict-pill in">in_scope</span></td>
+          <td><span class="verdict-pill in">relevant</span></td>
           <td>正常走原本的諮詢對話流程</td>
         </tr>
         <tr>
+          <td class="msg">「我覺得我最近工作壓力很大」</td>
+          <td><span class="verdict-pill in">relevant</span></td>
+          <td>拿不準是不是「職場人際卡點」，<b>一律當相關、認真回答</b>，不反問、不卡使用者</td>
+        </tr>
+        <tr>
           <td class="msg">「幫我寫一篇 500 字的企業倫理報告」</td>
-          <td><span class="verdict-pill out">out_of_scope</span></td>
+          <td><span class="verdict-pill out">off_topic</span></td>
           <td>不回答內容，委婉說明角色定位，引導回關係相關的話題</td>
         </tr>
         <tr>
-          <td class="msg">「我覺得我最近工作壓力很大」</td>
-          <td><span class="verdict-pill gray">ambiguous</span></td>
-          <td>可能是「職場人際卡點」也可能只是抱怨工作量——<b>反問 1-2 個釐清問題</b>，不用猜的直接答</td>
-        </tr>
-        <tr>
           <td class="msg">「幫我算一下 87 乘以 34」</td>
-          <td><span class="verdict-pill out">out_of_scope</span></td>
+          <td><span class="verdict-pill out">off_topic</span></td>
           <td>不回答，說明這不是它能協助的範圍</td>
         </tr>
       </tbody>
@@ -280,57 +283,51 @@
 
     <figure class="figure-wide">
       <div class="diagram-frame">
-        <svg viewBox="0 0 1000 280" role="img" aria-label="資料流程圖：使用者送出訊息後，先經過一個範疇分類步驟，用輕量模型判斷這則訊息是否屬於關係諮詢的範疇，分類結果分三種——屬於範疇內就正常走原本的AI對話生成回覆，不屬於範疇內則不產生正式回覆、改用委婉引導語回應並記錄一筆，屬於模稜兩可則由AI反問一到兩個釐清問題而不是直接猜測回答；不論哪一種結果都會寫入範疇防護記錄表供後台複查">
+        <svg viewBox="0 0 1000 240" role="img" aria-label="資料流程圖：使用者送出訊息後，先經過一個範疇分類步驟，用輕量模型判斷這則訊息跟關係諮詢主題相關的機率，用門檻值切成兩種結果——判定相關就正常走原本的AI對話生成回覆，判定離題則不產生正式回覆、改用委婉引導語回應並記錄一筆，拿不準的中間地帶一律當作相關處理；不論哪一種結果都會寫入範疇防護記錄表供後台複查">
           <defs>
             <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
             </marker>
           </defs>
 
-          <rect x="20" y="105" width="170" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
-          <text x="105" y="135" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">使用者送出訊息</text>
-          <text x="105" y="155" text-anchor="middle" font-size="10" fill="var(--muted)">/api/ai/chat｜/consultant</text>
+          <rect x="20" y="85" width="170" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="105" y="115" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">使用者送出訊息</text>
+          <text x="105" y="135" text-anchor="middle" font-size="10" fill="var(--muted)">/api/ai/chat｜/consultant</text>
 
-          <line x1="190" y1="140" x2="250" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrG)"/>
+          <line x1="190" y1="120" x2="250" y2="120" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrG)"/>
 
-          <rect x="258" y="90" width="190" height="100" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
-          <text x="353" y="118" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">範疇分類</text>
-          <text x="353" y="138" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">gpt-4o-mini，一次輕量呼叫</text>
-          <text x="353" y="158" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">回傳三態判斷結果</text>
-          <text x="353" y="176" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.7">不是回答內容，只是分類</text>
+          <rect x="258" y="70" width="190" height="100" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
+          <text x="353" y="98" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">範疇分類</text>
+          <text x="353" y="118" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">gpt-4o-mini，一次輕量呼叫</text>
+          <text x="353" y="138" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">回傳機率分數 + 門檻判斷</text>
+          <text x="353" y="156" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.7">拿不準 → 一律算相關</text>
 
-          <line x1="448" y1="115" x2="510" y2="60" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
-          <line x1="448" y1="140" x2="510" y2="140" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
-          <line x1="448" y1="165" x2="510" y2="220" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
+          <line x1="448" y1="100" x2="510" y2="65" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
+          <line x1="448" y1="140" x2="510" y2="175" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrG)"/>
 
-          <rect x="518" y="26" width="200" height="68" rx="10" fill="var(--ok-soft)" stroke="var(--ok-line)" stroke-width="1.3"/>
-          <text x="618" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ok)">in_scope</text>
-          <text x="618" y="70" text-anchor="middle" font-size="10" fill="var(--ok)" opacity="0.85">正常走原本的 AI 對話</text>
+          <rect x="518" y="30" width="200" height="68" rx="10" fill="var(--ok-soft)" stroke="var(--ok-line)" stroke-width="1.3"/>
+          <text x="618" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ok)">relevant</text>
+          <text x="618" y="74" text-anchor="middle" font-size="10" fill="var(--ok)" opacity="0.85">正常走原本的 AI 對話，認真回答</text>
 
-          <rect x="518" y="106" width="200" height="68" rx="10" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.3"/>
-          <text x="618" y="132" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--warn)">ambiguous</text>
-          <text x="618" y="150" text-anchor="middle" font-size="10" fill="var(--warn)" opacity="0.9">反問 1-2 個釐清問題</text>
+          <rect x="518" y="142" width="200" height="68" rx="10" fill="var(--happy-soft)" stroke="var(--happy-line)" stroke-width="1.3"/>
+          <text x="618" y="168" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--happy-ink)">off_topic</text>
+          <text x="618" y="186" text-anchor="middle" font-size="10" fill="var(--happy-ink)" opacity="0.9">不答內容，委婉引導回主題</text>
 
-          <rect x="518" y="186" width="200" height="68" rx="10" fill="var(--happy-soft)" stroke="var(--happy-line)" stroke-width="1.3"/>
-          <text x="618" y="212" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--happy-ink)">out_of_scope</text>
-          <text x="618" y="230" text-anchor="middle" font-size="10" fill="var(--happy-ink)" opacity="0.9">不答內容，委婉引導回主題</text>
+          <line x1="720" y1="64" x2="800" y2="120" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
+          <line x1="720" y1="176" x2="800" y2="120" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
 
-          <line x1="720" y1="60" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
-          <line x1="720" y1="140" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
-          <line x1="720" y1="220" x2="800" y2="140" stroke="var(--faint)" stroke-width="1.2" stroke-dasharray="3 3"/>
-
-          <rect x="808" y="105" width="175" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
-          <text x="895" y="133" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink)">範疇防護記錄表</text>
-          <text x="895" y="153" text-anchor="middle" font-size="9.5" fill="var(--muted)">三種結果都寫入，供後台複查</text>
+          <rect x="808" y="85" width="175" height="70" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="895" y="113" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--ink)">範疇防護記錄表</text>
+          <text x="895" y="133" text-anchor="middle" font-size="9.5" fill="var(--muted)">兩種結果都寫入，供後台複查</text>
         </svg>
       </div>
-      <figcaption>三態都會留一筆記錄——即使是 <code>in_scope</code> 也記，這樣後台才能算出「攔下比例」「誤判率」這些數字，而不是只看到被擋掉的那一半。</figcaption>
+      <figcaption>兩種結果都會留一筆記錄——即使是 <code>relevant</code> 也記，這樣後台才能算出「攔下比例」「誤判率」這些數字，而不是只看到被擋掉的那一半。</figcaption>
     </figure>
   </section>
 
   <section id="admin-ui">
     <div class="sec-head"><span class="sec-num">05</span><h2>後台介面草稿</h2></div>
-    <p class="sec-dek">新增一個「<span class="chip guard">範疇防護記錄</span>」頁面，管理者能看到被攔下 / 判斷模糊的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。</p>
+    <p class="sec-dek">新增一個「<span class="chip guard">範疇防護記錄</span>」頁面，管理者能看到被攔下的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。</p>
 
     <div class="mock-frame">
       <div class="mock-bar"><span></span><span></span><span></span><span class="url">nexthappy-v2.vercel.app/admin/guardrail</span></div>
@@ -344,26 +341,26 @@
         </div>
         <div class="mock-main">
           <h4>🛡 範疇防護記錄</h4>
-          <div class="desc">近 7 天：攔下 <b>3.2%</b>、反問澄清 <b>1.8%</b>（分母為全部訊息）</div>
+          <div class="desc">近 7 天：攔下 <b>3.2%</b>（分母為全部訊息，拿不準的都算相關、不計入攔下）</div>
           <table class="mock-table">
             <thead><tr><th style="width:16%">時間</th><th>訊息（節錄）</th><th style="width:14%">判斷</th><th style="width:14%">處理</th></tr></thead>
             <tbody>
               <tr>
                 <td>14:02</td>
                 <td class="msg">「幫我寫一篇 500 字的企業倫理報告」</td>
-                <td><span class="verdict-pill out">out_of_scope</span></td>
+                <td><span class="verdict-pill out">off_topic</span></td>
                 <td>委婉引導</td>
               </tr>
               <tr>
                 <td>13:47</td>
                 <td class="msg">「我覺得我最近工作壓力很大」</td>
-                <td><span class="verdict-pill gray">ambiguous</span></td>
-                <td>反問澄清</td>
+                <td><span class="verdict-pill in">relevant</span></td>
+                <td>認真回答</td>
               </tr>
               <tr>
                 <td>13:20</td>
                 <td class="msg">「幫我算一下 87 乘以 34」</td>
-                <td><span class="verdict-pill out">out_of_scope</span></td>
+                <td><span class="verdict-pill out">off_topic</span></td>
                 <td>委婉引導</td>
               </tr>
             </tbody>
@@ -371,7 +368,7 @@
         </div>
       </div>
     </div>
-    <figcaption style="margin-top:14px;">管理者看到「這則明明是關係問題卻被判 out_of_scope」，可以直接把它加進分類 prompt 的範例——規則會越用越準，不是寫死一次就不管了。</figcaption>
+    <figcaption style="margin-top:14px;">管理者看到「這則明明是關係問題卻被判 off_topic」，可以直接把它加進分類 prompt 的範例——規則會越用越準，不是寫死一次就不管了。</figcaption>
   </section>
 
   <section id="open">
@@ -385,9 +382,10 @@
     </div>
 
     <div class="decision">
-      <h3>分類要多嚴格？</h3>
-      <div class="branch-row"><div class="opt">寬鬆</div><div class="out">只擋明顯離題（寫作業、算數學），語意模糊的一律當 <code>ambiguous</code> 反問。誤攔風險低，但攔截率也低。</div></div>
-      <div class="branch-row"><div class="opt">嚴格</div><div class="out">模糊訊息傾向判 <code>out_of_scope</code>。攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者——<b>建議先從寬鬆開始，用後台數據滾動調整</b>。</div></div>
+      <h3>門檻值要設多嚴？</h3>
+      <p style="font-size:12px;color:var(--muted);margin:-4px 0 4px;">分類器輸出的 <code>p</code> 是「離題機率」：<code>p</code> 超過門檻值才判 <code>off_topic</code>。</p>
+      <div class="branch-row"><div class="opt">寬鬆<br>（建議）</div><div class="out">門檻設高一點（例如 0.6），只有機率分數明顯偏向離題才攔，拿不準的一律當 <code>relevant</code> 讓它正常回答。誤攔風險低，使用者體感好。</div></div>
+      <div class="branch-row"><div class="opt">嚴格</div><div class="out">門檻拉低（例如 0.4），更容易把模糊訊息判成離題。攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者。GovTech 論文內部實際部署用的區間是 <b>0.4–0.6</b>，可以從這個範圍挑一個起步，再用後台數據滾動調整。</div></div>
     </div>
 
     <div class="decision">
@@ -399,8 +397,8 @@
 
   <footer>
     <p>
-      本文件為功能提案、非最終規格。核心決策（方案 B：輕量分類 Step、三態判斷）已依需求推導；
-      三項待決策（回應語氣、嚴格程度、記錄是否存原文）確認後才會往下拆 migration 與開發任務。
+      本文件為功能提案、非最終規格。核心決策（方案 B：輕量分類 Step、二元分類 + 機率門檻，拿不準一律算相關）已依需求推導；
+      三項待決策（回應語氣、門檻值、記錄是否存原文）確認後才會往下拆 migration 與開發任務。
     </p>
   </footer>
 </div>
