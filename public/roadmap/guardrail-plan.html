@@ -150,7 +150,6 @@
     <div class="brand">對話範疇防護提案</div>
     <nav>
       <a href="#overview">總覽</a>
-      <a href="#industry">業界怎麼做</a>
       <a href="#arch">核心決策</a>
       <a href="#examples">判斷範例</a>
       <a href="#flow">資料流程</a>
@@ -169,40 +168,8 @@
     </p>
   </section>
 
-  <section id="industry">
-    <div class="sec-head"><span class="sec-num">01</span><h2>業界怎麼做</h2></div>
-    <p class="sec-dek">你問的「業界怎麼阻擋掉那些東西」——這個題目在 AI 產品圈有專門的名字，叫 <b>topical guardrail（主題護欄）</b>，跟「內容安全審查」是兩件不同的事，先把這個常見誤解說清楚。</p>
-
-    <div class="misconception">
-      <b>常見誤解：</b>OpenAI 的 Moderation API、Azure AI Content Safety 這類工具，抓的是「暴力、色情、仇恨言論」這種<b>違法違規內容</b>，不是「這句話跟關係諮詢有沒有關」。一個使用者問「幫我寫 Python 作業」完全不違規，Moderation API 不會擋——但那正是我們要擋的東西。內容安全跟主題範疇，是兩層完全不同的防護，不能只做一個就以為夠了。
-    </div>
-
-    <div class="tool-row">
-      <div class="tool-card">
-        <div class="n">NeMo Guardrails</div>
-        <div class="t">開源 · NVIDIA</div>
-        <div class="d">用「對話流程規則」定義能聊什麼、不能聊什麼，偵測到離題會自動接管回應。功能完整但要學一套設定語法（Colang）。</div>
-      </div>
-      <div class="tool-card">
-        <div class="n">Guardrails AI</div>
-        <div class="t">開源</div>
-        <div class="d">著重「驗證 AI 輸出格式/內容是否合規」，也支援自訂主題驗證器。社群外掛多，彈性高。</div>
-      </div>
-      <div class="tool-card">
-        <div class="n">LlamaGuard</div>
-        <div class="t">開源模型 · Meta</div>
-        <div class="d">專門的分類模型，判斷一段對話落在哪個風險/主題類別。要自己部署模型，較重。</div>
-      </div>
-      <div class="tool-card">
-        <div class="n">自訂輕量分類</div>
-        <div class="t">最多團隊實際採用</div>
-        <div class="d">不裝框架，自己寫一個「先分類、再決定要不要正常回答」的步驟，用一次便宜的 LLM 呼叫做。多數中小產品最後都是走這條路。</div>
-      </div>
-    </div>
-  </section>
-
   <section id="arch">
-    <div class="sec-head"><span class="sec-num">02</span><h2>核心決策：怎麼判斷「這是不是關係相關的問題」</h2></div>
+    <div class="sec-head"><span class="sec-num">01</span><h2>核心決策：怎麼判斷「這是不是關係相關的問題」</h2></div>
     <p class="sec-dek">三種做法，複雜度跟準確度是取捨關係。</p>
 
     <div class="arch-grid">
@@ -244,7 +211,7 @@
   </section>
 
   <section id="examples">
-    <div class="sec-head"><span class="sec-num">03</span><h2>判斷範例——二元分類，拿不準就當相關</h2></div>
+    <div class="sec-head"><span class="sec-num">02</span><h2>判斷範例——二元分類，拿不準就當相關</h2></div>
     <p class="sec-dek">
       改成兩類：<b>相關</b>／<b>離題</b>。拿不準的中間地帶，不另外反問使用者，<b>直接當「相關」正常認真回答</b>——不製造「被盤問」的體感，也不會把正常但講法特殊的關係問題卡住。這個做法對應新加坡 GovTech 團隊發表的
       <a href="https://arxiv.org/abs/2411.12946" target="_blank" rel="noopener" style="text-decoration:underline;">離題提示偵測論文</a>（ICLR 2025）——論文裡的分類器本來就是標準二元分類，輸出一個機率分數，由門檻值決定要不要攔，不是三分類。
@@ -278,7 +245,7 @@
   </section>
 
   <section id="flow">
-    <div class="sec-head"><span class="sec-num">04</span><h2>資料流程</h2></div>
+    <div class="sec-head"><span class="sec-num">03</span><h2>資料流程</h2></div>
     <p class="sec-dek">分類這一步插在「使用者送出訊息」跟「正式產生回覆」中間，多一個路口，不動原本的對話邏輯。</p>
 
     <figure class="figure-wide">
@@ -326,7 +293,7 @@
   </section>
 
   <section id="admin-ui">
-    <div class="sec-head"><span class="sec-num">05</span><h2>後台介面草稿</h2></div>
+    <div class="sec-head"><span class="sec-num">04</span><h2>後台介面草稿</h2></div>
     <p class="sec-dek">新增一個「<span class="chip guard">範疇防護記錄</span>」頁面，管理者能看到被攔下的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。</p>
 
     <div class="mock-frame">
@@ -372,7 +339,7 @@
   </section>
 
   <section id="open">
-    <div class="sec-head"><span class="sec-num">06</span><h2>待決策</h2></div>
+    <div class="sec-head"><span class="sec-num">05</span><h2>待決策</h2></div>
     <p class="sec-dek">邏輯方向已經定了（方案 B），這幾個細節會影響使用者的實際體感，你來拍板。</p>
 
     <div class="decision">
