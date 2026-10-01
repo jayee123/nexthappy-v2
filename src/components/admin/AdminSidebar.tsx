@@ -25,7 +25,8 @@ const NAV = [
   { href: '/admin/course', icon: '📚', label: '課程內容' },
   // 邀請碼管理 2026-09-10 從側欄移除（Jeff）：發放/兌換一律在公版
   //（金流與試用架構定案 §01/§06）。唯讀歷史頁 /admin/invites 仍可直接輸網址查。
-  { href: '/admin/subscriptions', icon: '💳', label: '訂閱管理' },
+  // 訂閱管理 2026-09-29 整頁移除（Steve 09-28 §二、Jeff 同意）：方案由公版決定，
+  // 私版不該有第二個入口改方案；它讀的 happy.users.current_plan 也是過期欄位。
   { href: '/admin/usage', icon: '📈', label: '用量 / 成本' },
   { href: '/admin/spec', icon: '📜', label: '規格文件' },
   { href: '/admin/roadmap', icon: '🗓', label: '未來規劃' },

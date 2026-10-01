@@ -67,7 +67,7 @@ export default function UsageChip() {
     <Link
       href="/settings/billing"
       className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${colorCls}`}
-      title={`${me.plan_label} · 本月剩 ${me.messages_remaining} 則`}
+      title={`${me.plan_label} · 本期剩 ${me.messages_remaining} 則（各 App 共用）`}
     >
       {me.messages_remaining}/{me.messages_limit}
       {me.is_trial && <span className="ml-0.5">試</span>}

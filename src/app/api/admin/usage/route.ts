@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getMarketUsers } from '@/lib/market/users';
 import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -97,20 +98,24 @@ export async function GET(request: NextRequest) {
       tokens: number;
     }> = [];
     if (topUserIds.length > 0) {
+      // 方案讀公版（付費的唯一真相）—— 私版 users.current_plan 是過期欄位，
+      // 同一個人在這頁看到「基本」、在我的方案頁看到「旗艦」就是它造成的（Steve 09-28 §二）。
       const { data: userInfos } = await supabaseAdmin
         .from('users')
-        .select('id, email, name, current_plan')
+        .select('id, email, name, nuwa_user_id')
         .in('id', topUserIds);
+      const marketUsers = await getMarketUsers((userInfos || []).map(u => u.nuwa_user_id));
 
       const infoMap = new Map((userInfos || []).map(u => [u.id, u]));
       topUserInfos = topUserIds.map(uid => {
         const info = infoMap.get(uid);
+        const market = info?.nuwa_user_id ? marketUsers.get(info.nuwa_user_id) : undefined;
         const data = userMap.get(uid)!;
         return {
           user_id: uid,
-          email: info?.email ?? null,
+          email: market?.email ?? info?.email ?? null,
           name: info?.name ?? null,
-          plan: info?.current_plan ?? null,
+          plan: market?.currentPlan ?? null,
           cost_twd: data.cost,
           messages: data.messages,
           tokens: data.tokens,

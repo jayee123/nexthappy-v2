@@ -39,6 +39,31 @@ const nextConfig = {
         source: '/manifest.json',
         headers: [
           { key: 'Content-Type', value: 'application/manifest+json' },
+          // 原本是 max-age=0 → Cloudflare 標成 DYNAMIC、完全不快取，
+          // 每次開 App 這個 0.3 kB 的檔都要跑完整趟回源（Steve 實測 5.31 秒）。
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      // 靜態圖片長快取 —— 2026-09-21 封測回報「圖一直轉圈圈」的主要對策。
+      //
+      // 原本回 max-age=14400 搭配弱 ETag，Cloudflare 每次都標 REVALIDATED，
+      // 等於每張圖每次都回源一趟。台灣流量目前被 CF 免費方案導去 SJC/Marseille，
+      // 一趟就是 0.5–10 秒，圖才會傳到一半斷掉（ERR_HTTP2_PING_FAILED）。
+      //
+      // 刻意「不」加 immutable：WelcomeCarousel 的註解寫明 Pearl 之後會直接
+      // 替換 cover 檔、不改 code。immutable 會讓舊圖在使用者端卡一整年，
+      // 把那個流程弄壞。30 天 fresh + 7 天 SWR 已經拿到九成好處，
+      // 真要立刻生效就去 Cloudflare 清一次快取。
+      {
+        source: '/images/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=604800' },
+        ],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=2592000, stale-while-revalidate=604800' },
         ],
       },
       // 安全標頭。

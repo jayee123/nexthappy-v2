@@ -65,9 +65,9 @@ function WelcomePageInner() {
       onSkip={handleSkip}
       onLogin={isRevisit ? undefined : handleLogin}
       showSkip={true}
-      // 暫時用 Angel 版 cover.png（完整視覺）
-      // Pearl 給文字版 PNG/HTML 後、替換 public/images/welcome/cover.png 即可（不用改 code）
-      coverImageSrc="/images/welcome/cover.png"
+      // 暫時用 Angel 版 cover（完整視覺）
+      // Pearl 給文字版後、替換 public/images/welcome/cover.webp 即可（不用改 code）
+      coverImageSrc="/images/welcome/cover.webp"
     />
   );
 }

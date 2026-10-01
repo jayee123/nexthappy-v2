@@ -29,7 +29,7 @@ interface WelcomeCarouselProps {
   onLogin?: () => void;
   /** 是否顯示「跳過 ✕」按鈕（從 Settings 進來回看時可關掉）*/
   showSkip?: boolean;
-  /** 自訂封面圖路徑（預設 /images/welcome/cover.png）*/
+  /** 自訂封面圖路徑（預設 /images/welcome/cover.webp）*/
   coverImageSrc?: string;
 }
 
@@ -40,8 +40,9 @@ export default function WelcomeCarousel({
   onSkip,
   onLogin,
   showSkip = true,
-  // 暫時用 Angel 版 cover.png（完整視覺）、等 Pearl 給文字版 PNG/HTML 再更新
-  coverImageSrc = '/images/welcome/cover.png',
+  // 暫時用 Angel 版 cover（完整視覺）、等 Pearl 給文字版再更新。
+  // 2026-09-22：原 PNG 2.18 MB 在慢鏈路上傳到一半就斷，改 WebP q80（151 KB、同為 1080×1920）。
+  coverImageSrc = '/images/welcome/cover.webp',
 }: WelcomeCarouselProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);

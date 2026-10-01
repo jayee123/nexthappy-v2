@@ -1,23 +1,29 @@
 // 放置路徑：src/lib/billing/quotas.ts
 //
-// Phase 1A：用量配額追蹤 helpers
+// 用量配額 helpers —— 階段 2（nuwa/v2 docs/QUOTA-PLAN.md）：額度真值在公版
 //
 // 公開的 helper：
 //   - isEnforcementEnabled()      → 讀 BILLING_ENFORCEMENT env var、決定是否擋額度
-//   - getCurrentUsage(userId)     → 抓 user 當月用量（含方案上限）
-//   - checkQuotaAvailable(userId) → 進 AI call 前 check、回傳 { allowed, ...info }
-//   - recordUsage({ ... })        → AI call 完成後寫 log + 更新 quota
+//   - getCurrentUsage(userId)     → 本期用量（讀公版 ai_dialog_usage）+ 方案資訊
+//   - checkQuotaAvailable(userId) → AI call 前「檢查 + 扣次」一步完成（公版 consume_dialog）
+//   - recordUsage({ ... })        → AI call 完成後寫私版成本帳 + 回報公版 token 用量
 //
 // 設計紀律：
-//   - 額度週期 = 自然月（每月 1 號 00:00 重置）
-//   - 「一則對話」= user 一輪 + AI 一輪 = 每次 AI 成功回覆 +1
-//   - BILLING_ENFORCEMENT=false → checkQuotaAvailable 永遠 allow（但 usage log 還是寫）
-//   - 失敗（譬如 DB error）不阻塞主流程、log 後 fail-open allow
+//   - 額度週期 = **訂閱起算日**（§4.4），不是每月 1 號；沒訂閱 = 公版註冊日
+//   - 「一則對話」= user 一輪 + AI 一輪；扣次在 AI 回覆**之前**由 consume_dialog 原子完成
+//   - 各 App 共用一池：上限 = 公版方案次數 + 本期補發，已用 = 所有 App 加總
+//   - BILLING_ENFORCEMENT=false → 永遠 allow，但帳照記
+//   - 開閘後拿不到公版回應 → **擋**（不再 fail-open；QUOTA-PLAN §4）
+//   - 私版自己的 usage_quotas 只剩「成本帳本」的角色，不再決定能不能對話
+//   - 未綁定公版（nuwa_user_id 為 null）的人：內測放行、開閘後擋（沒有額度可查）
 
 import { supabaseAdmin } from '@/lib/supabase';
-import { getMarketPlan } from '@/lib/market/plan';
+import { getMarketPlan, getMarketTrialExpiry } from '@/lib/market/plan';
+import { consumeMarketDialog, getMarketQuota, recordMarketDialog } from '@/lib/market/quota';
+import { shortDateLabel } from '@/lib/market/dialogPeriod';
 import { reportUsageToMarket } from '@/lib/market/usage';
 import { PLANS, type PlanTier, estimateOpenAICallCostTwd, getMonthlyMessageQuota, isPlanActive } from './plans';
+import { postConsumeQuota, preCheckQuota, QUOTA_MESSAGES, type QuotaReason } from './quotaDecision';
 
 // ============================================================
 // Env var：是否啟用額度檢查
@@ -26,17 +32,17 @@ import { PLANS, type PlanTier, estimateOpenAICallCostTwd, getMonthlyMessageQuota
 /**
  * 是否啟用 billing enforcement（擋超量）
  * - false（預設）：內測階段、不擋、所有 user 可任意對話
- * - true：Jeff 接好金流後翻 true、額度用完會被擋
+ * - true：額度用完會被擋（QUOTA-PLAN 階段 4 才打開）
  */
 export function isEnforcementEnabled(): boolean {
   return process.env.BILLING_ENFORCEMENT === 'true';
 }
 
 // ============================================================
-// Util：取得「本月 1 號」DATE 字串（給 PG DATE 欄位）
+// Util：私版成本帳本用的「本月 1 號」DATE 字串
 // ============================================================
 
-function getCurrentPeriodStart(): string {
+function getLocalCostPeriodStart(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -50,10 +56,16 @@ function getCurrentPeriodStart(): string {
 export interface UserUsageInfo {
   plan: PlanTier;
   plan_label: string;
+  /** 本期起算日 YYYY-MM-DD（公版週期；未綁定時退回本月 1 號） */
   period_start: string;
+  /** 下次重置日 YYYY-MM-DD；未綁定為 null */
+  next_reset: string | null;
   messages_used: number;
   messages_limit: number;
   messages_remaining: number;
+  /** 額度數字從哪來：公版（真值）或私版本地（未綁定時的 fallback） */
+  quota_source: 'market' | 'local';
+  /** 私版本月 API 成本估算（成本是 App 自己關心的，仍按自然月記） */
   cost_twd_estimated: number;
   is_trial: boolean;
   trial_expires_at: string | null;
@@ -64,72 +76,104 @@ export interface UserUsageInfo {
   cancelled_at: string | null;
 }
 
-/**
- * 取得 user 當月用量 + 方案資訊
- * 找不到 user → throw
- * 該月還沒 row → 自動建一筆 zero quota（lazy init）
- */
-export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
-  const { data: user, error: userError } = await supabaseAdmin
+interface UserRow {
+  id: string;
+  nuwa_user_id: string | null;
+  current_plan: string;
+  trial_started_at: string | null;
+  payment_method_token: string | null;
+  auto_renewal: boolean | null;
+  pending_downgrade_plan: string | null;
+  subscription_renews_at: string | null;
+  cancelled_at: string | null;
+}
+
+async function loadUser(userId: string): Promise<UserRow> {
+  const { data: user, error } = await supabaseAdmin
     .from('users')
     .select('id, nuwa_user_id, current_plan, trial_started_at, payment_method_token, auto_renewal, pending_downgrade_plan, subscription_renews_at, cancelled_at')
     .eq('id', userId)
     .single();
+  if (error || !user) throw new Error(`找不到 user: ${userId}`);
+  return user as UserRow;
+}
 
-  if (userError || !user) {
-    throw new Error(`找不到 user: ${userId}`);
-  }
+interface LocalCostRow {
+  messages_count: number;
+  cost_twd_estimated: number;
+}
 
-  // 方案真值在公版；讀不到（未綁定 / 查詢失敗）才用私版本地值，避免對話功能中斷
-  const marketPlan = await getMarketPlan(user.nuwa_user_id);
-  const plan = (marketPlan?.tier ?? user.current_plan) as PlanTier;
-  const planSpec = PLANS[plan];
-  const periodStart = getCurrentPeriodStart();
-
-  // 抓當月 quota row、沒有就建
-  let { data: quota } = await supabaseAdmin
+/** 私版成本帳本：抓當月 row、沒有就建（lazy init） */
+async function loadLocalCostRow(userId: string): Promise<LocalCostRow> {
+  const periodStart = getLocalCostPeriodStart();
+  const { data: quota } = await supabaseAdmin
     .from('usage_quotas')
     .select('messages_count, cost_twd_estimated')
     .eq('user_id', userId)
     .eq('period_start', periodStart)
     .maybeSingle();
-
-  if (!quota) {
-    // Lazy create（不阻塞、INSERT 失敗仍給預設值）
-    const { error: insertError } = await supabaseAdmin.from('usage_quotas').insert({
-      user_id: userId,
-      period_start: periodStart,
-      messages_count: 0,
-      tokens_input: 0,
-      tokens_output: 0,
-      cost_twd_estimated: 0,
-    });
-    if (insertError && !insertError.message.includes('duplicate key')) {
-      console.error('[quotas getCurrentUsage] insert failed:', insertError);
-    }
-    quota = { messages_count: 0, cost_twd_estimated: 0 };
+  if (quota) {
+    return { messages_count: quota.messages_count ?? 0, cost_twd_estimated: Number(quota.cost_twd_estimated ?? 0) };
   }
 
-  // Trial 資訊
+  const { error: insertError } = await supabaseAdmin.from('usage_quotas').insert({
+    user_id: userId,
+    period_start: periodStart,
+    messages_count: 0,
+    tokens_input: 0,
+    tokens_output: 0,
+    cost_twd_estimated: 0,
+  });
+  if (insertError && !insertError.message.includes('duplicate key')) {
+    console.error('[quotas getCurrentUsage] insert failed:', insertError);
+  }
+  return { messages_count: 0, cost_twd_estimated: 0 };
+}
+
+async function resolveTrialExpiry(user: UserRow, planSpec: (typeof PLANS)[PlanTier]): Promise<string | null> {
+  // 試用到期日的唯一真值在公版 user_app_trials.expires_at（由 apps.trial_days 決定）
+  const fromMarket = await getMarketTrialExpiry(user.nuwa_user_id);
+  if (fromMarket) return fromMarket;
+  if (!user.trial_started_at) return null;
+  console.warn('[quotas] 讀不到公版試用到期日，fallback 用本地推算:', user.id);
+  const exp = new Date(user.trial_started_at);
+  exp.setDate(exp.getDate() + (planSpec.trial_days || 7));
+  return exp.toISOString();
+}
+
+/**
+ * 取得 user 本期用量 + 方案資訊
+ * 找不到 user → throw
+ */
+export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
+  const user = await loadUser(userId);
+
+  // 方案真值在公版；讀不到（未綁定 / 查詢失敗）才用私版本地值，避免對話功能中斷
+  const [marketPlan, marketQuota, localCost] = await Promise.all([
+    getMarketPlan(user.nuwa_user_id),
+    getMarketQuota(user.nuwa_user_id),
+    loadLocalCostRow(userId),
+  ]);
+  const plan = (marketPlan?.tier ?? user.current_plan) as PlanTier;
+  const planSpec = PLANS[plan];
+
   const is_trial = plan === 'trial';
-  let trial_expires_at: string | null = null;
-  if (is_trial && user.trial_started_at) {
-    const exp = new Date(user.trial_started_at);
-    exp.setDate(exp.getDate() + (planSpec.trial_days || 7));
-    trial_expires_at = exp.toISOString();
-  }
+  const trial_expires_at = is_trial ? await resolveTrialExpiry(user, planSpec) : null;
 
-  const limit = getMonthlyMessageQuota(plan);
-  const used = quota.messages_count || 0;
+  // 額度：公版為真值；未綁定才退回私版本地帳本 + 方案常數
+  const used = marketQuota ? marketQuota.used : localCost.messages_count;
+  const limit = marketQuota ? marketQuota.limit : getMonthlyMessageQuota(plan);
 
   return {
     plan,
     plan_label: planSpec.label,
-    period_start: periodStart,
+    period_start: marketQuota?.periodStart ?? getLocalCostPeriodStart(),
+    next_reset: marketQuota?.nextReset ?? null,
     messages_used: used,
     messages_limit: limit,
     messages_remaining: Math.max(0, limit - used),
-    cost_twd_estimated: Number(quota.cost_twd_estimated || 0),
+    quota_source: marketQuota ? 'market' : 'local',
+    cost_twd_estimated: localCost.cost_twd_estimated,
     is_trial,
     trial_expires_at,
     has_payment_method: !!user.payment_method_token,
@@ -142,88 +186,87 @@ export async function getCurrentUsage(userId: string): Promise<UserUsageInfo> {
 
 export interface QuotaCheckResult {
   allowed: boolean;
-  reason?: 'no_active_plan' | 'monthly_quota_exceeded' | 'trial_expired';
+  reason?: QuotaReason;
   usage: UserUsageInfo;
   /** 額外的人類可讀訊息（給 API error 回傳） */
   user_message?: string;
 }
 
+function fallbackUsage(): UserUsageInfo {
+  return {
+    plan: 'premium',
+    plan_label: '旗艦 整合與達成階段（fallback）',
+    period_start: getLocalCostPeriodStart(),
+    next_reset: null,
+    messages_used: 0,
+    messages_limit: 999_999,
+    messages_remaining: 999_999,
+    quota_source: 'local',
+    cost_twd_estimated: 0,
+    is_trial: false,
+    trial_expires_at: null,
+    has_payment_method: false,
+    auto_renewal: false,
+    pending_downgrade_plan: null,
+    subscription_renews_at: null,
+    cancelled_at: null,
+  };
+}
+
+/** consume 之後把回傳的已用／上限套回 usage（不改原物件） */
+function applyConsume(usage: UserUsageInfo, consume: { allowed: boolean; used: number; limit: number }): UserUsageInfo {
+  const limit = consume.limit || usage.messages_limit;
+  const used = consume.allowed ? consume.used : usage.messages_used;
+  return { ...usage, messages_used: used, messages_limit: limit, messages_remaining: Math.max(0, limit - used) };
+}
+
 /**
- * AI call 前 check user 是否有額度
- * - BILLING_ENFORCEMENT=false 永遠 allow
- * - 取消的 plan 不 allow
- * - 月額度用完不 allow
- * - Trial 過期不 allow
+ * AI call 前的「檢查 + 扣次」。
  *
- * 注意：DB error 時 fail-open allow（避免擋住 user）
+ * 順序：
+ *   1. 讀用量與方案（讀不到：內測放行、開閘擋）
+ *   2. preCheckQuota：訂閱停用 / 試用到期 / 未綁定 → 開閘時擋在扣次之前
+ *   3. consume_dialog（公版，原子）：超額或 RPC 失敗 → 開閘時擋；內測放行但補記
+ *
+ * 判斷邏輯全在 quotaDecision.ts（純函式、有測試），這裡只負責查資料與呼叫。
  */
 export async function checkQuotaAvailable(userId: string): Promise<QuotaCheckResult> {
+  const enforcementOn = isEnforcementEnabled();
+
   let usage: UserUsageInfo;
+  let nuwaUserId: string | null;
   try {
+    nuwaUserId = (await loadUser(userId)).nuwa_user_id;
     usage = await getCurrentUsage(userId);
   } catch (err) {
-    console.error('[quotas check] getCurrentUsage failed, fail-open:', err);
-    // Fail-open：允許繼續、但回一個假 usage struct
-    return {
-      allowed: true,
-      usage: {
-        plan: 'premium',
-        plan_label: '旗艦 整合與達成階段（fallback）',
-        period_start: getCurrentPeriodStart(),
-        messages_used: 0,
-        messages_limit: 999_999,
-        messages_remaining: 999_999,
-        cost_twd_estimated: 0,
-        is_trial: false,
-        trial_expires_at: null,
-        has_payment_method: false,
-        auto_renewal: false,
-        pending_downgrade_plan: null,
-        subscription_renews_at: null,
-        cancelled_at: null,
-      },
-    };
-  }
-
-  // BILLING_ENFORCEMENT=false → 永遠 allow（內測模式）
-  if (!isEnforcementEnabled()) {
-    return { allowed: true, usage };
-  }
-
-  // Cancelled 方案不 allow
-  if (!isPlanActive(usage.plan)) {
-    return {
-      allowed: false,
-      reason: 'no_active_plan',
-      usage,
-      user_message: '你的訂閱已停用、請重新訂閱以繼續使用 AI 對話。',
-    };
-  }
-
-  // Trial 過期 check
-  if (usage.is_trial && usage.trial_expires_at) {
-    const exp = new Date(usage.trial_expires_at);
-    if (exp < new Date()) {
-      return {
-        allowed: false,
-        reason: 'trial_expired',
-        usage,
-        user_message: '7 天免費試用已結束、請選擇訂閱方案以繼續使用。',
-      };
+    console.error('[quotas check] getCurrentUsage failed:', err);
+    if (enforcementOn) {
+      return { allowed: false, reason: 'quota_check_failed', usage: fallbackUsage(), user_message: QUOTA_MESSAGES.quota_check_failed };
     }
+    return { allowed: true, usage: fallbackUsage() };
   }
 
-  // 月額度用完 check
-  if (usage.messages_remaining <= 0) {
-    return {
-      allowed: false,
-      reason: 'monthly_quota_exceeded',
-      usage,
-      user_message: `本月 ${usage.plan_label} 方案 ${usage.messages_limit} 則對話額度已用完、升級享更多、或下月 1 號重置。`,
-    };
-  }
+  const trialExpired = usage.is_trial && !!usage.trial_expires_at && new Date(usage.trial_expires_at) < new Date();
+  const pre = preCheckQuota({ enforcementOn, planActive: isPlanActive(usage.plan), trialExpired, linked: !!nuwaUserId });
+  if (pre) return { ...pre, usage };
 
-  return { allowed: true, usage };
+  // 未綁定的人走到這裡只可能是內測：沒有公版帳號可扣，直接放行
+  if (!nuwaUserId) return { allowed: true, usage };
+
+  const consume = await consumeMarketDialog(nuwaUserId);
+  const verdict = postConsumeQuota({
+    enforcementOn,
+    consume,
+    nextResetLabel: usage.next_reset ? shortDateLabel(usage.next_reset) : null,
+  });
+  if (verdict.shouldRecordAnyway) await recordMarketDialog(nuwaUserId);
+
+  return {
+    allowed: verdict.allowed,
+    reason: verdict.reason,
+    user_message: verdict.user_message,
+    usage: consume ? applyConsume(usage, consume) : usage,
+  };
 }
 
 export interface RecordUsageParams {
@@ -236,13 +279,14 @@ export interface RecordUsageParams {
 }
 
 /**
- * AI call 完成後寫 log + 累加 quota
- * 任一步驟失敗都 log 但不 throw（不阻塞主流程）
+ * AI call 完成後：寫私版成本帳（精準 log + 月彙總）、回報公版 token 用量。
+ * 次數不在這裡扣 —— 已由 checkQuotaAvailable 的 consume_dialog 扣過。
+ * 任一步驟失敗都 log 但不 throw（不阻塞主流程）。
  */
 export async function recordUsage(params: RecordUsageParams): Promise<void> {
   const { userId, conversationId, contextType, model, inputTokens, outputTokens } = params;
   const costTwd = estimateOpenAICallCostTwd(inputTokens, outputTokens);
-  const periodStart = getCurrentPeriodStart();
+  const periodStart = getLocalCostPeriodStart();
 
   // 1. 寫精準 log
   try {
@@ -255,16 +299,12 @@ export async function recordUsage(params: RecordUsageParams): Promise<void> {
       output_tokens: outputTokens,
       cost_twd: costTwd,
     });
-    if (logError) {
-      console.error('[quotas recordUsage] log insert failed:', logError);
-    }
+    if (logError) console.error('[quotas recordUsage] log insert failed:', logError);
   } catch (err) {
     console.error('[quotas recordUsage] log unexpected error:', err);
   }
 
-  // 2. 累加 quota（read-modify-write upsert）
-  //    Phase 1A 單 user low concurrency、可接受小 race 風險
-  //    將來 user 多 + 高並發、再 migrate 到 SQL function atomic increment
+  // 2. 私版成本月彙總（read-modify-write upsert；只是成本帳本，不再決定額度）
   try {
     const { data: existing } = await supabaseAdmin
       .from('usage_quotas')
@@ -273,48 +313,27 @@ export async function recordUsage(params: RecordUsageParams): Promise<void> {
       .eq('period_start', periodStart)
       .maybeSingle();
 
-    const newCount = (existing?.messages_count || 0) + 1;
-    const newInput = (existing?.tokens_input || 0) + inputTokens;
-    const newOutput = (existing?.tokens_output || 0) + outputTokens;
-    const newCost = Number(existing?.cost_twd_estimated || 0) + costTwd;
-
-    const { error: upsertError } = await supabaseAdmin
-      .from('usage_quotas')
-      .upsert(
-        {
-          user_id: userId,
-          period_start: periodStart,
-          messages_count: newCount,
-          tokens_input: newInput,
-          tokens_output: newOutput,
-          cost_twd_estimated: newCost,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,period_start' }
-      );
-
-    if (upsertError) {
-      console.error('[quotas recordUsage] quota upsert failed:', upsertError);
-    }
+    const { error: upsertError } = await supabaseAdmin.from('usage_quotas').upsert(
+      {
+        user_id: userId,
+        period_start: periodStart,
+        messages_count: (existing?.messages_count || 0) + 1,
+        tokens_input: (existing?.tokens_input || 0) + inputTokens,
+        tokens_output: (existing?.tokens_output || 0) + outputTokens,
+        cost_twd_estimated: Number(existing?.cost_twd_estimated || 0) + costTwd,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,period_start' },
+    );
+    if (upsertError) console.error('[quotas recordUsage] quota upsert failed:', upsertError);
   } catch (err) {
     console.error('[quotas recordUsage] quota update unexpected error:', err);
   }
 
-  // 3. 回寫公版做跨 App 用量歸戶（以會員為單位彙總各 App 的用量與成本）
-  //    未綁定公版帳號的 user 會自動跳過；失敗只 log、不影響對話
+  // 3. 回寫公版做跨 App token 用量歸戶（成本、不是次數）
   try {
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('nuwa_user_id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    await reportUsageToMarket({
-      nuwaUserId: user?.nuwa_user_id,
-      inputTokens,
-      outputTokens,
-      costTwd,
-    });
+    const { data: user } = await supabaseAdmin.from('users').select('nuwa_user_id').eq('id', userId).maybeSingle();
+    await reportUsageToMarket({ nuwaUserId: user?.nuwa_user_id, inputTokens, outputTokens, costTwd });
   } catch (err) {
     console.error('[quotas recordUsage] 回寫公版用量失敗:', err);
   }
