@@ -91,7 +91,8 @@
   figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;}
   figcaption b{color:var(--ink);font-weight:600;}
 
-  .scope-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:28px;}
+  .scope-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:28px;}
+  @media (max-width:880px){.scope-grid{grid-template-columns:1fr 1fr;}}
   .scope-col{background:var(--surface);padding:22px 24px;}
   .scope-col h3{font-size:16px;margin-bottom:3px;}
   .scope-col .sub{font-size:12px;color:var(--faint);margin-bottom:14px;}
@@ -128,6 +129,10 @@
 
   .decision{border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:16px;background:var(--surface);}
   .decision h3{font-size:14.5px;margin-bottom:12px;}
+  .decision.decided{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);}
+  .decided-tag{display:inline-flex;align-items:center;gap:5px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;margin-bottom:12px;}
+  .decided-note{font-size:12.5px;color:var(--muted);line-height:1.65;}
+  .decided-note b{color:var(--ink);}
   .branch-row{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:8px 0;border-top:1px dashed var(--line);align-items:start;}
   .branch-row:first-of-type{border-top:none;}
   .branch-row .opt{font-size:12px;font-weight:700;color:var(--happy-ink);background:var(--happy-soft);border-radius:7px;padding:4px 9px;text-align:center;height:fit-content;}
@@ -256,23 +261,30 @@
   </section>
 
   <section id="scope">
-    <div class="sec-head"><span class="sec-num">03</span><h2>要翻譯的範圍：兩者都要，但機制不同</h2></div>
-    <p class="sec-dek">介面文字跟課程教材，長得差很多，適合的做法也不一樣，不能用同一套機制硬套。</p>
+    <div class="sec-head"><span class="sec-num">03</span><h2>要翻譯的範圍：三類字典，各自機制不同</h2></div>
+    <p class="sec-dek">對應團隊會議決議：<b>前台字典、後台字典、AI Prompt 與內容字典</b>各自獨立，內容性質、數量、誰寫初稿都不一樣，不能用同一套機制硬套。敏感資料（訂單紀錄、會員 ID 等）不在這三類字典裡，一律鎖死、不開放編輯。</p>
 
     <div class="scope-grid">
       <div class="scope-col">
-        <h3>介面文字</h3>
-        <div class="sub">按鈕、標籤、提示訊息……短字串</div>
-        <div class="scope-field"><div class="k">機制</div><div class="v">上面說的 key-value 字典（<code>"login_button": "登入"</code>），就是一般網站多語系標準做法，術語叫 <b>i18n 字典</b></div></div>
-        <div class="scope-field"><div class="k">數量</div><div class="v">整站大概幾百到一千多組，管理起來還算單純</div></div>
-        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">專用 MT API（DeepL）一次批次翻完全部 → 團隊審一遍（一次性成本，不是每次使用者切換都花錢）</div></div>
+        <h3>前台字典</h3>
+        <div class="sub">用戶端 UI：按鈕、標籤、提示訊息……短字串</div>
+        <div class="scope-field"><div class="k">機制</div><div class="v">key-value 字典（<code>"login_button": "登入"</code>），一般網站多語系標準做法，術語叫 <b>i18n 字典</b></div></div>
+        <div class="scope-field"><div class="k">數量</div><div class="v">整站大概幾百到一千多組</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">DeepL 批次翻完全部 → 團隊審一遍（一次性成本）</div></div>
       </div>
       <div class="scope-col">
-        <h3>課程教材</h3>
-        <div class="sub">21 天課程內容、心法說明……長篇文字</div>
-        <div class="scope-field"><div class="k">機制</div><div class="v">不是字典替換，是每天課程內容各語言各存一份完整段落（例如 <code>knowledge_point_en</code>、<code>knowledge_point_ja</code> 欄位）</div></div>
-        <div class="scope-field"><div class="k">數量</div><div class="v">每種語言 22 天 × 每天好幾段，篇幅大很多</div></div>
-        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">找來的外國老師<b>本人就是譯者</b>——直接用母語寫/校；真的要機器初稿也用 DeepL，但長文一定要真人審過再上線，機器翻譯直接拿來教學風險較高</div></div>
+        <h3>後台字典</h3>
+        <div class="sub">管理系統操作介面：例如「Student Management」這類後台自己的標籤</div>
+        <div class="scope-field"><div class="k">機制</div><div class="v">同樣是 key-value 字典，但 key 空間跟前台分開（<code>"admin.users.title": "學員管理"</code>），兩邊各自覆寫、互不牽動</div></div>
+        <div class="scope-field"><div class="k">數量</div><div class="v">後台模組多（學員／Journey／訂閱／廠商…），key 數量可能比前台還多，但審核優先度可排在前台之後——使用者是管理者，不是一般會員</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v">同樣 DeepL 批次翻 → 團隊審</div></div>
+      </div>
+      <div class="scope-col">
+        <h3>AI Prompt 與內容字典</h3>
+        <div class="sub">專有名詞統一 + 課程長文</div>
+        <div class="scope-field"><div class="k">機制</div><div class="v">兩層：①<b>專有名詞表</b>（glossary）鎖住「直符」「天蓬星」「非暴力溝通 NVC」這類術語的固定譯法，前台／後台／AI 回覆都查同一張表，不會各翻各的；②課程長文各語言各存一份完整段落（例如 <code>knowledge_point_en</code>、<code>knowledge_point_ja</code> 欄位），不是字典替換</div></div>
+        <div class="scope-field"><div class="k">數量</div><div class="v">專有名詞表數十到數百條；課程內容每語言 22 天 × 每天好幾段，篇幅最大</div></div>
+        <div class="scope-field"><div class="k">誰寫初稿</div><div class="v"><b>專有名詞表由課程教師本人定稿</b>（術語翻錯比介面文字翻錯嚴重得多）；課程長文同樣教師本人寫／校，機器翻譯只當草稿，直接拿來教學風險較高</div></div>
       </div>
     </div>
   </section>
@@ -395,12 +407,12 @@
 
   <section id="open">
     <div class="sec-head"><span class="sec-num">06</span><h2>還沒決定的部分</h2></div>
-    <p class="sec-dek">這幾個我先不幫你選，因為後果會直接影響你之後找老師合作的節奏，你自己決定比較好。</p>
+    <p class="sec-dek">語言數量這項已經在團隊會議拍板；下面這項還沒決定，後果會直接影響私版之後搬家的工程量，你自己決定比較好。</p>
 
-    <div class="decision">
+    <div class="decision decided">
+      <span class="decided-tag">✓ 已決定（團隊會議拍板）</span>
       <h3>優先支援幾種語言？</h3>
-      <div class="branch-row"><div class="opt">先做 1 種</div><div class="out">最快能上線測試，之後每加一種語言，介面草稿裡的「語言」下拉選單直接多一個選項，架構不用改</div></div>
-      <div class="branch-row"><div class="opt">一次做 3-5 種</div><div class="out">前期規劃時間拉長，但省下之後反覆修架構的成本，適合你已經知道大概會找哪幾國老師的話</div></div>
+      <p class="decided-note"><b>第一階段優先完成「英文」單一語系整合。</b>架構本身是照「公版預設 + 私版覆寫」設計的（見上面方案三），之後每加一種語言，只是介面草稿裡的「語言」下拉選單多一個選項，架構不用改——所以先做 1 種不會卡住未來擴充。</p>
     </div>
 
     <div class="decision">
@@ -412,8 +424,8 @@
 
   <footer>
     <p>
-      本文件為功能提案、非最終規格。架構決策（方案三、i18n 字典 + 課程內容多欄位）與翻譯來源建議（DeepL API 初稿 + 真人校對）已依需求推導，
-      剩下兩項「還沒決定的部分」需要管理者確認後才會繼續往下規劃時程與開發任務拆解。
+      本文件為功能提案、非最終規格。架構決策（方案三、i18n 字典 + 課程內容多欄位）、翻譯來源建議（DeepL API 初稿 + 真人校對）與語言數量（第一階段僅英文）已依團隊會議決議推導，
+      剩下「私版覆寫字典存放位置」這項需要管理者確認後才會繼續往下規劃時程與開發任務拆解。
     </p>
   </footer>
 </div>
