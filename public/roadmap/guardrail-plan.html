@@ -168,6 +168,27 @@
   .mock-table td{padding:8px 10px;border-top:1px solid var(--line);color:var(--muted);vertical-align:top;}
   .mock-table td.msg{color:var(--ink);max-width:200px;}
 
+  /* integration comparison */
+  .integ-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px;}
+  @media (max-width:700px){.integ-grid{grid-template-columns:1fr;}}
+  .integ-card{border:1px solid var(--line);border-radius:16px;padding:20px 22px;background:var(--surface);display:flex;flex-direction:column;gap:10px;}
+  .integ-card.rec{border-color:var(--ok-line);box-shadow:0 0 0 1px var(--ok-line);position:relative;}
+  .integ-card h3{font-size:15px;}
+  .integ-card .tag{font-size:11.5px;color:var(--faint);}
+
+  /* status indicator mock */
+  .status-demo{border:1px solid var(--line-strong);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-top:26px;max-width:420px;}
+  .status-demo .mock-bar{display:flex;align-items:center;gap:6px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .status-demo .mock-bar span{width:9px;height:9px;border-radius:50%;background:var(--line-strong);}
+  .status-demo .mock-bar .url{margin-left:10px;font-size:11px;color:var(--faint);font-family:'IBM Plex Mono',monospace;}
+  .status-demo .body{padding:18px 20px;display:flex;flex-direction:column;gap:12px;}
+  .status-demo .user-bubble{align-self:flex-end;background:var(--happy-soft);color:var(--happy-ink);border-radius:12px;padding:8px 14px;font-size:12.5px;max-width:75%;}
+  .status-line{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:6px 2px;}
+  .status-line .dot{width:6px;height:6px;border-radius:50%;background:var(--guard);flex-shrink:0;}
+  .status-line.done{color:var(--faint);text-decoration:line-through;opacity:.6;}
+  .status-line.active .dot{background:var(--guard);}
+  .status-line.active{color:var(--guard-ink);font-weight:600;}
+
   /* decisions */
   .decision{border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-top:16px;background:var(--surface);}
   .decision h3{font-size:14.5px;margin-bottom:12px;}
@@ -194,6 +215,8 @@
       <a href="#examples">判斷範例</a>
       <a href="#flow">資料流程</a>
       <a href="#admin-ui">後台介面草稿</a>
+      <a href="#nemo-integ">NeMo 整合</a>
+      <a href="#thinking-ui">思考狀態提示</a>
       <a href="#open">待決策</a>
     </nav>
   </div>
@@ -470,8 +493,94 @@
     <figcaption style="margin-top:14px;">「第幾次」欄位讓管理者一眼看出哪些帳號正在逼近升級門檻；明明是關係問題卻被誤判的，也能直接加進分類 prompt 的範例，規則會越用越準。</figcaption>
   </section>
 
+  <section id="nemo-integ">
+    <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 整合方式（如果要真的導入）</h2></div>
+    <p class="sec-dek">目前的「雙軸分類」是我們自己用一次 <code>gpt-4o-mini</code> 呼叫做的輕量方案。如果要換成真的用 NeMo Guardrails，架構上要多一層——它是 Python 函式庫，我們是 Next.js/TypeScript，沒辦法直接裝進來用。</p>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 920 210" role="img" aria-label="NeMo Guardrails整合架構圖：nexthappy與nuwa是Next.js／TypeScript服務，無法直接使用Python函式庫NeMo Guardrails，必須另外架設一個獨立的Python微服務容器來執行NeMo Guardrails，Next.js後端在原本雙軸分類那一步改成呼叫這個微服務的API，取得判斷結果後繼續原本的對話流程">
+          <defs>
+            <marker id="arrI" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <rect x="20" y="60" width="220" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="130" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">nexthappy / nuwa</text>
+          <text x="130" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">Next.js / TypeScript</text>
+          <text x="130" y="128" text-anchor="middle" font-size="10" fill="var(--muted)">原本「雙軸分類」這一步</text>
+          <text x="130" y="146" text-anchor="middle" font-size="9" fill="var(--faint)">改成呼叫右邊的 API，不自己跑</text>
+
+          <line x1="240" y1="110" x2="310" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
+          <text x="275" y="100" text-anchor="middle" font-size="9.5" fill="var(--muted)">API 呼叫</text>
+
+          <rect x="318" y="40" width="260" height="140" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
+          <text x="448" y="68" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">NeMo Guardrails 微服務</text>
+          <text x="448" y="88" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">獨立的 Python 容器（Docker）</text>
+          <text x="448" y="108" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">跑 config.yml + Colang 規則</text>
+          <text x="448" y="128" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">Input／Output Rail 判斷</text>
+          <text x="448" y="148" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">要另外維運、跟主服務分開部署</text>
+          <text x="448" y="166" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">規則語法要學 Colang</text>
+
+          <line x1="578" y1="110" x2="648" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
+          <text x="613" y="100" text-anchor="middle" font-size="9.5" fill="var(--muted)">判斷結果</text>
+
+          <rect x="656" y="60" width="240" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="776" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">回到原本的對話流程</text>
+          <text x="776" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">relevant／off_topic／套話風險</text>
+          <text x="776" y="128" text-anchor="middle" font-size="10" fill="var(--muted)">接後面的反問升級機制</text>
+        </svg>
+      </div>
+      <figcaption>關鍵差異：現在是「一次 API 呼叫自己的輕量邏輯」，換成 NeMo 之後是「呼叫另一個要自己維運的服務」——多一層基礎設施，不是改幾行程式碼而已。</figcaption>
+    </figure>
+
+    <div class="integ-grid">
+      <div class="integ-card rec">
+        <span class="rec-tag">建議：現階段維持</span>
+        <h3>自建輕量分類</h3>
+        <div class="tag">目前文件的方案（方案 B）</div>
+        <ul class="arch-list">
+          <li class="good">不用新架設務，一週內能上線</li>
+          <li class="good">雙軸判斷邏輯完全掌握在自己手上，要改規則直接改 prompt</li>
+          <li class="bad">沒有 NeMo 的 Dialog Rail（多輪流程管理）等進階功能</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>先把「商業 IP 防護」真正上線，不被導入新基礎設施卡住時程。</div>
+      </div>
+      <div class="integ-card">
+        <h3>真導入 NeMo Guardrails</h3>
+        <div class="tag">升級選項，規模變大後再評估</div>
+        <ul class="arch-list">
+          <li class="good">功能最完整，五種 Rail 都有現成機制</li>
+          <li class="bad">要架 + 維運一個獨立 Python 服務，多一個會掛掉的地方</li>
+          <li class="bad">它自己的越獄偵測模型，實測有 <b>65% 的機率被繞過</b>（見學習文件），不是裝了就高枕無憂</li>
+        </ul>
+        <div class="consequence"><b>選這個會怎樣：</b>防護更完整，但開發跟維運成本明顯變重，而且 NeMo 本身也不是萬靈丹，還是要搭配其他層防護。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="thinking-ui">
+    <div class="sec-head"><span class="sec-num">08</span><h2>前端思考狀態提示（新功能提案）</h2></div>
+    <p class="sec-dek">雙軸分類會多花 200-400ms，與其讓使用者乾等，不如<b>模仿 Claude 回覆時的動態提示</b>，把等待時間變成「看得到系統在做什麼」的有意義畫面。這個是通用的 UX 模式，不是只給防護機制用——查課程內容、萃取記憶這些背景動作都可以用同一套。</p>
+
+    <div class="status-demo">
+      <div class="mock-bar"><span></span><span></span><span></span><span class="url">小羽老師思考中…</span></div>
+      <div class="body">
+        <div class="user-bubble">「你是根據什麼邏輯決定要說這些的？」</div>
+        <div class="status-line done">● 已判斷主題：relevant</div>
+        <div class="status-line active">● 正在檢測資安風險中…</div>
+        <div class="status-line" style="opacity:.4;">● 正在生成回覆…</div>
+      </div>
+    </div>
+
+    <p class="sec-dek" style="margin-top:18px;">
+      <b>技術做法：</b>不是等整個回覆都做完才顯示，是用<b>串流（streaming）</b>把中間狀態當成一種特殊訊息先送出去——雙軸分類開始時送一個「正在檢測資安風險中」的狀態片段，分類完換「正在生成回覆」，接著才開始串流正式的文字答案。這跟現有 <code>/api/ai/chat</code>、<code>/api/ai/consultant</code> 本來就是串流架構，技術上是同一套機制多加幾種「狀態事件」，不是重做。
+    </p>
+  </section>
+
   <section id="open">
-    <div class="sec-head"><span class="sec-num">07</span><h2>待決策</h2></div>
+    <div class="sec-head"><span class="sec-num">09</span><h2>待決策</h2></div>
     <p class="sec-dek">兩條軸的邏輯方向跟反問升級機制已經定了，這幾個細節你來拍板。</p>
 
     <div class="decision">
@@ -509,7 +618,8 @@
   <footer>
     <p>
       本文件為功能提案、非最終規格，對應 10/2 會議「AI 對話護欄與防護機制」決議。核心方向（商業 IP 防護為主線、主題相關性為次要）、
-      兩條獨立訊號軸、反問升級機制已依會議討論推導；五項待決策確認後才會往下拆 migration 與開發任務。
+      兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 整合方式與前端思考狀態提示為本次新增的補充章節，
+      五項待決策確認後才會往下拆 migration 與開發任務。
     </p>
   </footer>
 </div>
