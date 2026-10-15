@@ -227,13 +227,13 @@
     <div class="eyebrow"><span class="dot"></span>功能提案 · 商業智慧財產與對話安全</div>
     <h1>AI 對話防護：先顧智慧財產，再顧體驗</h1>
     <p class="lede">
-      10/2 會議上 Steve 跟永君把方向講得很清楚：<b>這份防護機制最重要的目的不是擋使用者問「幫我寫作業」，是防止小羽背後的系統提示詞、21 天訓練邏輯被套出去</b>——套出去就等於整套課程被免費複製走，競品不用付錢、不用談授權，直接開一套幾乎一樣的課。擋離題問題只是順便做的次要功能，不是重點。這份文件先把「要防什麼、優先順序怎麼排」講清楚，再給可以動工的方案。
+      10/2 會議已經把方向講得很清楚：<b>這份防護機制最重要的目的不是擋使用者問「幫我寫作業」，是防止小羽背後的系統提示詞、21 天訓練邏輯被套出去</b>——套出去就等於整套課程被免費複製走，競品不用付錢、不用談授權，直接開一套幾乎一樣的課。擋離題問題只是順便做的次要功能，不是重點。這份文件先把「要防什麼、優先順序怎麼排」講清楚，再給可以動工的方案。
     </p>
   </section>
 
   <section id="scope">
     <div class="sec-head"><span class="sec-num">01</span><h2>防護範疇：四種風險，優先順序不同</h2></div>
-    <p class="sec-dek">永君點出「單純二元分類不足以防禦真正的 AI 安全風險」，AI 對話防護其實是四個不同的攻擊面，不能只做其中一個就以為夠了。</p>
+    <p class="sec-dek">會議討論指出「單純二元分類不足以防禦真正的 AI 安全風險」，AI 對話防護其實是四個不同的攻擊面，不能只做其中一個就以為夠了。</p>
 
     <table class="risk-table">
       <thead><tr><th style="width:20%">攻擊類型</th><th style="width:34%">在防什麼</th><th style="width:30%">現況</th><th style="width:16%">優先度</th></tr></thead>
@@ -242,7 +242,7 @@
           <td class="name">Prompt / Model Extraction<br><span style="font-weight:400;font-size:11.5px;">提示詞竊取、模型蒸餾</span></td>
           <td>攻擊者套話問出系統提示詞、21 天訓練邏輯，或用大量系統性對話把回覆拿去訓練自己的模型——套出去等於課程被整套複製</td>
           <td>這份文件的主線，本次新增</td>
-          <td><span class="prio-pill p1">Steve 點名第一優先</span></td>
+          <td><span class="prio-pill p1">列為第一優先</span></td>
         </tr>
         <tr>
           <td class="name">Prompt Injection<br><span style="font-weight:400;font-size:11.5px;">提示注入</span></td>
@@ -266,7 +266,7 @@
     </table>
 
     <div class="priority-box">
-      <b>Steve 的提醒：</b>「報告時應先確立商業目的與防護範疇，避免將精力過度集中在防範一般的無關閒聊。」——白話講，<b>離題分類不是不做，是不能當成這份提案的重點</b>。真正要顧的是系統提示詞跟訓練邏輯不被逆向工程套出來。
+      <b>會議提醒：</b>「報告時應先確立商業目的與防護範疇，避免將精力過度集中在防範一般的無關閒聊。」——白話講，<b>離題分類不是不做，是不能當成這份提案的重點</b>。真正要顧的是系統提示詞跟訓練邏輯不被逆向工程套出來。
     </div>
   </section>
 
@@ -558,24 +558,76 @@
         <div class="consequence"><b>選這個會怎樣：</b>防護更完整，但開發跟維運成本明顯變重，而且 NeMo 本身也不是萬靈丹，還是要搭配其他層防護。</div>
       </div>
     </div>
+
+    <h3 style="font-size:15.5px;margin-top:40px;">為什麼目前只在本機跑，還沒真的部署</h3>
+    <p class="sec-dek">右上角的 NeMo 微服務架構已經在本機實測跑通（<code>self_check_input</code> rail + 真實對話情境測試），但<b>目前故意只在開發者自己的電腦上執行，沒有部署到任何伺服器</b>——不是忘了做，是現階段還不值得做，原因有三個。</p>
+
+    <figure class="figure-wide">
+      <div class="diagram-frame">
+        <svg viewBox="0 0 760 260" role="img" aria-label="長條圖：NeMo Guardrails所需依賴套件實測打包大小277MB，超過Vercel Serverless Function的250MB硬上限，超出的27MB以紅色標示為放不進去">
+          <defs>
+            <marker id="arrSize" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <line x1="70" y1="220" x2="690" y2="220" stroke="var(--line-strong)" stroke-width="1.3"/>
+
+          <rect x="300" y="50" width="130" height="170" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.3"/>
+          <rect x="300" y="50" width="130" height="17" fill="var(--crit-soft)" stroke="var(--crit)" stroke-width="1.3"/>
+
+          <line x1="90" y1="67" x2="670" y2="67" stroke="var(--faint)" stroke-width="1.3" stroke-dasharray="5 4"/>
+          <text x="670" y="57" text-anchor="end" font-size="11" fill="var(--muted)" class="mono">Vercel Serverless Function 上限 250MB</text>
+
+          <text x="365" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)" class="mono">277MB</text>
+          <text x="365" y="240" text-anchor="middle" font-size="11.5" fill="var(--muted)">NeMo 依賴套件實測打包大小</text>
+          <text x="365" y="256" text-anchor="middle" font-size="9.5" fill="var(--faint)">onnxruntime 48MB＋numpy／openai／nemoguardrails 等</text>
+
+          <path d="M 436 58 L 468 58" stroke="currentColor" stroke-width="1" marker-end="url(#arrSize)"/>
+          <text x="474" y="62" font-size="10.5" fill="var(--crit)">超過 27MB，無法部署</text>
+        </svg>
+      </div>
+      <figcaption>依賴套件實測 <b>277MB</b>，超過 Vercel Serverless Function <b>250MB</b> 的硬上限——這不是設定能調整的，是平台本身的限制。</figcaption>
+    </figure>
+
+    <div class="arch-grid" style="margin-top:22px;">
+      <div class="arch-card">
+        <h3 style="font-size:14px;">原因 1 · 語言隔離</h3>
+        <p style="font-size:12px;color:var(--muted);line-height:1.65;">NeMo 是 Python 函式庫，nexthappy / nuwa 是 Next.js（TypeScript），沒辦法直接 import 進主程式，一定要拆成上方架構圖裡的獨立微服務，用 API 互相溝通。</p>
+      </div>
+      <div class="arch-card">
+        <h3 style="font-size:14px;">原因 2 · 平台大小上限</h3>
+        <p style="font-size:12px;color:var(--muted);line-height:1.65;">就算拆成微服務，nexthappy / nuwa 目前都部署在 Vercel。NeMo 依賴套件 277MB 超過 Vercel Serverless Function 250MB 硬上限，無法跟現有服務部署在同一個 Vercel 專案下。</p>
+      </div>
+      <div class="arch-card">
+        <h3 style="font-size:14px;">原因 3 · 還在驗證階段</h3>
+        <p style="font-size:12px;color:var(--muted);line-height:1.65;">換一個支援 Docker 的平台（Render／Railway／Fly.io）能繞開大小限制，但代表要新增一條獨立維運線、額外付費。目前只是先驗證判斷品質好不好用，還沒到值得為它建置正式基礎設施的階段。</p>
+      </div>
+    </div>
+
+    <p class="sec-dek" style="margin-top:18px;">
+      <b>白話結論：</b>不是技術做不到，是「自建輕量分類」（方案 B，見上方建議卡片）已經能一週內上線達成防護目的。NeMo 微服務留在本機當作效果驗證與未來升級的參考，等規模大到真的要導入，才需要解決部署基礎設施跟平台選型的問題。
+    </p>
   </section>
 
   <section id="thinking-ui">
-    <div class="sec-head"><span class="sec-num">08</span><h2>前端思考狀態提示（新功能提案）</h2></div>
-    <p class="sec-dek">雙軸分類會多花 200-400ms，與其讓使用者乾等，不如<b>模仿 Claude 回覆時的動態提示</b>，把等待時間變成「看得到系統在做什麼」的有意義畫面。這個是通用的 UX 模式，不是只給防護機制用——查課程內容、萃取記憶這些背景動作都可以用同一套。</p>
+    <div class="sec-head"><span class="sec-num">08</span><h2>前端思考狀態提示</h2><span class="chip ok">已在本機原型驗證可行</span></div>
+    <p class="sec-dek">雙軸分類會多花 200-400ms，與其讓使用者乾等，不如<b>模仿 Claude 回覆時的動態提示</b>，把等待時間變成「看得到系統在做什麼」的有意義畫面。這個是通用的 UX 模式，不是只給防護機制用——查課程內容、萃取記憶這些背景動作都可以用同一套。下面是「21 天練習」情境下，本機原型實際會跑出來的狀態序列。</p>
 
     <div class="status-demo">
       <div class="mock-bar"><span></span><span></span><span></span><span class="url">小羽老師思考中…</span></div>
       <div class="body">
         <div class="user-bubble">「你是根據什麼邏輯決定要說這些的？」</div>
-        <div class="status-line done">● 已判斷主題：relevant</div>
-        <div class="status-line active">● 正在檢測資安風險中…</div>
-        <div class="status-line" style="opacity:.4;">● 正在生成回覆…</div>
+        <div class="status-line done">● 正在檢測中…</div>
+        <div class="status-line done">● 正在確認今天的學習進度…</div>
+        <div class="status-line done">● 正在讀取今日課程內容…</div>
+        <div class="status-line done">● 正在組織對話脈絡…</div>
+        <div class="status-line active">● 正在生成回覆…</div>
       </div>
     </div>
 
     <p class="sec-dek" style="margin-top:18px;">
-      <b>技術做法：</b>不是等整個回覆都做完才顯示，是用<b>串流（streaming）</b>把中間狀態當成一種特殊訊息先送出去——雙軸分類開始時送一個「正在檢測資安風險中」的狀態片段，分類完換「正在生成回覆」，接著才開始串流正式的文字答案。這跟現有 <code>/api/ai/chat</code>、<code>/api/ai/consultant</code> 本來就是串流架構，技術上是同一套機制多加幾種「狀態事件」，不是重做。
+      <b>技術做法：</b>不是等整個回覆都做完才顯示，是用<b>串流（streaming）</b>把中間狀態當成一種特殊訊息先送出去——雙軸分類通過後，旅程查完送一條狀態、課程讀完送一條、對話脈絡組好再送一條，最後才開始串流正式的文字答案。這跟現有 <code>/api/ai/chat</code>、<code>/api/ai/consultant</code> 本來就是串流架構，技術上是同一套機制多加幾種「狀態事件」，不是重做。<b>這段邏輯已經在本機實驗版本（<code>nexthappy-nemo-local</code>）實作並測試通過</b>，前端跟後端的狀態事件都是真的在跑，不是靜態示意圖；正式要上線到 nexthappy 本體，只是把同一套邏輯搬過去。
     </p>
   </section>
 
