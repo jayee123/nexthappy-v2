@@ -848,6 +848,20 @@ export default function ChatPage() {
           data.completion_type === 'partial' ? '有點卡' : '沒完成'
         }。心情 ${data.emotion_score}/10。${data.journal_text || ''}`;
         await sendPracticeMessage(completionMsg, 'evening');
+
+        // bug fix：完成當天任務後 todayData 沒有 refresh，day_number 停留在完成前的那天。
+        // DAY_ADVANCE_INSTANT=true 時 /api/day/complete 會當下把 current_day 推進，
+        // 但前端不知道、maxDayN（往後箭頭上限）還是舊值，導致剛解鎖的下一天箭頭被誤判成
+        // 「已是這輪最後一天」。這裡補一次 /api/day/today，拿到最新 day_number。
+        try {
+          const refreshRes = await fetch('/api/day/today');
+          if (refreshRes.ok) {
+            const refreshJson = await refreshRes.json();
+            if (refreshJson.data) setTodayData(refreshJson.data);
+          }
+        } catch (e) {
+          console.error('[chat] todayData refresh after complete failed:', e);
+        }
       }
     } catch (err) {
       console.error(err);
