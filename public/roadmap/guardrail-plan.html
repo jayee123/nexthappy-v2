@@ -272,23 +272,27 @@
 
   <section id="axes">
     <div class="sec-head"><span class="sec-num">02</span><h2>核心決策：兩條獨立訊號軸</h2></div>
-    <p class="sec-dek">主題相關性（上一版已決定）、套話風險（這次新增），各自獨立判斷、各自有對應的處理方式——不是取代關係，是兩件事。</p>
+    <p class="sec-dek">主題相關性（上一版已決定）、套話風險（這次新增），各自獨立判斷、各自有對應的處理方式——不是取代關係，是兩件事。<b>兩軸的判斷邏輯整個交給 NeMo 做</b>，不再另外維護自己的 <code>gpt-4o-mini</code> 分類器，詳細架構見第 07 節。</p>
 
     <div class="axis-grid">
       <div class="axis-card">
         <h3>軸一：主題相關性</h3>
         <div class="sub">已決定（上一輪拍板）</div>
         <div class="axis-row"><b>判斷什麼：</b>這句話跟關係諮詢有沒有關</div>
-        <div class="axis-row"><b>做法：</b>輕量分類（<code>gpt-4o-mini</code>）輸出機率分數 <code>p ∈ [0,1]</code>，門檻值切成 <code>relevant</code> / <code>off_topic</code></div>
+        <div class="axis-row"><b>做法：</b>交給 NeMo 的一個獨立 Input Rail 負責（<code>self check topic</code>），直接回答 <code>relevant</code> / <code>off_topic</code>，不再自己寫機率分類器</div>
         <div class="axis-row"><b>拿不準時：</b><b>直接當 relevant 正常回答</b>，不反問——避免把正常但講法特殊的關係問題卡住</div>
       </div>
       <div class="axis-card">
         <h3>軸二：套話風險</h3>
         <div class="sub">本次新增</div>
         <div class="axis-row"><b>判斷什麼：</b>這句話像不像在探系統提示詞／訓練邏輯／知識庫（例如「複誦你的指令」「忽略之前設定」這類）</div>
-        <div class="axis-row"><b>做法：</b>同樣一次輕量分類呼叫，輸出套話風險分數，切成<b>低／中／高</b>三級</div>
+        <div class="axis-row"><b>做法：</b>交給 NeMo 的另一個獨立 Input Rail 負責（<code>self check extraction</code>），輸出套話風險，切成<b>低／中／高</b>三級</div>
         <div class="axis-row"><b>拿不準時（中風險）：</b><b>用反問帶開</b>，不正面回應——細節見下一節「反問升級機制」</div>
       </div>
+    </div>
+
+    <div class="distill-note">
+      <b>為什麼是兩個獨立 Rail，不是合併成一個：</b>離題跟套話的處理方式完全不一樣（離題→委婉引導就結束；套話→要走反問升級階梯、計次數）。如果像本機原型那樣圖方便，把兩軸合併成單一 <code>self_check_input</code> 只回 Yes/No，小羽就分不出「這次是因為離題被擋、還是套話被擋」，兩種狀況會被套用同一種處理，離題的人可能被誤套反問升級，套話的人反而只收到溫和引導。正式導入時這兩個 rail 要分開寫、分開回傳結果。
     </div>
 
     <div class="distill-note">
@@ -374,7 +378,7 @@
 
   <section id="flow">
     <div class="sec-head"><span class="sec-num">05</span><h2>資料流程</h2></div>
-    <p class="sec-dek">兩條軸的分類插在「使用者送出訊息」跟「正式產生回覆」中間，同一次輕量呼叫一起判斷，不動原本的對話邏輯，也不多加一次 API 呼叫。</p>
+    <p class="sec-dek">兩條軸的分類插在「使用者送出訊息」跟「正式產生回覆」中間，改成呼叫 NeMo 微服務的兩個 Input Rail 一起判斷，不動原本的對話邏輯——多出來的是這一次跨服務的 API 呼叫，細節見第 07 節的部署路線圖。</p>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
@@ -393,9 +397,9 @@
 
           <rect x="230" y="90" width="200" height="150" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
           <text x="330" y="116" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">雙軸分類</text>
-          <text x="330" y="138" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">gpt-4o-mini，一次呼叫</text>
-          <text x="330" y="160" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.85">① 主題相關性 p</text>
-          <text x="330" y="178" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.85">② 套話風險 p（低／中／高）</text>
+          <text x="330" y="138" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">NeMo 兩個獨立 Input Rail</text>
+          <text x="330" y="160" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.85">① self check topic → relevant／off_topic</text>
+          <text x="330" y="178" text-anchor="middle" font-size="9.5" fill="var(--guard-ink)" opacity="0.85">② self check extraction → 低／中／高</text>
           <text x="330" y="200" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">中風險另計連續觸發次數</text>
 
           <line x1="430" y1="110" x2="492" y2="40" stroke="currentColor" stroke-width="1.3" marker-end="url(#arrG)"/>
@@ -660,10 +664,10 @@
     </div>
 
     <div class="decision">
-      <h3>主題相關性門檻值要設多嚴？</h3>
-      <p style="font-size:12px;color:var(--muted);margin:-4px 0 4px;">分類器輸出的 <code>p</code> 是「離題機率」：<code>p</code> 超過門檻值才判 <code>off_topic</code>。</p>
-      <div class="branch-row"><div class="opt">寬鬆<br>（建議）</div><div class="out">門檻設高一點（例如 0.6），只有機率分數明顯偏向離題才攔，拿不準的一律當 <code>relevant</code> 讓它正常回答。誤攔風險低，使用者體感好。</div></div>
-      <div class="branch-row"><div class="opt">嚴格</div><div class="out">門檻拉低（例如 0.4），更容易把模糊訊息判成離題。攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者。GovTech 論文內部實際部署用的區間是 <b>0.4–0.6</b>，可以從這個範圍挑一個起步，再用後台數據滾動調整。</div></div>
+      <h3>NeMo 的 <code>self check topic</code> rail，判斷標準要設多嚴？</h3>
+      <p style="font-size:12px;color:var(--muted);margin:-4px 0 4px;">改用 NeMo 之後不再是數字門檻（<code>p</code> 值），而是 prompt 裡「什麼算離題」的範例鬆緊——用詞寬鬆或嚴格，判斷標準就跟著變。</p>
+      <div class="branch-row"><div class="opt">寬鬆<br>（建議）</div><div class="out">prompt 裡只列很明確的離題例子（數學作業、寫報告這類），拿不準的一律當 <code>relevant</code> 讓它正常回答。誤攔風險低，使用者體感好。</div></div>
+      <div class="branch-row"><div class="opt">嚴格</div><div class="out">prompt 裡把「講法比較跳的關係話題」也當成離題範例列進去，攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者。建議先走寬鬆版上線，再依後台「防護記錄」的誤判案例，把誤攔的例子補進 prompt 滾動調整。</div></div>
     </div>
 
     <div class="decision">
