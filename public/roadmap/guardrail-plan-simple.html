@@ -483,6 +483,24 @@
         <p>實測資料顯示，NeMo 自己內建的越獄偵測模型有約 65% 的機率被繞過。這次用的是「直接問 AI、照問法判斷」這種比較單純的做法，不是靠那個容易被繞過的黑盒模型。</p>
       </div>
     </div>
+
+    <h3 style="font-size:15.5px;margin-top:32px;">打電話問完之後，NeMo 裡面到底發生什麼事？</h3>
+    <p class="sec-lede">打開 NeMo 這個黑盒子看裡面──其實就是照一張值班表，一關一關問下去，不是什麼魔法。</p>
+
+    <div class="chat-mock">
+      <div class="status-flow">
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">1</b>nexthappy 把使用者的話打包，打電話問 NeMo（一次 API 呼叫）</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">2</b>NeMo 先查自己的「值班表」（設定檔 <code class="mono">config.yml</code>），看這句話要過哪幾道關卡</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">3</b>照值班表，分別觸發「相關性檢查」跟「套話檢查」兩道關卡（用 Colang 寫的流程）</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">4</b>每道關卡各自把「使用者的話＋檢查用的問題範本」送給 AI（<code class="mono">gpt-4o-mini</code>）問一次</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">5</b>AI 照範本規定的方式回答（像是「只能回答 Yes 或 No」）</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">6</b>NeMo 把兩道關卡的回答整理起來，判斷「擋」還是「不擋」</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">7</b>把整理好的結果傳回 nexthappy</div>
+        <div class="status-line"><span class="dot"></span><b style="margin-right:6px;">8</b>nexthappy 收到結果，照第 02、03 節的雙軸／反問邏輯決定怎麼回應使用者</div>
+      </div>
+    </div>
+
+    <div class="callout">這整段從第 1 步到第 7 步，大概多花 200–400 毫秒──就是第 04 節「思考狀態提示」那個「正在檢測中…」要蓋住的那段等待時間。NeMo 不是一個一次回答全部的黑盒子，是照值班表一關一關問出來的結果。</div>
   </section>
 
   <section id="s6">
