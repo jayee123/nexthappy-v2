@@ -494,8 +494,8 @@
   </section>
 
   <section id="nemo-integ">
-    <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 整合方式（如果要真的導入）</h2></div>
-    <p class="sec-dek">目前的「雙軸分類」是我們自己用一次 <code>gpt-4o-mini</code> 呼叫做的輕量方案。如果要換成真的用 NeMo Guardrails，架構上要多一層——它是 Python 函式庫，我們是 Next.js/TypeScript，沒辦法直接裝進來用。</p>
+    <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 正式導入規劃</h2><span class="chip guard">已拍板導入，往部署階段推進</span></div>
+    <p class="sec-dek">目前的「雙軸分類」是自己用一次 <code>gpt-4o-mini</code> 呼叫做的輕量方案，先把商業 IP 防護上線；<b>確定要換成真的用 NeMo Guardrails</b> 之後，下面是從「本機已驗證」走到「正式雲端服務」的完整路線。架構上要多一層——NeMo 是 Python 函式庫，nexthappy / nuwa 是 Next.js/TypeScript，沒辦法直接裝進來用，一定要拆成獨立服務。</p>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
@@ -535,32 +535,46 @@
       <figcaption>關鍵差異：現在是「一次 API 呼叫自己的輕量邏輯」，換成 NeMo 之後是「呼叫另一個要自己維運的服務」——多一層基礎設施，不是改幾行程式碼而已。</figcaption>
     </figure>
 
-    <div class="integ-grid">
-      <div class="integ-card rec">
-        <span class="rec-tag">建議：現階段維持</span>
-        <h3>自建輕量分類</h3>
-        <div class="tag">目前文件的方案（方案 B）</div>
-        <ul class="arch-list">
-          <li class="good">不用新架設務，一週內能上線</li>
-          <li class="good">雙軸判斷邏輯完全掌握在自己手上，要改規則直接改 prompt</li>
-          <li class="bad">沒有 NeMo 的 Dialog Rail（多輪流程管理）等進階功能</li>
-        </ul>
-        <div class="consequence"><b>選這個會怎樣：</b>先把「商業 IP 防護」真正上線，不被導入新基礎設施卡住時程。</div>
-      </div>
-      <div class="integ-card">
-        <h3>真導入 NeMo Guardrails</h3>
-        <div class="tag">升級選項，規模變大後再評估</div>
-        <ul class="arch-list">
-          <li class="good">功能最完整，五種 Rail 都有現成機制</li>
-          <li class="bad">要架 + 維運一個獨立 Python 服務，多一個會掛掉的地方</li>
-          <li class="bad">它自己的越獄偵測模型，實測有 <b>65% 的機率被繞過</b>（見學習文件），不是裝了就高枕無憂</li>
-        </ul>
-        <div class="consequence"><b>選這個會怎樣：</b>防護更完整，但開發跟維運成本明顯變重，而且 NeMo 本身也不是萬靈丹，還是要搭配其他層防護。</div>
-      </div>
+    <div class="distill-note" style="margin-top:4px;">
+      <b>導入前提醒：</b>NeMo 自己的越獄偵測模型實測有 <b>65% 的機率被繞過</b>（見學習文件），不是裝了就高枕無憂。導入後仍要保留現有「雙軸分類」判斷邏輯作為第一層，NeMo 當作加強的第二層，而不是拿掉自建邏輯直接換掉。
     </div>
 
-    <h3 style="font-size:15.5px;margin-top:40px;">為什麼目前只在本機跑，還沒真的部署</h3>
-    <p class="sec-dek">右上角的 NeMo 微服務架構已經在本機實測跑通（<code>self_check_input</code> rail + 真實對話情境測試），但<b>目前故意只在開發者自己的電腦上執行，沒有部署到任何伺服器</b>——不是忘了做，是現階段還不值得做，原因有三個。</p>
+    <h3 style="font-size:15.5px;margin-top:36px;">部署路線圖</h3>
+    <p class="sec-dek">從「本機驗證可行」到「正式雲端服務」分五個階段，每個階段完成才進下一個，避免中途卡在一半兩頭不是。</p>
+
+    <table class="ladder" style="margin-top:20px;">
+      <thead><tr><th style="width:16%">階段</th><th style="width:46%">內容</th><th>現況</th></tr></thead>
+      <tbody>
+        <tr style="background:var(--ok-soft);">
+          <td class="step" style="color:var(--ok);">0 · 本機驗證</td>
+          <td><code>self_check_input</code> rail 接上 <code>nexthappy-nemo-local</code>，用真實對話情境測過判斷品質；前端思考狀態提示也已整合測試。</td>
+          <td><b>已完成</b></td>
+        </tr>
+        <tr>
+          <td class="step">1 · 抽成獨立 repo</td>
+          <td>把 <code>nexthappy-config/</code>、<code>service/</code>、<code>Dockerfile</code> 從 NVIDIA 原始 repo 裡抽出來，另立一個乾淨、可以推上 GitHub 的獨立 repo。</td>
+          <td>下一步</td>
+        </tr>
+        <tr>
+          <td class="step">2 · 選平台、正式部署</td>
+          <td>Vercel 放不下（見下方圖解），改用支援 Docker 的 PaaS（見下方平台比較），上線對外的 <code>/v1/check</code> API。</td>
+          <td>待排程</td>
+        </tr>
+        <tr>
+          <td class="step">3 · 接上正式環境</td>
+          <td><code>checkGuardrail()</code> 的 <code>GUARDRAIL_SERVICE_URL</code> 從 <code>localhost</code> 換成雲端網址；<b>fail-open 設計維持不變</b>，微服務異常時不擋真實對話。</td>
+          <td>待排程</td>
+        </tr>
+        <tr>
+          <td class="step">4 · 上線後監控迭代</td>
+          <td>後台「防護記錄」接真實資料、依誤判率調整 <code>self_check_input</code> prompt，評估要不要再加 Dialog Rail 等進階機制。</td>
+          <td>待排程</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="font-size:15.5px;margin-top:40px;">為什麼不能沿用現有 Vercel，要另外選平台</h3>
+    <p class="sec-dek">階段 2 不能直接部署在 nexthappy / nuwa 現有的 Vercel 專案上——不是設定問題，是平台大小上限擋住了。</p>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
@@ -587,27 +601,31 @@
           <text x="474" y="62" font-size="10.5" fill="var(--crit)">超過 27MB，無法部署</text>
         </svg>
       </div>
-      <figcaption>依賴套件實測 <b>277MB</b>，超過 Vercel Serverless Function <b>250MB</b> 的硬上限——這不是設定能調整的，是平台本身的限制。</figcaption>
+      <figcaption>依賴套件實測 <b>277MB</b>，超過 Vercel Serverless Function <b>250MB</b> 的硬上限——這不是設定能調整的，是平台本身的限制，所以階段 2 一定要另外找支援 Docker 的平台。</figcaption>
     </figure>
 
-    <div class="arch-grid" style="margin-top:22px;">
-      <div class="arch-card">
-        <h3 style="font-size:14px;">原因 1 · 語言隔離</h3>
-        <p style="font-size:12px;color:var(--muted);line-height:1.65;">NeMo 是 Python 函式庫，nexthappy / nuwa 是 Next.js（TypeScript），沒辦法直接 import 進主程式，一定要拆成上方架構圖裡的獨立微服務，用 API 互相溝通。</p>
-      </div>
-      <div class="arch-card">
-        <h3 style="font-size:14px;">原因 2 · 平台大小上限</h3>
-        <p style="font-size:12px;color:var(--muted);line-height:1.65;">就算拆成微服務，nexthappy / nuwa 目前都部署在 Vercel。NeMo 依賴套件 277MB 超過 Vercel Serverless Function 250MB 硬上限，無法跟現有服務部署在同一個 Vercel 專案下。</p>
-      </div>
-      <div class="arch-card">
-        <h3 style="font-size:14px;">原因 3 · 還在驗證階段</h3>
-        <p style="font-size:12px;color:var(--muted);line-height:1.65;">換一個支援 Docker 的平台（Render／Railway／Fly.io）能繞開大小限制，但代表要新增一條獨立維運線、額外付費。目前只是先驗證判斷品質好不好用，還沒到值得為它建置正式基礎設施的階段。</p>
-      </div>
-    </div>
-
-    <p class="sec-dek" style="margin-top:18px;">
-      <b>白話結論：</b>不是技術做不到，是「自建輕量分類」（方案 B，見上方建議卡片）已經能一週內上線達成防護目的。NeMo 微服務留在本機當作效果驗證與未來升級的參考，等規模大到真的要導入，才需要解決部署基礎設施跟平台選型的問題。
-    </p>
+    <h3 style="font-size:15.5px;margin-top:36px;">PaaS 平台比較（階段 2 要選一個）</h3>
+    <table class="risk-table" style="margin-top:20px;">
+      <thead><tr><th style="width:16%">平台</th><th style="width:42%">特色</th><th>要注意的地方</th></tr></thead>
+      <tbody>
+        <tr class="top">
+          <td class="name">Render<br><span style="font-weight:400;font-size:11.5px;">建議起步選擇</span></td>
+          <td>原生支援 Docker，設定方式跟 Vercel 接近直覺，Web Service 從 GitHub repo 一鍵部署。</td>
+          <td>免費方案閒置一段時間會「睡眠」，下一次請求要重新啟動、第一次會變慢——正式用途建議升付費方案避免這個延遲。</td>
+        </tr>
+        <tr>
+          <td class="name">Railway</td>
+          <td>介面對開發者友善，CLI／GitHub 整合快，部署流程順。</td>
+          <td>計費隨用量規模增加，上線後要留意額度跟費用成長曲線。</td>
+        </tr>
+        <tr>
+          <td class="name">Fly.io</td>
+          <td>可以選離使用者最近的機房部署，延遲表現較好。</td>
+          <td>要寫 <code>fly.toml</code> 設定檔，對 Docker 細節的掌控度要求比前兩者高一點，學習曲線較陡。</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="sec-dek" style="margin-top:14px;">三個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式——<b>Render 設定最接近現在熟悉的 Vercel 流程，建議階段 2 從這裡起步</b>，用量真的起來後再評估要不要換。</p>
   </section>
 
   <section id="thinking-ui">
@@ -670,8 +688,8 @@
   <footer>
     <p>
       本文件為功能提案、非最終規格，對應 10/2 會議「AI 對話護欄與防護機制」決議。核心方向（商業 IP 防護為主線、主題相關性為次要）、
-      兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 整合方式與前端思考狀態提示為本次新增的補充章節，
-      五項待決策確認後才會往下拆 migration 與開發任務。
+      兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 已確定正式導入，目前完成階段 0（本機驗證），
+      部署路線圖見第 07 節；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
     </p>
   </footer>
 </div>
