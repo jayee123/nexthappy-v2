@@ -686,81 +686,65 @@
       <b style="color:var(--ok);">目前防護成果：</b>10 項風險中<b>已有 7 項具備不同程度防護</b>，其中 <b style="color:var(--ok);">2 項涵蓋程度高</b>——「系統提示詞洩漏」（LLM07，密技本保護，整個提案最核心的防護目標）與「資源濫用」（LLM10，rate limit ＋ quota 機制）都已達正式上線等級。其餘項目已逐一盤點，排入下一階段強化規劃，詳見下表。
     </div>
 
-    <table class="risk-table" style="margin-top:18px;">
-      <thead><tr><th style="width:8%">編號</th><th style="width:16%">風險</th><th style="width:30%">現有防護方式</th><th style="width:12%">涵蓋程度</th><th style="width:34%">下一步規劃</th></tr></thead>
-      <tbody>
-        <tr>
-          <td class="name">LLM01</td>
-          <td>Prompt Injection<br><span style="font-weight:400;font-size:11.5px;">提示注入</span></td>
-          <td>軸二「套話風險」self check extraction rail，偵測「忽略之前設定」類指令，觸發反問升級</td>
-          <td><span class="verdict-pill gray">中高</span></td>
-          <td>沒做過系統性的 injection 手法測試（像 jailbreak 題庫）</td>
-        </tr>
-        <tr>
-          <td class="name">LLM02</td>
-          <td>Sensitive Information Disclosure<br><span style="font-weight:400;font-size:11.5px;">敏感資訊洩漏</span></td>
-          <td>軸二涵蓋系統提示詞／訓練邏輯的套話防護</td>
-          <td><span class="verdict-pill gray">中</span></td>
-          <td><b>PII 洩漏（其他使用者的個資）完全沒實作</b>——第 01 節自己就寫「本次先列入範疇，實作留待下一輪」</td>
-        </tr>
-        <tr>
-          <td class="name">LLM03</td>
-          <td>Supply Chain<br><span style="font-weight:400;font-size:11.5px;">供應鏈風險</span></td>
-          <td>尚無自動化掃描機制</td>
-          <td><span class="verdict-pill gray">規劃中</span></td>
-          <td>排入第 07 節部署路線圖：階段 2 正式部署前，加入套件依賴掃描（<code>pip-audit</code>／<code>npm audit</code>）作為上線前檢核項目</td>
-        </tr>
-        <tr>
-          <td class="name">LLM04</td>
-          <td>Data and Model Poisoning<br><span style="font-weight:400;font-size:11.5px;">資料／模型下毒</span></td>
-          <td>無（用 gpt-4o-mini，沒有自己訓練模型）</td>
-          <td><span class="verdict-pill gray">風險本身較低</span></td>
-          <td>若未來 daily_memories 萃取功能做成 RAG，要重新評估使用者輸入污染記憶的風險</td>
-        </tr>
-        <tr>
-          <td class="name">LLM05</td>
-          <td>Improper Output Handling<br><span style="font-weight:400;font-size:11.5px;">輸出處理不當</span></td>
-          <td>已有 Input Rail，Output Rail 尚未建置</td>
-          <td><span class="verdict-pill gray">規劃中（優先）</span></td>
-          <td><b>技術上只需新增一個 Output Rail</b>，跟現有 Input Rail 架構相容度最高，建議列為下一階段第一優先</td>
-        </tr>
-        <tr>
-          <td class="name">LLM06</td>
-          <td>Excessive Agency<br><span style="font-weight:400;font-size:11.5px;">過度自主權</span></td>
-          <td>無（小羽目前純對話，沒有 function calling）</td>
-          <td><span class="verdict-pill gray">風險本身較低</span></td>
-          <td>會議中規劃的「AI 自動發文到 FB/IG」一旦做出來，就會產生新的 Excessive Agency 風險，要重新評估</td>
-        </tr>
-        <tr>
-          <td class="name">LLM07</td>
-          <td>System Prompt Leakage<br><span style="font-weight:400;font-size:11.5px;">系統提示詞洩漏</span></td>
-          <td><b>這是雙軸分類的核心防護對象</b>，有完整三階段升級機制</td>
-          <td><span class="verdict-pill in">高</span></td>
-          <td>蒸餾攻擊（跨帳號、跨時間慢慢問）仍是已知缺口，見第 02 節</td>
-        </tr>
-        <tr>
-          <td class="name">LLM08</td>
-          <td>Vector and Embedding Weaknesses<br><span style="font-weight:400;font-size:11.5px;">向量／嵌入弱點</span></td>
-          <td>無（目前沒用 RAG／embedding）</td>
-          <td><span class="verdict-pill gray">不適用</span></td>
-          <td>若未來導入向量記憶要重新評估</td>
-        </tr>
-        <tr>
-          <td class="name">LLM09</td>
-          <td>Misinformation<br><span style="font-weight:400;font-size:11.5px;">錯誤資訊／幻覺</span></td>
-          <td>屬內容品質範疇，非本提案資安範圍</td>
-          <td><span class="verdict-pill gray">另案處理</span></td>
-          <td>建議與教學內容團隊另訂審核流程，不列入本次 AI 對話防護提案範圍</td>
-        </tr>
-        <tr>
-          <td class="name">LLM10</td>
-          <td>Unbounded Consumption<br><span style="font-weight:400;font-size:11.5px;">資源無限制消耗</span></td>
-          <td>rate limit（50 次/天）、quota 機制、平台層級試用額度管理</td>
-          <td><span class="verdict-pill in">高</span></td>
-          <td>—</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="decision">
+      <h3>LLM01 · Prompt Injection（提示注入）<span class="verdict-pill gray" style="margin-left:10px;">中高</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們有一道專門的檢查機制（內部稱為「套話風險」判斷），每一句使用者輸入都會先被檢查，看裡面有沒有藏著像「忽略之前的規則」這類想要操控 AI 的指令。如果偵測到，系統不會直接照做，而是先用反問的方式把話題帶開，確認使用者的真實意圖。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">目前的判斷邏輯是依照我們自己收集的案例設計的，還沒有拿業界公開、大量收錄各種真實攻擊手法的測試題庫（類似資安界的「破解題庫」）來驗證，沒辦法保證涵蓋所有攻擊手法。下一步建議找一套公開的提示注入測試集實際跑一輪，確認目前機制擋得住多少、哪裡還有漏網之魚。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM02 · Sensitive Information Disclosure（敏感資訊洩漏）<span class="verdict-pill gray" style="margin-left:10px;">中</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前的防護機制主要針對「系統內部設定跟訓練邏輯」這類公司機密，已經有完整的偵測跟反問升級流程。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">但如果是「使用者 A 的個人資料不小心被講給使用者 B 聽」這種個資外洩的情境，目前完全沒有防護——這件事在更早的會議就已經列入待辦，但排在下一輪才會真的動工，現階段算是已知但尚未處理的缺口。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM03 · Supply Chain（供應鏈風險）<span class="verdict-pill gray" style="margin-left:10px;">規劃中</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前沒有專門的檢查流程。NeMo Guardrails 這套工具本身，是靠許多別人寫好的小程式（業界叫「套件」）組合而成，裡面有一些是做機器學習運算用的（像 <code>onnxruntime</code>、<code>numpy</code>），如果這些套件本身被爆出資安漏洞，我們現在沒有自動化機制會提醒我們。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">業界有現成的免費工具（<code>pip-audit</code>、<code>npm audit</code>）可以自動掃描這些套件有沒有已知的資安漏洞，我們計畫把這個檢查排進正式上線前的標準流程——也就是第 07 節提到的部署路線圖，在把服務真的搬上雲端之前，先跑一次掃描確認安全。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM04 · Data and Model Poisoning（資料／模型下毒）<span class="verdict-pill out" style="margin-left:10px;">風險本身較低</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們沒有自己訓練 AI 模型，用的是 OpenAI 現成的 <code>gpt-4o-mini</code>，所以「有心人士偷偷把假資料混進訓練資料、把模型教壞」這種傳統下毒攻擊，風險本來就比自己訓練模型的公司低很多。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">唯一要注意的是，如果未來把「記住使用者過去講過的話」這個功能（目前叫 <code>daily_memories</code>）做得更進階，變成會自動拿舊對話內容去影響 AI 之後的回答方式，就要重新評估會不會有人故意講誤導性的話去「汙染」AI 對這個使用者的印象。目前這個進階功能還沒做，暫時不是急迫問題。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM05 · Improper Output Handling（輸出處理不當）<span class="verdict-pill gray" style="margin-left:10px;">規劃中（優先）</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們目前做的防護只檢查「使用者問了什麼」（業界叫 Input Rail，輸入端檢查），還沒有檢查「AI 回答了什麼」（Output Rail，輸出端檢查）。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">白話講，現在比較像「門口有警衛檢查訪客」，但「警衛自己講出去的話」沒有人把關。好消息是這個補強在技術上不難——NeMo 這套工具本來就支援輸出端檢查，我們只是還沒去啟用、去寫規則，跟現有架構相容度很高，<b>建議列為下一階段第一優先</b>。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM06 · Excessive Agency（過度自主權）<span class="verdict-pill out" style="margin-left:10px;">風險本身較低</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">小羽目前只會「對話」，不會「自己動手做事」——沒有讓 AI 自動操作資料庫、呼叫外部系統或執行實際動作的能力，這類風險目前敞口很小。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">要注意的是，這次會議同時也在規劃「讓 AI 自動發文到 Facebook、Instagram」這類自動化功能——一旦這種「AI 自己動手做事」的功能做出來，就會產生全新的、現在還沒有的風險，等那個功能真的要做的時候，需要重新評估一次。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM07 · System Prompt Leakage（系統提示詞洩漏）<span class="verdict-pill in" style="margin-left:10px;">高</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out"><b>這是整份防護提案最核心、優先度最高的防護對象</b>——防止小羽背後的系統設定、21 天課程邏輯被套話問出去。我們設計了完整的三階段升級機制：第一次婉轉帶開、第二次換句話再帶開、第三次明確劃清界線，還不放棄才會直接拒答並記錄下來。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">目前顧得很完整的是「同一次對話裡的套話」。但如果有人刻意分散成很多次、用很多不同帳號，每次只問一點點、慢慢拼湊出完整資訊（業界叫「蒸餾攻擊」），因為每一句話單獨看都很正常，現有的對話層機制擋不住，這個要靠帳號層級的用量異常偵測，已列為已知缺口、排在下一輪處理，見第 02 節。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM08 · Vector and Embedding Weaknesses（向量／嵌入弱點）<span class="verdict-pill out" style="margin-left:10px;">不適用</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前系統沒有使用這種技術（業界叫「向量資料庫」或「嵌入式搜尋」，常用在讓 AI 搜尋大量資料時），所以這項風險目前不適用。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">如果未來「記住使用者過去講過的話」這個功能做成比較進階的技術形式，要重新評估這項風險。目前不是優先項目。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM09 · Misinformation（錯誤資訊／幻覺）<span class="verdict-pill gray" style="margin-left:10px;">另案處理</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前沒有專門機制去檢查、把關小羽給的關係諮詢建議是不是正確或恰當——這比較不是資安問題，而是內容品質、教學專業度的問題。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">建議交給教學內容團隊另外訂一套審核流程（例如定期抽查對話紀錄、建立常見錯誤案例庫），不算在這次 AI 對話防護提案的範圍內，但建議另外追蹤，因為使用者體感上一樣重要。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>LLM10 · Unbounded Consumption（資源無限制消耗）<span class="verdict-pill in" style="margin-left:10px;">高</span></h3>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們已經有完整的用量控管：每人每天最多使用次數限制（50 次）、依訂閱方案設定的額度機制，還有這次會議決議要做的「平台層級統一管理免費試用額度」，防止有人惡意瘋狂發問、把系統資源或費用問到爆掉。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">這項已經是正式上線等級，暫無待辦。</div></div>
+    </div>
 
     <div class="priority-box" style="border-color:var(--ok-line);background:var(--ok-soft);">
       <b style="color:var(--ok);">總結：</b>10 項風險已逐一盤點完成，<b>7 項已有防護、2 項涵蓋程度高</b>（系統提示詞保護、資源濫用防護，兩項都是正式上線等級）。其餘 3 項已排入下一階段規劃，其中 <b>LLM05（輸出處理）技術門檻最低、建議優先處理</b>——只需新增一個 Output Rail，跟現有架構相容度最高，不用大改。
