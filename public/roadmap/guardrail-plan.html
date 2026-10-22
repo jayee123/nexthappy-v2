@@ -689,7 +689,7 @@
     <p class="sec-dek">對應 OWASP GenAI Security Project 2025 版（v2.0，2024/11/18 發布）的 LLM Top 10，逐項盤點現有雙軸分類＋反問升級機制涵蓋了哪些、還缺哪些；後面再補一份 NeMo 跟其他同類產品的差異比較，說明為什麼選 NeMo 而不是其他現成方案。</p>
 
     <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.7;">
-      <b style="color:var(--ok);">目前防護成果：</b>10 項風險中<b>已有 7 項具備不同程度防護</b>，其中 <b style="color:var(--ok);">2 項涵蓋程度高</b>——「系統提示詞洩漏」（LLM07，密技本保護，整個提案最核心的防護目標）與「資源濫用」（LLM10，rate limit ＋ quota 機制）都已達正式上線等級。其餘項目已逐一盤點，排入下一階段強化規劃，詳見下表。
+      <b style="color:var(--ok);">目前防護成果：</b>10 項風險中<b>已有 6 項具備防護或風險本身可控</b>，其中 <b style="color:var(--ok);">2 項涵蓋程度高</b>——「系統提示詞洩漏」（LLM07，密技本保護，整個提案最核心的防護目標）與「資源濫用」（LLM10，rate limit ＋ quota 機制）都已達正式上線等級。其餘 4 項已逐一盤點，排入下一階段強化規劃，詳見下表。
     </div>
 
     <div class="decision">
@@ -717,11 +717,11 @@
     </div>
 
     <div class="decision">
-      <h3>LLM04 · Data and Model Poisoning（資料／模型下毒）<span class="verdict-pill out" style="margin-left:10px;">風險本身較低</span></h3>
+      <h3>LLM04 · Data and Model Poisoning（資料／模型下毒）<span class="verdict-pill gray" style="margin-left:10px;">待評估</span></h3>
       <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Data＝資料；Model＝模型；Poisoning＝下毒。合起來：「把訓練用的資料或模型本身動手腳、下毒」。</div></div>
-      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">攻擊者故意在訓練資料或微調過程中混入惡意或誤導性的內容，讓 AI 模型學到錯誤的行為模式或留下後門。</div></div>
-      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們沒有自己訓練 AI 模型，用的是 OpenAI 現成的 <code>gpt-4o-mini</code>，所以「有心人士偷偷把假資料混進訓練資料、把模型教壞」這種傳統下毒攻擊，風險本來就比自己訓練模型的公司低很多。</div></div>
-      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">唯一要注意的是，如果未來把「記住使用者過去講過的話」這個功能（目前叫 <code>daily_memories</code>）做得更進階，變成會自動拿舊對話內容去影響 AI 之後的回答方式，就要重新評估會不會有人故意講誤導性的話去「汙染」AI 對這個使用者的印象。目前這個進階功能還沒做，暫時不是急迫問題。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">攻擊者故意在訓練資料或微調過程中混入惡意或誤導性的內容，讓 AI 模型學到錯誤的行為模式或留下後門。廣義上也包含在對話脈絡／記憶資料中混入誤導內容，持續影響模型後續輸出。</div></div>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們沒有自己訓練 AI 模型，用的是 OpenAI 現成的 <code>gpt-4o-mini</code>，所以「偷偷把假資料混進訓練資料、把模型教壞」這種傳統下毒攻擊不適用。但要修正一點：<b>「記住使用者過去講過的話」這個功能（<code>daily_memories</code>）現在就是上線中的功能，不是未來才要做的</b>——系統會把學員最近幾天的覺察日記摘要（情緒筆記、關鍵洞察、待追蹤事項）直接組進每次對話的系統提示詞（程式碼裡寫成「近期記憶：」接上整理好的內容），讓小羽的回覆延續過去的脈絡。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">既然這個機制已經是現在進行式，「故意持續講誤導性的話，讓 AI 對這個使用者的記憶被扭曲」在技術上現在就做得到，不是假設情境。目前還沒有人針對這個路徑做過風險分析，建議排入下一步：評估惡意或誤導性輸入被寫進 <code>daily_memories</code>、進而透過「近期記憶」持續影響後續對話的風險，並確認是否需要在寫入前加一層內容檢查。</div></div>
     </div>
 
     <div class="decision">
@@ -752,8 +752,8 @@
       <h3>LLM08 · Vector and Embedding Weaknesses（向量／嵌入弱點）<span class="verdict-pill out" style="margin-left:10px;">不適用</span></h3>
       <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Vector＝向量；Embedding＝嵌入（把文字轉換成一串數字，方便電腦做語意搜尋的技術）；Weaknesses＝弱點。合起來：「把資料轉換成向量做搜尋的這套機制本身的安全弱點」。</div></div>
       <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用向量資料庫做語意搜尋（RAG）的系統，如果向量資料被竄改、或檢索邏輯被濫用，可能導致資料外洩或被植入錯誤資訊。</div></div>
-      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前系統沒有使用這種技術（業界叫「向量資料庫」或「嵌入式搜尋」，常用在讓 AI 搜尋大量資料時），所以這項風險目前不適用。</div></div>
-      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">如果未來「記住使用者過去講過的話」這個功能做成比較進階的技術形式，要重新評估這項風險。目前不是優先項目。</div></div>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out"><b>修正：我們確實有「記住使用者過去講過的話」的記憶機制（<code>daily_memories</code>），不是完全沒有這塊功能</b>，但儲存方式是一般的關聯式資料庫（Supabase／Postgres）資料表，用日期排序＋筆數限制去撈最近幾筆，不是向量資料庫、也沒有做語意搜尋（embedding）。LLM08 這項風險特指「向量檢索邏輯被濫用」，因為我們沒用向量技術，這個特定風險還是不適用；但記憶資料本身的正確性要對照上面 LLM04 一起看——那才是記憶機制目前真正該顧的風險。</div></div>
+      <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">如果未來把這個記憶機制升級成用向量資料庫做語意搜尋（例如從大量歷史對話裡抓更精準的相關片段，而不是只抓最近幾筆），要重新評估這項風險。目前不是優先項目。</div></div>
     </div>
 
     <div class="decision">
@@ -773,7 +773,7 @@
     </div>
 
     <div class="priority-box" style="border-color:var(--ok-line);background:var(--ok-soft);">
-      <b style="color:var(--ok);">總結：</b>10 項風險已逐一盤點完成，<b>7 項已有防護、2 項涵蓋程度高</b>（系統提示詞保護、資源濫用防護，兩項都是正式上線等級）。其餘 3 項已排入下一階段規劃，其中 <b>LLM05（輸出處理）技術門檻最低、建議優先處理</b>——只需新增一個 Output Rail，跟現有架構相容度最高，不用大改。
+      <b style="color:var(--ok);">總結：</b>10 項風險已逐一盤點完成，<b>6 項已有防護或風險可控、2 項涵蓋程度高</b>（系統提示詞保護、資源濫用防護，兩項都是正式上線等級）。其餘 <b>4 項已排入下一階段規劃</b>（供應鏈、資料／記憶下毒、輸出處理、誤導資訊），其中 <b>LLM05（輸出處理）技術門檻最低、建議優先處理</b>——只需新增一個 Output Rail，跟現有架構相容度最高，不用大改。
     </div>
 
     <h3 style="font-size:15.5px;margin-top:40px;">NeMo Guardrails 跟其他同類產品的差異</h3>
@@ -837,21 +837,22 @@
         <tr><td class="msg">LLM01 提示注入</td><td>有人把假指令偷塞進問題裡，想騙警衛開門</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
         <tr><td class="msg">LLM02 敏感資訊洩漏</td><td>警衛聊天聊到一半，不小心講到別人的秘密</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
         <tr><td class="msg">LLM03 供應鏈風險</td><td>警衛系統自己用的零件（套件），還沒排健檢</td><td><span class="verdict-pill gray">排進下一輪</span></td></tr>
-        <tr><td class="msg">LLM04 資料／模型下毒</td><td>偷偷在教材裡塞假資料，想把 AI 教壞</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
+        <tr><td class="msg">LLM04 資料／模型下毒</td><td>小羽會記住你最近講過的話，如果有人故意一直亂講，可能把這份記憶帶歪</td><td><span class="verdict-pill gray">待評估</span></td></tr>
         <tr><td class="msg">LLM05 輸出處理不當</td><td>警衛只檢查「誰想進門」，還沒檢查「警衛自己講出去的話」</td><td><span class="verdict-pill gray">下一步優先</span></td></tr>
         <tr><td class="msg">LLM06 過度自主權</td><td>AI 自己動手做事，做錯了沒人把關</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
         <tr><td class="msg">LLM07 密技本被套出去</td><td>就是這份提案最重要防的那件事</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
-        <tr><td class="msg">LLM08 向量資料庫弱點</td><td>我們沒用這種技術，先不適用</td><td><span class="verdict-pill out">不適用</span></td></tr>
+        <tr><td class="msg">LLM08 向量資料庫弱點</td><td>記憶功能有，但是放在普通資料庫，不是用「語意搜尋」那種高級技術，先不適用</td><td><span class="verdict-pill out">不適用</span></td></tr>
         <tr><td class="msg">LLM09 講錯話／亂掰</td><td>小羽講錯建議，交給教學團隊另外顧</td><td><span class="verdict-pill gray">另案處理</span></td></tr>
         <tr><td class="msg">LLM10 被問到爆量</td><td>有人瘋狂問問題，想把額度／費用問到爆掉</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
       </tbody>
     </table>
 
     <div class="priority-box" style="margin-top:18px;border-color:var(--ok-line);background:var(--ok-soft);">
-      <b style="color:var(--ok);">白話版也先講結論：</b>10 項裡<b>已經顧好 7 項</b>，其中「密技本保護」（LLM07）跟「防止被問到爆量」（LLM10）這兩項顧得最紮實，已經是正式上線水準。剩下 3 項已經排進下一步計畫，白話講是這樣：<br>
+      <b style="color:var(--ok);">白話版也先講結論：</b>10 項裡<b>已經顧好 6 項</b>，其中「密技本保護」（LLM07）跟「防止被問到爆量」（LLM10）這兩項顧得最紮實，已經是正式上線水準。剩下 4 項已經排進下一步計畫，白話講是這樣：<br>
       ① <b>供應鏈</b>——警衛系統自己用的零件（套件）排進下一輪健檢，排在正式搬家（第 07 節部署路線圖）之前做。<br>
-      ② <b>輸出處理</b>——警衛目前只檢查「誰想進門」，下一步要加查「警衛自己講出去的話」，技術上只差一個 Output Rail，排第一優先。<br>
-      ③ <b>講錯話／亂掰</b>——如果小羽講錯關係諮詢建議，這塊交給教學團隊另外訂審核流程，不算資安問題，但一樣會顧到。
+      ② <b>記憶被帶歪</b>——小羽會記住你最近講過的話，這個記憶功能其實已經在用了；如果有人故意一直亂講，理論上可能把這份記憶帶歪，這個角度之前沒認真想過，排進下一步評估。<br>
+      ③ <b>輸出處理</b>——警衛目前只檢查「誰想進門」，下一步要加查「警衛自己講出去的話」，技術上只差一個 Output Rail，排第一優先。<br>
+      ④ <b>講錯話／亂掰</b>——如果小羽講錯關係諮詢建議，這塊交給教學團隊另外訂審核流程，不算資安問題，但一樣會顧到。
     </div>
 
     <p class="sec-dek" style="margin-top:18px;font-size:11.5px;">資料來源：OWASP GenAI Security Project「LLM Top 10 2025」；NeMo／Guardrails AI／LLM Guard／Lakera／Azure／AWS 的比較整理自公開文件與第三方比較文章，Lakera 的偵測率與延遲數字為廠商自述、未獨立驗證。</p>
@@ -918,7 +919,7 @@
     <p>
       本文件為功能提案、非最終規格，對應 10/2 會議「AI 對話護欄與防護機制」決議。核心方向（商業 IP 防護為主線、主題相關性為次要）、
       兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 已確定正式導入，目前完成階段 0（本機驗證），
-      部署路線圖見第 07 節；第 08 節補上 10/14 會議指派給全羽的 OWASP Top 10 for LLM 對照矩陣，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
+      部署路線圖見第 07 節；第 08 節補上 10/14 會議指派給全羽的 OWASP Top 10 for LLM 對照矩陣，10 項中 6 項已有防護或風險可控、2 項達正式上線水準，其餘 4 項已排入下一階段規劃（含修正後新增的 LLM04 記憶資料待評估項目）；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
     </p>
   </footer>
 </div>
