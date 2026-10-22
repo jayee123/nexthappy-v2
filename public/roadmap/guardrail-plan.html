@@ -685,8 +685,8 @@
   </section>
 
   <section id="owasp">
-    <div class="sec-head"><span class="sec-num">08</span><h2>OWASP 風險對照與方案比較</h2></div>
-    <p class="sec-dek">對應 OWASP GenAI Security Project 2025 版（v2.0，2024/11/18 發布）的 LLM Top 10，逐項盤點現有雙軸分類＋反問升級機制涵蓋了哪些、還缺哪些；後面再補一份 NeMo 跟其他同類產品的差異比較，說明為什麼選 NeMo 而不是其他現成方案。</p>
+    <div class="sec-head"><span class="sec-num">08</span><h2>OWASP 風險對照</h2></div>
+    <p class="sec-dek">對應 OWASP GenAI Security Project 2025 版（v2.0，2024/11/18 發布）的 LLM Top 10，逐項盤點現有雙軸分類＋反問升級機制涵蓋了哪些、還缺哪些。</p>
 
     <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.7;">
       <b style="color:var(--ok);">目前防護成果：</b>10 項風險中<b>已有 7 項具備不同程度防護</b>，其中 <b style="color:var(--ok);">2 項涵蓋程度高</b>——「系統提示詞洩漏」（LLM07，密技本保護，整個提案最核心的防護目標）與「資源濫用」（LLM10，rate limit ＋ quota 機制）都已達正式上線等級。其餘項目已逐一盤點，排入下一階段強化規劃，詳見下表。
@@ -774,58 +774,6 @@
 
     <div class="priority-box" style="border-color:var(--ok-line);background:var(--ok-soft);">
       <b style="color:var(--ok);">總結：</b>10 項風險已逐一盤點完成，<b>7 項已有防護、2 項涵蓋程度高</b>（系統提示詞保護、資源濫用防護，兩項都是正式上線等級）。其餘 3 項已排入下一階段規劃，其中 <b>LLM05（輸出處理）技術門檻最低、建議優先處理</b>——只需新增一個 Output Rail，跟現有架構相容度最高，不用大改。
-    </div>
-
-    <h3 style="font-size:15.5px;margin-top:40px;">NeMo Guardrails 跟其他同類產品的差異</h3>
-    <p class="sec-dek">會議中永君建議參考業界標準檢視現有防護，順便一併整理：市面上常見的 LLM 防護方案彼此定位不同，不是單純「哪個比較強」的比較。</p>
-
-    <table class="risk-table" style="margin-top:20px;">
-      <thead><tr><th style="width:15%">產品</th><th style="width:16%">定位</th><th style="width:30%">核心做法</th><th>跟 NeMo 的差異</th></tr></thead>
-      <tbody>
-        <tr class="top">
-          <td class="name">NeMo Guardrails<br><span style="font-weight:400;font-size:11.5px;">我們在用的</span></td>
-          <td>自架對話控制框架</td>
-          <td>Colang DSL 寫可編程對話流程，五種 Rail（Input／Output／Dialog／Retrieval／Execution）</td>
-          <td>基準點</td>
-        </tr>
-        <tr>
-          <td class="name">Guardrails AI</td>
-          <td>開源驗證框架</td>
-          <td>Python validator pipeline，Pydantic 風格的輸出驗證</td>
-          <td>比 NeMo 簡單、學習曲線低，但沒有 NeMo 的多輪對話流程管理（Dialog Rail）</td>
-        </tr>
-        <tr>
-          <td class="name">LLM Guard</td>
-          <td>開源掃描中介層</td>
-          <td>Python middleware，內建 jailbreak／PII／毒性偵測等預製 scanner</td>
-          <td>最接近「現成掃描層」，裝好就有一組偵測器，但對話流程控制能力不如 NeMo</td>
-        </tr>
-        <tr>
-          <td class="name">Lakera Guard</td>
-          <td>商用託管 API</td>
-          <td>把 prompt 送到第三方服務掃描，宣稱 prompt attack 偵測率 98%+、延遲 &lt;50ms（廠商數字，未獨立驗證）</td>
-          <td>關鍵差異：<b>Lakera 是純偵測器，NeMo／Guardrails AI 是框架</b>——要把訊息送到第三方，不是自架</td>
-        </tr>
-        <tr>
-          <td class="name">Azure AI Content Safety<br><span style="font-weight:400;font-size:11.5px;">Prompt Shields</span></td>
-          <td>雲端服務</td>
-          <td>鎖定 jailbreak／間接提示注入偵測，REST API</td>
-          <td>功能窄（專注提示攻擊），沒有 PII 偵測／輸出改寫，要另外搭配其他服務</td>
-        </tr>
-        <tr>
-          <td class="name">AWS Bedrock Guardrails</td>
-          <td>雲端政策套件</td>
-          <td><code>ApplyGuardrail</code> API，涵蓋 prompt 安全＋敏感資料控管，可接 CloudTrail、符合 HIPAA</td>
-          <td>比 Azure 的方案更廣，但綁定 AWS 生態系</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="distill-note" style="margin-top:22px;">
-      <b>為什麼選 NeMo、不選其他：</b>
-      ① 我們需要的不只是「偵測」，是要接進既有的雙軸分類＋反問升級對話流程——這正是 NeMo 的 Dialog Rail 強項，Guardrails AI／LLM Guard 做不到這層。
-      ② 不想把使用者的對話內容送到 Lakera 這類第三方託管服務——資料隱私疑慮，而且小羽的對話內容本身就是要保護的核心資產。
-      ③ 不想綁定單一雲端生態系（Azure／AWS），NeMo 是獨立開源套件，部署平台可以自己選，這也是第 07 節評估 Render／Railway／Fly.io 的原因。
     </div>
 
     <h3 style="font-size:15.5px;margin-top:40px;">白話版：這張表到底在講什麼？</h3>
