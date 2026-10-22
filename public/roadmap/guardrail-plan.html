@@ -814,6 +814,32 @@
       ③ 不想綁定單一雲端生態系（Azure／AWS），NeMo 是獨立開源套件，部署平台可以自己選，這也是第 07 節評估 Render／Railway／Fly.io 的原因。
     </div>
 
+    <h3 style="font-size:15.5px;margin-top:40px;">白話版：這張表到底在講什麼？</h3>
+    <p class="sec-dek">延續前面「密技本」的比喻：小羽老師家裡請了警衛顧密技本，OWASP 這張清單，就是全世界公認的「警衛系統體檢表」——列出 10 種最容易被攻擊的地方，一項一項檢查我們家的警衛顧了沒。</p>
+
+    <table class="ex-table" style="margin-top:18px;">
+      <thead><tr><th style="width:26%">風險</th><th style="width:44%">白話翻譯</th><th>顧好了嗎</th></tr></thead>
+      <tbody>
+        <tr><td class="msg">LLM01 提示注入</td><td>有人把假指令偷塞進問題裡，想騙警衛開門</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
+        <tr><td class="msg">LLM02 敏感資訊洩漏</td><td>警衛聊天聊到一半，不小心講到別人的秘密</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
+        <tr><td class="msg">LLM03 供應鏈風險</td><td>警衛系統自己用的零件（套件），沒人檢查過安不安全</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM04 資料／模型下毒</td><td>偷偷在教材裡塞假資料，想把 AI 教壞</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
+        <tr><td class="msg">LLM05 輸出處理不當</td><td>警衛只檢查「誰想進門」，沒檢查「警衛自己講出去的話」安不安全</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM06 過度自主權</td><td>AI 自己動手做事，做錯了沒人把關</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
+        <tr><td class="msg">LLM07 密技本被套出去</td><td>就是這份提案最重要防的那件事</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
+        <tr><td class="msg">LLM08 向量資料庫弱點</td><td>我們沒用這種技術，先不適用</td><td><span class="verdict-pill out">不適用</span></td></tr>
+        <tr><td class="msg">LLM09 講錯話／亂掰</td><td>小羽講錯建議，沒有人把關對不對</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM10 被問到爆量</td><td>有人瘋狂問問題，想把額度／費用問到爆掉</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="priority-box" style="margin-top:18px;">
+      <b>三個還沒顧到的洞，白話講是這樣：</b><br>
+      ① <b>供應鏈</b>——就像蓋房子用的磚頭沒人檢查過，房子蓋得再漂亮，磚頭本身有問題還是會垮。<br>
+      ② <b>輸出處理</b>——警衛只檢查「誰想進門」，卻沒檢查「警衛自己講出去的話」有沒有問題，這是目前最大的洞，也最好補（技術上只差一個 Output Rail）。<br>
+      ③ <b>講錯話／亂掰</b>——如果小羽講錯關係諮詢建議，沒有人把關，這比較像是「教學品質問題」，不算是「資安問題」，但使用者體感上一樣重要。
+    </div>
+
     <p class="sec-dek" style="margin-top:18px;font-size:11.5px;">資料來源：OWASP GenAI Security Project「LLM Top 10 2025」；NeMo／Guardrails AI／LLM Guard／Lakera／Azure／AWS 的比較整理自公開文件與第三方比較文章，Lakera 的偵測率與延遲數字為廠商自述、未獨立驗證。</p>
   </section>
 
