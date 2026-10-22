@@ -688,60 +688,80 @@
 
     <div class="decision">
       <h3>LLM01 · Prompt Injection（提示注入）<span class="verdict-pill gray" style="margin-left:10px;">中高</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Prompt＝提示詞／對 AI 下的指令；Injection＝注入、植入。合起來：「把指令偷偷植入到對話裡」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用者透過精心設計的輸入文字，讓 AI 忽略原本設定的規則、改變原本該有的行為，或執行使用者想要的動作而不是系統預期的動作。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們有一道專門的檢查機制（內部稱為「套話風險」判斷），每一句使用者輸入都會先被檢查，看裡面有沒有藏著像「忽略之前的規則」這類想要操控 AI 的指令。如果偵測到，系統不會直接照做，而是先用反問的方式把話題帶開，確認使用者的真實意圖。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">目前的判斷邏輯是依照我們自己收集的案例設計的，還沒有拿業界公開、大量收錄各種真實攻擊手法的測試題庫（類似資安界的「破解題庫」）來驗證，沒辦法保證涵蓋所有攻擊手法。下一步建議找一套公開的提示注入測試集實際跑一輪，確認目前機制擋得住多少、哪裡還有漏網之魚。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM02 · Sensitive Information Disclosure（敏感資訊洩漏）<span class="verdict-pill gray" style="margin-left:10px;">中</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Sensitive＝敏感的（不能隨便給人看的）；Information＝資訊；Disclosure＝被揭露、被洩漏出去。合起來：「敏感資訊被洩漏出去」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">AI 系統不小心把它「知道」的不該公開的東西講出來，分兩大類：① 系統自己的機密（系統提示詞、商業邏輯）；② 使用者的個資（姓名、對話內容，或把 A 使用者講過的話講給 B 使用者聽）。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前的防護機制主要針對「系統內部設定跟訓練邏輯」這類公司機密，已經有完整的偵測跟反問升級流程。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">但如果是「使用者 A 的個人資料不小心被講給使用者 B 聽」這種個資外洩的情境，目前完全沒有防護——這件事在更早的會議就已經列入待辦，但排在下一輪才會真的動工，現階段算是已知但尚未處理的缺口。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM03 · Supply Chain（供應鏈風險）<span class="verdict-pill gray" style="margin-left:10px;">規劃中</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Supply＝供應；Chain＝鏈條。合起來：「供應鏈」，指的是做出這套系統所用到的所有「上游零件」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">AI 系統依賴的第三方套件、函式庫、預訓練模型、資料集等，如果這些上游元件本身有漏洞或被竄改，會連帶影響整個系統的安全性。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前沒有專門的檢查流程。NeMo Guardrails 這套工具本身，是靠許多別人寫好的小程式（業界叫「套件」）組合而成，裡面有一些是做機器學習運算用的（像 <code>onnxruntime</code>、<code>numpy</code>），如果這些套件本身被爆出資安漏洞，我們現在沒有自動化機制會提醒我們。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">業界有現成的免費工具（<code>pip-audit</code>、<code>npm audit</code>）可以自動掃描這些套件有沒有已知的資安漏洞，我們計畫把這個檢查排進正式上線前的標準流程——也就是第 07 節提到的部署路線圖，在把服務真的搬上雲端之前，先跑一次掃描確認安全。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM04 · Data and Model Poisoning（資料／模型下毒）<span class="verdict-pill out" style="margin-left:10px;">風險本身較低</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Data＝資料；Model＝模型；Poisoning＝下毒。合起來：「把訓練用的資料或模型本身動手腳、下毒」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">攻擊者故意在訓練資料或微調過程中混入惡意或誤導性的內容，讓 AI 模型學到錯誤的行為模式或留下後門。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們沒有自己訓練 AI 模型，用的是 OpenAI 現成的 <code>gpt-4o-mini</code>，所以「有心人士偷偷把假資料混進訓練資料、把模型教壞」這種傳統下毒攻擊，風險本來就比自己訓練模型的公司低很多。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">唯一要注意的是，如果未來把「記住使用者過去講過的話」這個功能（目前叫 <code>daily_memories</code>）做得更進階，變成會自動拿舊對話內容去影響 AI 之後的回答方式，就要重新評估會不會有人故意講誤導性的話去「汙染」AI 對這個使用者的印象。目前這個進階功能還沒做，暫時不是急迫問題。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM05 · Improper Output Handling（輸出處理不當）<span class="verdict-pill gray" style="margin-left:10px;">規劃中（優先）</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Improper＝不恰當的；Output＝輸出（AI 講出來的內容）；Handling＝處理。合起來：「AI 輸出的內容沒有經過適當處理」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">系統直接把 AI 生成的內容往下游送（例如顯示給使用者、拿去執行程式碼、插入資料庫），沒有先檢查這些內容本身安不安全，可能導致資料隱碼攻擊等後果。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們目前做的防護只檢查「使用者問了什麼」（業界叫 Input Rail，輸入端檢查），還沒有檢查「AI 回答了什麼」（Output Rail，輸出端檢查）。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">白話講，現在比較像「門口有警衛檢查訪客」，但「警衛自己講出去的話」沒有人把關。好消息是這個補強在技術上不難——NeMo 這套工具本來就支援輸出端檢查，我們只是還沒去啟用、去寫規則，跟現有架構相容度很高，<b>建議列為下一階段第一優先</b>。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM06 · Excessive Agency（過度自主權）<span class="verdict-pill out" style="margin-left:10px;">風險本身較低</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Excessive＝過度的；Agency＝自主行動的能力。合起來：「AI 被賦予了超出合理範圍的自主行動權限」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">讓 AI 系統擁有過多的自動化權限（像是自動呼叫 API、自動執行交易、自動發送訊息），一旦 AI 判斷錯誤或被騙，就會直接造成實際損害，沒有人類把關的環節。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">小羽目前只會「對話」，不會「自己動手做事」——沒有讓 AI 自動操作資料庫、呼叫外部系統或執行實際動作的能力，這類風險目前敞口很小。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">要注意的是，這次會議同時也在規劃「讓 AI 自動發文到 Facebook、Instagram」這類自動化功能——一旦這種「AI 自己動手做事」的功能做出來，就會產生全新的、現在還沒有的風險，等那個功能真的要做的時候，需要重新評估一次。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM07 · System Prompt Leakage（系統提示詞洩漏）<span class="verdict-pill in" style="margin-left:10px;">高</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">System Prompt＝系統提示詞（開發者寫給 AI、規定它該怎麼表現的「幕後指令」）；Leakage＝洩漏。合起來：「幕後指令被洩漏出去」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用者透過各種手法，誘導 AI 把原本不該讓使用者看到的系統層級指令、內部規則或機密邏輯講出來。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out"><b>這是整份防護提案最核心、優先度最高的防護對象</b>——防止小羽背後的系統設定、21 天課程邏輯被套話問出去。我們設計了完整的三階段升級機制：第一次婉轉帶開、第二次換句話再帶開、第三次明確劃清界線，還不放棄才會直接拒答並記錄下來。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">目前顧得很完整的是「同一次對話裡的套話」。但如果有人刻意分散成很多次、用很多不同帳號，每次只問一點點、慢慢拼湊出完整資訊（業界叫「蒸餾攻擊」），因為每一句話單獨看都很正常，現有的對話層機制擋不住，這個要靠帳號層級的用量異常偵測，已列為已知缺口、排在下一輪處理，見第 02 節。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM08 · Vector and Embedding Weaknesses（向量／嵌入弱點）<span class="verdict-pill out" style="margin-left:10px;">不適用</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Vector＝向量；Embedding＝嵌入（把文字轉換成一串數字，方便電腦做語意搜尋的技術）；Weaknesses＝弱點。合起來：「把資料轉換成向量做搜尋的這套機制本身的安全弱點」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用向量資料庫做語意搜尋（RAG）的系統，如果向量資料被竄改、或檢索邏輯被濫用，可能導致資料外洩或被植入錯誤資訊。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前系統沒有使用這種技術（業界叫「向量資料庫」或「嵌入式搜尋」，常用在讓 AI 搜尋大量資料時），所以這項風險目前不適用。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">如果未來「記住使用者過去講過的話」這個功能做成比較進階的技術形式，要重新評估這項風險。目前不是優先項目。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM09 · Misinformation（錯誤資訊／幻覺）<span class="verdict-pill gray" style="margin-left:10px;">另案處理</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Mis-＝錯誤的、誤導的；Information＝資訊。合起來：「錯誤或誤導性的資訊」，業界常講的「AI 幻覺」（Hallucination）也屬於這一類。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">AI 生成看起來很有自信、但實際上是錯誤或捏造的內容，使用者如果信以為真，可能做出錯誤判斷或決策。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">目前沒有專門機制去檢查、把關小羽給的關係諮詢建議是不是正確或恰當——這比較不是資安問題，而是內容品質、教學專業度的問題。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">建議交給教學內容團隊另外訂一套審核流程（例如定期抽查對話紀錄、建立常見錯誤案例庫），不算在這次 AI 對話防護提案的範圍內，但建議另外追蹤，因為使用者體感上一樣重要。</div></div>
     </div>
 
     <div class="decision">
       <h3>LLM10 · Unbounded Consumption（資源無限制消耗）<span class="verdict-pill in" style="margin-left:10px;">高</span></h3>
+      <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">Unbounded＝沒有邊界、沒有上限的；Consumption＝消耗。合起來：「沒有上限地消耗資源」。</div></div>
+      <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用者（惡意或非惡意）對 AI 系統發出過量請求，耗盡運算資源或導致費用暴增，嚴重時造成服務中斷。</div></div>
       <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out">我們已經有完整的用量控管：每人每天最多使用次數限制（50 次）、依訂閱方案設定的額度機制，還有這次會議決議要做的「平台層級統一管理免費試用額度」，防止有人惡意瘋狂發問、把系統資源或費用問到爆掉。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">這項已經是正式上線等級，暫無待辦。</div></div>
     </div>
