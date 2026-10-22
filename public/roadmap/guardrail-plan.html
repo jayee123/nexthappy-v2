@@ -682,8 +682,12 @@
     <div class="sec-head"><span class="sec-num">08</span><h2>OWASP 風險對照與方案比較</h2></div>
     <p class="sec-dek">對應 OWASP GenAI Security Project 2025 版（v2.0，2024/11/18 發布）的 LLM Top 10，逐項盤點現有雙軸分類＋反問升級機制涵蓋了哪些、還缺哪些；後面再補一份 NeMo 跟其他同類產品的差異比較，說明為什麼選 NeMo 而不是其他現成方案。</p>
 
-    <table class="risk-table">
-      <thead><tr><th style="width:8%">編號</th><th style="width:16%">風險</th><th style="width:30%">現有防護方式</th><th style="width:12%">涵蓋程度</th><th style="width:34%">尚未處理的風險</th></tr></thead>
+    <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.7;">
+      <b style="color:var(--ok);">目前防護成果：</b>10 項風險中<b>已有 7 項具備不同程度防護</b>，其中 <b style="color:var(--ok);">2 項涵蓋程度高</b>——「系統提示詞洩漏」（LLM07，密技本保護，整個提案最核心的防護目標）與「資源濫用」（LLM10，rate limit ＋ quota 機制）都已達正式上線等級。其餘項目已逐一盤點，排入下一階段強化規劃，詳見下表。
+    </div>
+
+    <table class="risk-table" style="margin-top:18px;">
+      <thead><tr><th style="width:8%">編號</th><th style="width:16%">風險</th><th style="width:30%">現有防護方式</th><th style="width:12%">涵蓋程度</th><th style="width:34%">下一步規劃</th></tr></thead>
       <tbody>
         <tr>
           <td class="name">LLM01</td>
@@ -699,12 +703,12 @@
           <td><span class="verdict-pill gray">中</span></td>
           <td><b>PII 洩漏（其他使用者的個資）完全沒實作</b>——第 01 節自己就寫「本次先列入範疇，實作留待下一輪」</td>
         </tr>
-        <tr class="top">
+        <tr>
           <td class="name">LLM03</td>
           <td>Supply Chain<br><span style="font-weight:400;font-size:11.5px;">供應鏈風險</span></td>
-          <td>無</td>
-          <td><span class="verdict-pill crit">無</span></td>
-          <td>NeMo 的相依套件（onnxruntime、numpy 等）、npm/pip 依賴鏈，都沒做過安全掃描</td>
+          <td>尚無自動化掃描機制</td>
+          <td><span class="verdict-pill gray">規劃中</span></td>
+          <td>排入第 07 節部署路線圖：階段 2 正式部署前，加入套件依賴掃描（<code>pip-audit</code>／<code>npm audit</code>）作為上線前檢核項目</td>
         </tr>
         <tr>
           <td class="name">LLM04</td>
@@ -713,12 +717,12 @@
           <td><span class="verdict-pill gray">風險本身較低</span></td>
           <td>若未來 daily_memories 萃取功能做成 RAG，要重新評估使用者輸入污染記憶的風險</td>
         </tr>
-        <tr class="top">
+        <tr>
           <td class="name">LLM05</td>
           <td>Improper Output Handling<br><span style="font-weight:400;font-size:11.5px;">輸出處理不當</span></td>
-          <td>無</td>
-          <td><span class="verdict-pill crit">無</span></td>
-          <td><b>目前只做了 Input Rail，完全沒碰 Output Rail</b>——小羽的回覆沒有任何輸出端過濾</td>
+          <td>已有 Input Rail，Output Rail 尚未建置</td>
+          <td><span class="verdict-pill gray">規劃中（優先）</span></td>
+          <td><b>技術上只需新增一個 Output Rail</b>，跟現有 Input Rail 架構相容度最高，建議列為下一階段第一優先</td>
         </tr>
         <tr>
           <td class="name">LLM06</td>
@@ -741,12 +745,12 @@
           <td><span class="verdict-pill gray">不適用</span></td>
           <td>若未來導入向量記憶要重新評估</td>
         </tr>
-        <tr class="top">
+        <tr>
           <td class="name">LLM09</td>
           <td>Misinformation<br><span style="font-weight:400;font-size:11.5px;">錯誤資訊／幻覺</span></td>
-          <td>無</td>
-          <td><span class="verdict-pill crit">無</span></td>
-          <td>小羽講錯關係諮詢建議的風險完全沒有機制處理，比較偏產品品質問題</td>
+          <td>屬內容品質範疇，非本提案資安範圍</td>
+          <td><span class="verdict-pill gray">另案處理</span></td>
+          <td>建議與教學內容團隊另訂審核流程，不列入本次 AI 對話防護提案範圍</td>
         </tr>
         <tr>
           <td class="name">LLM10</td>
@@ -758,8 +762,8 @@
       </tbody>
     </table>
 
-    <div class="priority-box">
-      <b>總結：</b>7 項有不同程度涵蓋，3 項（<b>LLM03 供應鏈、LLM05 輸出處理、LLM09 誤導資訊</b>）完全空白。其中 <b>LLM05（輸出處理）最值得優先補</b>——技術上只是加一個 Output Rail，跟現有架構相容度最高，不用大改。
+    <div class="priority-box" style="border-color:var(--ok-line);background:var(--ok-soft);">
+      <b style="color:var(--ok);">總結：</b>10 項風險已逐一盤點完成，<b>7 項已有防護、2 項涵蓋程度高</b>（系統提示詞保護、資源濫用防護，兩項都是正式上線等級）。其餘 3 項已排入下一階段規劃，其中 <b>LLM05（輸出處理）技術門檻最低、建議優先處理</b>——只需新增一個 Output Rail，跟現有架構相容度最高，不用大改。
     </div>
 
     <h3 style="font-size:15.5px;margin-top:40px;">NeMo Guardrails 跟其他同類產品的差異</h3>
@@ -822,22 +826,22 @@
       <tbody>
         <tr><td class="msg">LLM01 提示注入</td><td>有人把假指令偷塞進問題裡，想騙警衛開門</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
         <tr><td class="msg">LLM02 敏感資訊洩漏</td><td>警衛聊天聊到一半，不小心講到別人的秘密</td><td><span class="verdict-pill gray">顧了一半</span></td></tr>
-        <tr><td class="msg">LLM03 供應鏈風險</td><td>警衛系統自己用的零件（套件），沒人檢查過安不安全</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM03 供應鏈風險</td><td>警衛系統自己用的零件（套件），還沒排健檢</td><td><span class="verdict-pill gray">排進下一輪</span></td></tr>
         <tr><td class="msg">LLM04 資料／模型下毒</td><td>偷偷在教材裡塞假資料，想把 AI 教壞</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
-        <tr><td class="msg">LLM05 輸出處理不當</td><td>警衛只檢查「誰想進門」，沒檢查「警衛自己講出去的話」安不安全</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM05 輸出處理不當</td><td>警衛只檢查「誰想進門」，還沒檢查「警衛自己講出去的話」</td><td><span class="verdict-pill gray">下一步優先</span></td></tr>
         <tr><td class="msg">LLM06 過度自主權</td><td>AI 自己動手做事，做錯了沒人把關</td><td><span class="verdict-pill out">風險本來就低</span></td></tr>
         <tr><td class="msg">LLM07 密技本被套出去</td><td>就是這份提案最重要防的那件事</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
         <tr><td class="msg">LLM08 向量資料庫弱點</td><td>我們沒用這種技術，先不適用</td><td><span class="verdict-pill out">不適用</span></td></tr>
-        <tr><td class="msg">LLM09 講錯話／亂掰</td><td>小羽講錯建議，沒有人把關對不對</td><td><span class="verdict-pill crit">還沒顧</span></td></tr>
+        <tr><td class="msg">LLM09 講錯話／亂掰</td><td>小羽講錯建議，交給教學團隊另外顧</td><td><span class="verdict-pill gray">另案處理</span></td></tr>
         <tr><td class="msg">LLM10 被問到爆量</td><td>有人瘋狂問問題，想把額度／費用問到爆掉</td><td><span class="verdict-pill in">顧得最好</span></td></tr>
       </tbody>
     </table>
 
-    <div class="priority-box" style="margin-top:18px;">
-      <b>三個還沒顧到的洞，白話講是這樣：</b><br>
-      ① <b>供應鏈</b>——就像蓋房子用的磚頭沒人檢查過，房子蓋得再漂亮，磚頭本身有問題還是會垮。<br>
-      ② <b>輸出處理</b>——警衛只檢查「誰想進門」，卻沒檢查「警衛自己講出去的話」有沒有問題，這是目前最大的洞，也最好補（技術上只差一個 Output Rail）。<br>
-      ③ <b>講錯話／亂掰</b>——如果小羽講錯關係諮詢建議，沒有人把關，這比較像是「教學品質問題」，不算是「資安問題」，但使用者體感上一樣重要。
+    <div class="priority-box" style="margin-top:18px;border-color:var(--ok-line);background:var(--ok-soft);">
+      <b style="color:var(--ok);">白話版也先講結論：</b>10 項裡<b>已經顧好 7 項</b>，其中「密技本保護」（LLM07）跟「防止被問到爆量」（LLM10）這兩項顧得最紮實，已經是正式上線水準。剩下 3 項已經排進下一步計畫，白話講是這樣：<br>
+      ① <b>供應鏈</b>——警衛系統自己用的零件（套件）排進下一輪健檢，排在正式搬家（第 07 節部署路線圖）之前做。<br>
+      ② <b>輸出處理</b>——警衛目前只檢查「誰想進門」，下一步要加查「警衛自己講出去的話」，技術上只差一個 Output Rail，排第一優先。<br>
+      ③ <b>講錯話／亂掰</b>——如果小羽講錯關係諮詢建議，這塊交給教學團隊另外訂審核流程，不算資安問題，但一樣會顧到。
     </div>
 
     <p class="sec-dek" style="margin-top:18px;font-size:11.5px;">資料來源：OWASP GenAI Security Project「LLM Top 10 2025」；NeMo／Guardrails AI／LLM Guard／Lakera／Azure／AWS 的比較整理自公開文件與第三方比較文章，Lakera 的偵測率與延遲數字為廠商自述、未獨立驗證。</p>
@@ -904,7 +908,7 @@
     <p>
       本文件為功能提案、非最終規格，對應 10/2 會議「AI 對話護欄與防護機制」決議。核心方向（商業 IP 防護為主線、主題相關性為次要）、
       兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 已確定正式導入，目前完成階段 0（本機驗證），
-      部署路線圖見第 07 節；第 08 節補上 10/14 會議指派給全羽的 OWASP Top 10 for LLM 對照矩陣，3 項（供應鏈、輸出處理、誤導資訊）確認為目前缺口；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
+      部署路線圖見第 07 節；第 08 節補上 10/14 會議指派給全羽的 OWASP Top 10 for LLM 對照矩陣，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
     </p>
   </footer>
 </div>
