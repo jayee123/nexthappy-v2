@@ -504,6 +504,12 @@
     <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 正式導入規劃</h2><span class="chip guard">已拍板導入，往部署階段推進</span></div>
     <p class="sec-dek">目前的「雙軸分類」是自己用一次 <code>gpt-4o-mini</code> 呼叫做的輕量方案，先把商業 IP 防護上線；<b>確定要換成真的用 NeMo Guardrails</b> 之後，下面是從「本機已驗證」走到「正式雲端服務」的完整路線。架構上要多一層——NeMo 是 Python 函式庫，nexthappy / nuwa 是 Next.js/TypeScript，沒辦法直接裝進來用，一定要拆成獨立服務。</p>
 
+    <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.8;">
+      <b style="color:var(--ok);">待辦事項對應：</b><br>
+      ✅ <b>確認套件體積、執行環境及部署限制</b>——已確認：NeMo 依賴套件（<code>onnxruntime</code>、<code>numpy</code>、<code>openai</code> 等）實測打包<b>277MB</b>；執行環境需要獨立的 Python 容器（Docker），無法直接跑在 Next.js 服務裡；部署限制是現有 Vercel Serverless Function 硬上限 <b>250MB</b>，NeMo 超出 27MB，無法與 nexthappy／nuwa 部署在同一個 Vercel 專案，詳細圖解見下方「為什麼不能沿用現有 Vercel」。<br>
+      ✅ <b>提出可行的部署方案</b>——已提出：評估 Render／Railway／Fly.io 三個支援 Docker 的平台，<b>建議從 Render 起步</b>（設定方式最接近現在熟悉的 Vercel 流程），完整五階段部署路線圖與平台比較見下方。
+    </div>
+
     <figure class="figure-wide">
       <div class="diagram-frame">
         <svg viewBox="0 0 920 210" role="img" aria-label="NeMo Guardrails整合架構圖：nexthappy與nuwa是Next.js／TypeScript服務，無法直接使用Python函式庫NeMo Guardrails，必須另外架設一個獨立的Python微服務容器來執行NeMo Guardrails，Next.js後端在原本雙軸分類那一步改成呼叫這個微服務的API，取得判斷結果後繼續原本的對話流程">
