@@ -507,7 +507,7 @@
     <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.8;">
       <b style="color:var(--ok);">待辦事項對應：</b><br>
       ✅ <b>確認套件體積、執行環境及部署限制</b>——已確認：NeMo 依賴套件（<code>onnxruntime</code>、<code>numpy</code>、<code>openai</code> 等）實測打包<b>277MB</b>；執行環境需要獨立的 Python 容器（Docker），無法直接跑在 Next.js 服務裡；部署限制是現有 Vercel Serverless Function 硬上限 <b>250MB</b>，NeMo 超出 27MB，無法與 nexthappy／nuwa 部署在同一個 Vercel 專案，詳細圖解見下方「為什麼不能沿用現有 Vercel」。<br>
-      ✅ <b>提出可行的部署方案</b>——已提出：評估 Render／Railway／Fly.io 三個支援 Docker 的平台，<b>建議從 Render 起步</b>（設定方式最接近現在熟悉的 Vercel 流程），完整五階段部署路線圖與平台比較見下方。
+      ✅ <b>提出可行的部署方案</b>——已確定：評估 Render／Railway／Fly.io／AWS EC2／Google Cloud Run 五個方案後，<b>正式選定 Render 作為階段 2 的部署平台</b>（設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低）；AWS EC2 雖然沒有套件大小上限，但需要自行維運整台伺服器（系統修補、擴展、監控），以目前團隊規模來說維運成本過高，故不採用。完整五階段部署路線圖與平台比較見下方。
     </div>
 
     <figure class="figure-wide">
@@ -613,8 +613,8 @@
         </tr>
         <tr>
           <td class="step">2 · 選平台、正式部署</td>
-          <td>Vercel 放不下（見下方圖解），改用支援 Docker 的 PaaS（見下方平台比較），上線對外的 <code>/v1/check</code> API。</td>
-          <td>待排程</td>
+          <td>Vercel 放不下（見下方圖解），改用支援 Docker 的 PaaS——<b>已確定選用 Render</b>（見下方平台比較），上線對外的 <code>/v1/check</code> API。</td>
+          <td>平台已確定，部署待排程</td>
         </tr>
         <tr>
           <td class="step">3 · 接上正式環境</td>
@@ -660,12 +660,12 @@
       <figcaption>依賴套件實測 <b>277MB</b>，超過 Vercel Serverless Function <b>250MB</b> 的硬上限——這不是設定能調整的，是平台本身的限制，所以階段 2 一定要另外找支援 Docker 的平台。</figcaption>
     </figure>
 
-    <h3 style="font-size:15.5px;margin-top:36px;">PaaS 平台比較（階段 2 要選一個）</h3>
+    <h3 style="font-size:15.5px;margin-top:36px;">PaaS 平台比較（已確定：Render）</h3>
     <table class="risk-table" style="margin-top:20px;">
       <thead><tr><th style="width:16%">平台</th><th style="width:42%">特色</th><th>要注意的地方</th></tr></thead>
       <tbody>
-        <tr class="top">
-          <td class="name">Render<br><span style="font-weight:400;font-size:11.5px;">建議起步選擇</span></td>
+        <tr class="top" style="background:var(--ok-soft);">
+          <td class="name">Render<br><span style="font-weight:700;font-size:11.5px;color:var(--ok);">✅ 已確定方案</span></td>
           <td>原生支援 Docker，設定方式跟 Vercel 接近直覺，Web Service 從 GitHub repo 一鍵部署。</td>
           <td>免費方案閒置一段時間會「睡眠」，下一次請求要重新啟動、第一次會變慢——正式用途建議升付費方案避免這個延遲。</td>
         </tr>
@@ -679,9 +679,19 @@
           <td>可以選離使用者最近的機房部署，延遲表現較好。</td>
           <td>要寫 <code>fly.toml</code> 設定檔，對 Docker 細節的掌控度要求比前兩者高一點，學習曲線較陡。</td>
         </tr>
+        <tr>
+          <td class="name">Google Cloud Run</td>
+          <td>容器大小沒有上限（只限制單一實例的記憶體／CPU），無流量時可縮到 0 個實例，閒置零成本。</td>
+          <td>需要熟悉 GCP 主控台／gcloud CLI，設定複雜度比 Render／Railway 高；縮到 0 後的第一次請求同樣有冷啟動延遲。</td>
+        </tr>
+        <tr>
+          <td class="name">AWS EC2</td>
+          <td>完全沒有套件或容器大小限制，整台伺服器全權自主控制。</td>
+          <td>要自己維運整台伺服器——系統修補、擴容、監控、安全群組設定全部自己來，對目前團隊規模維運負擔過高，<b>評估後不採用</b>。</td>
+        </tr>
       </tbody>
     </table>
-    <p class="sec-dek" style="margin-top:14px;">三個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式——<b>Render 設定最接近現在熟悉的 Vercel 流程，建議階段 2 從這裡起步</b>，用量真的起來後再評估要不要換。</p>
+    <p class="sec-dek" style="margin-top:14px;">五個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式。<b>評估結果：正式採用 Render</b>——設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低；Google Cloud Run 技術上同樣可行（且有「閒置零成本」優勢），列為備案；AWS EC2 雖然完全不受套件大小限制，但需要自行維運整台伺服器，維運成本與團隊規模不成比例，故不採用。</p>
   </section>
 
   <section id="owasp">
