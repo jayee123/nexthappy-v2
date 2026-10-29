@@ -707,6 +707,23 @@
     <div class="priority-box" style="margin-top:18px;border-color:var(--ok-line);background:var(--ok-soft);">
       <b style="color:var(--ok);">白話版結論：</b>選 Render，是因為它最像「續住原本熟悉的管理公司，只是換一間比較大的房間」——不用學新東西、交接成本最低。AWS EC2 雖然空間無限，但要自己當房東太累，團隊目前養不起，所以不選。
     </div>
+
+    <h3 style="font-size:15.5px;margin-top:40px;">如果不想另外部署，還有什麼方法？</h3>
+    <p class="sec-dek">「找另一個 PaaS」不是唯一解法，也評估過不需要獨立部署的替代做法，整理成以下兩個方向。</p>
+
+    <div class="decision">
+      <h3>方法一 · 獨立微服務＋API 呼叫<span class="verdict-pill in" style="margin-left:10px;">已確定採用</span></h3>
+      <div class="branch-row"><div class="opt">做法</div><div class="out">把 NeMo Guardrails 整包獨立成一個服務，架在 Render 上，nexthappy 的 Vercel 主程式透過 API 呼叫它（送出對話內容，拿到「要不要攔」的判斷結果）。</div></div>
+      <div class="branch-row"><div class="opt">優點</div><div class="out">NeMo 套件不用動，完整功能都保留。</div></div>
+      <div class="branch-row"><div class="opt">缺點</div><div class="out">多一個要維運的服務、多一次網路呼叫的延遲。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>方法二 · 繞過 NeMo 套件本身，直接用 LLM API 重寫邏輯<span class="verdict-pill gray" style="margin-left:10px;">備選方案</span></h3>
+      <div class="branch-row"><div class="opt">做法</div><div class="out"><code>self_check_input</code>／<code>self_check_output</code> 這些 rail，本質上只是「把對話內容丟給 LLM，問它這段話有沒有問題」。這段邏輯可以直接用 TypeScript 呼叫 OpenAI API 重寫一次，完全不需要安裝 NeMo Guardrails 這個 Python 套件（也就不會有 onnxruntime、numpy 那 277MB 的問題）。</div></div>
+      <div class="branch-row"><div class="opt">優點</div><div class="out">不用多一個服務、不用面對容量限制，直接留在 Vercel 裡。</div></div>
+      <div class="branch-row"><div class="opt">缺點</div><div class="out">等於自己重新做一套簡化版的判斷邏輯，可能失去 NeMo 框架內建的一些進階功能（像更複雜的 Dialog Rail）。</div></div>
+    </div>
   </section>
 
   <section id="owasp">
