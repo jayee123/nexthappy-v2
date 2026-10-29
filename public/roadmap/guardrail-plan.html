@@ -675,23 +675,13 @@
           <td>連最低方案都要先綁信用卡才能用，用量超出額度後再另外加收費用，計費隨用量規模增加，上線後要留意額度跟費用成長曲線。</td>
         </tr>
         <tr>
-          <td class="name">Fly.io</td>
-          <td>可以選離使用者最近的機房部署，延遲表現較好。</td>
-          <td>要寫 <code>fly.toml</code> 設定檔，對 Docker 細節的掌控度要求比前兩者高一點，學習曲線較陡。</td>
-        </tr>
-        <tr>
-          <td class="name">Google Cloud Run</td>
-          <td>容器大小沒有上限（只限制單一實例的記憶體／CPU），無流量時可縮到 0 個實例，閒置零成本。</td>
-          <td>需要熟悉 GCP 主控台／gcloud CLI，設定複雜度比 Render／Railway 高；縮到 0 後的第一次請求同樣有冷啟動延遲。</td>
-        </tr>
-        <tr>
           <td class="name">AWS EC2</td>
           <td>完全沒有套件或容器大小限制，整台伺服器全權自主控制。</td>
           <td>要自己維運整台伺服器——系統修補、擴容、監控、安全群組設定全部自己來，對目前團隊規模維運負擔過高，<b>評估後不採用</b>。</td>
         </tr>
       </tbody>
     </table>
-    <p class="sec-dek" style="margin-top:14px;">五個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式。<b>評估結果：正式採用 Render</b>——設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低；Google Cloud Run 技術上同樣可行（且有「閒置零成本」優勢），列為備案；AWS EC2 雖然完全不受套件大小限制，但需要自行維運整台伺服器，維運成本與團隊規模不成比例，故不採用。</p>
+    <p class="sec-dek" style="margin-top:14px;">三個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式。<b>評估結果：正式採用 Render</b>——設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低；AWS EC2 雖然完全不受套件大小限制，但需要自行維運整台伺服器，維運成本與團隊規模不成比例，故不採用。</p>
 
     <h3 style="font-size:15.5px;margin-top:40px;">白話版：為什麼選 Render，不選別的？</h3>
     <p class="sec-dek">把這件事想成「搬家」會比較好懂：小羽的防護系統（NeMo Guardrails）東西太多，裝不進原來住的公寓（Vercel，限重 250MB，但行李有 277MB），一定要搬到別的地方住。問題是，搬到哪一家？</p>
@@ -708,14 +698,6 @@
           <td>也是代管公寓，但「租之前一定要先刷卡押金」——連最便宜的方案也要先綁信用卡，而且住久了東西變多，房東會另外跟你加收費用，費用長怎麼樣比較難預先算準。</td>
         </tr>
         <tr>
-          <td class="name">Fly.io</td>
-          <td>可以指定「住在離客人最近的城市」，服務起來比較快，但租約（<code>fly.toml</code> 設定檔）條款比較複雜，要花更多時間搞懂。</td>
-        </tr>
-        <tr>
-          <td class="name">Google Cloud Run</td>
-          <td>像「共享辦公室」——沒客人上門的時候完全不收錢，有客人來才開燈收費，很省錢，但要自己先搞懂一整套新系統（GCP）才能租得到，上手門檻比較高。</td>
-        </tr>
-        <tr>
           <td class="name">AWS EC2</td>
           <td>等於直接「買一整棟樓」自己當房東——行李再多都裝得下，完全沒有限重，但水電、保全、修繕全部要自己來。以現在團隊人力，請不起專職管理員，所以沒選這個。</td>
         </tr>
@@ -723,7 +705,7 @@
     </table>
 
     <div class="priority-box" style="margin-top:18px;border-color:var(--ok-line);background:var(--ok-soft);">
-      <b style="color:var(--ok);">白話版結論：</b>選 Render，是因為它最像「續住原本熟悉的管理公司，只是換一間比較大的房間」——不用學新東西、交接成本最低。Google Cloud Run 省錢但上手較難，先當備案；AWS EC2 雖然空間無限，但要自己當房東太累，團隊目前養不起，所以不選。
+      <b style="color:var(--ok);">白話版結論：</b>選 Render，是因為它最像「續住原本熟悉的管理公司，只是換一間比較大的房間」——不用學新東西、交接成本最低。AWS EC2 雖然空間無限，但要自己當房東太累，團隊目前養不起，所以不選。
     </div>
   </section>
 
