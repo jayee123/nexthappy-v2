@@ -93,6 +93,75 @@ export async function POST(request: NextRequest) {
     };
     messages.push(newUserMessage);
 
+    // Guardrail 對話範疇防護（Vercel Python Function，api/guardrail-check.py）
+    // 設計決策（fail-open）：呼叫逾時或發生錯誤時放行、照常生成回覆，只記錄錯誤，
+    // 不讓這層剛接上、還沒在正式環境驗證過穩定度的防護，擋住整個聊天功能。
+    // 之後觀察一段時間穩定了，可以考慮改成 fail-closed。
+    let guardrailBlocked = false;
+    try {
+      const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.GUARDRAIL_SERVICE_SECRET
+            ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
+            : {}),
+        },
+        body: JSON.stringify({ message }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (guardrailRes.ok) {
+        const guardrailData = await guardrailRes.json();
+        guardrailBlocked = !!guardrailData.blocked;
+      } else {
+        console.error('[ai/chat] guardrail-check 回應非 200，fail-open 放行:', guardrailRes.status);
+      }
+    } catch (err) {
+      console.error('[ai/chat] guardrail-check 呼叫失敗，fail-open 放行:', err);
+    }
+
+    if (guardrailBlocked) {
+      const refusalText = '這個話題我目前沒辦法直接回應，我們換個角度聊聊你今天的心情，或是今天的練習內容好嗎？';
+      const assistantMessage: ChatMessage = {
+        role: 'assistant',
+        content: refusalText,
+        timestamp: new Date().toISOString(),
+      };
+      messages.push(assistantMessage);
+
+      if (convRecord) {
+        await supabaseAdmin
+          .from('conversations')
+          .update({ messages, updated_at: new Date().toISOString() })
+          .eq('id', convRecord.id);
+      } else {
+        await supabaseAdmin.from('conversations').insert({
+          user_id: session.userId,
+          journey_id: journey.id,
+          day_number: dayNumber,
+          context_type,
+          source: 'text',
+          messages,
+        });
+      }
+
+      const blockedEncoder = new TextEncoder();
+      const blockedStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(blockedEncoder.encode(`data: ${JSON.stringify({ text: refusalText })}\n\n`));
+          controller.enqueue(blockedEncoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      });
+      return new NextResponse(blockedStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
     // 組裝 Context
     const contextData = await buildContextData(journey.id, dayNumber);
     if (!contextData) {

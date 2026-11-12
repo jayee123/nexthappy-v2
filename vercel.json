@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/guardrail-check.py": {
+      "includeFiles": "nexthappy-config/**",
+      "maxDuration": 30
+    }
+  }
+}

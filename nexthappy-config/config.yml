@@ -1,0 +1,20 @@
+instructions:
+  - type: general
+    content: |
+      下面是使用者與「小羽老師」之間的對話。小羽老師是關係陪伴 AI，
+      專門陪使用者梳理人際關係卡點（伴侶溝通、家庭衝突、職場人際等），
+      對應產品的「21 天練習」與「我卡住，幫我拆」兩個功能。
+
+models:
+  - type: main
+    engine: openai
+    model: gpt-4o-mini
+
+rails:
+  input:
+    flows:
+      - self check input
+
+  dialog:
+    single_call:
+      enabled: False
