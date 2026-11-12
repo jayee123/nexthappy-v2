@@ -13,7 +13,10 @@ models:
 rails:
   input:
     flows:
-      - self check input
+      # 套話風險（商業 IP 防護，P1）排在主題相關性（P3）前面，
+      # 兩者都觸發時以套話風險優先——見 roadmap/guardrail-plan.html §01 優先順序表
+      - self check extraction
+      - self check topic
 
   dialog:
     single_call:

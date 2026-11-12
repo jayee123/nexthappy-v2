@@ -94,10 +94,11 @@ export async function POST(request: NextRequest) {
     messages.push(newUserMessage);
 
     // Guardrail 對話範疇防護（Vercel Python Function，api/guardrail-check.py）
+    // 兩軸分類：套話風險（P1，商業 IP 防護主線，含反問升級階梯）+ 主題相關性（P3，次要）
     // 設計決策（fail-open）：呼叫逾時或發生錯誤時放行、照常生成回覆，只記錄錯誤，
-    // 不讓這層剛接上、還沒在正式環境驗證過穩定度的防護，擋住整個聊天功能。
-    // 之後觀察一段時間穩定了，可以考慮改成 fail-closed。
+    // 不讓這層防護擋住整個聊天功能。
     let guardrailBlocked = false;
+    let guardrailRefusalText = '這個話題我目前沒辦法直接回應，我們換個角度聊聊你今天的心情，或是今天的練習內容好嗎？';
     try {
       const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
         method: 'POST',
@@ -107,12 +108,15 @@ export async function POST(request: NextRequest) {
             ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
             : {}),
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, session_key: `${session.userId}:chat` }),
         signal: AbortSignal.timeout(8000),
       });
       if (guardrailRes.ok) {
         const guardrailData = await guardrailRes.json();
         guardrailBlocked = !!guardrailData.blocked;
+        if (guardrailData.refusal_text) {
+          guardrailRefusalText = guardrailData.refusal_text;
+        }
       } else {
         console.error('[ai/chat] guardrail-check 回應非 200，fail-open 放行:', guardrailRes.status);
       }
@@ -121,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (guardrailBlocked) {
-      const refusalText = '這個話題我目前沒辦法直接回應，我們換個角度聊聊你今天的心情，或是今天的練習內容好嗎？';
+      const refusalText = guardrailRefusalText;
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: refusalText,

@@ -232,6 +232,10 @@
       10/2 會議已經把方向講得很清楚：<b>這份防護機制最重要的目的不是擋使用者問「幫我寫作業」，是防止小羽背後的系統提示詞、21 天訓練邏輯被套出去</b>——套出去就等於整套課程被免費複製走，競品不用付錢、不用談授權，直接開一套幾乎一樣的課。擋離題問題只是順便做的次要功能，不是重點。這份文件先把「要防什麼、優先順序怎麼排」講清楚，再給可以動工的方案。
     </p>
     <p class="lede" style="margin-top:10px;font-size:13.5px;">文件字比較多？<a href="/roadmap/guardrail-plan-simple.html" style="color:var(--guard);font-weight:600;text-decoration:underline;">看圖解白話版 →</a></p>
+
+    <div class="priority-box" style="margin-top:22px;border-color:var(--ok-line);background:var(--ok-soft);">
+      <b style="color:var(--ok);">實作進度更新：</b>兩軸分類（套話風險 high/mid/low ＋ 主題相關性 relevant/off_topic）跟反問升級階梯已經<b>實作完成並用真實 OpenAI API 呼叫測試通過</b>，接進 <code>chat/route.ts</code> 與 <code>consultant/route.ts</code> 兩支對話路由；部署方式也跟第 07 節原規劃不同，改用 Vercel 原生 Python Function 直接整合進現有專案、不需要 Render。詳細現況見第 07 節，原規劃內容保留作對照。
+    </div>
   </section>
 
   <section id="scope">
@@ -501,140 +505,144 @@
   </section>
 
   <section id="nemo-integ">
-    <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 正式導入規劃</h2><span class="chip guard">已拍板導入，往部署階段推進</span></div>
-    <p class="sec-dek">目前的「雙軸分類」是自己用一次 <code>gpt-4o-mini</code> 呼叫做的輕量方案，先把商業 IP 防護上線；<b>確定要換成真的用 NeMo Guardrails</b> 之後，下面是從「本機已驗證」走到「正式雲端服務」的完整路線。架構上要多一層——NeMo 是 Python 函式庫，nexthappy / nuwa 是 Next.js/TypeScript，沒辦法直接裝進來用，一定要拆成獨立服務。</p>
+    <div class="sec-head"><span class="sec-num">07</span><h2>NeMo Guardrails 正式導入規劃</h2><span class="chip ok">兩軸分類已實作完成，已用真實 API 呼叫測試通過</span></div>
+    <p class="sec-dek">下面原本規劃的是「自己用一次 <code>gpt-4o-mini</code> 呼叫做輕量方案 → 之後再換真的 NeMo」的兩階段走法，<b>但實際動工時直接做了真的 NeMo 版本</b>：兩個獨立 Colang flow（<code>self check extraction</code>、<code>self check topic</code>），對應真正的兩軸分類跟第 03 節的反問升級階梯，不是本機原型那種合併成單一 Yes/No 的簡化版。部署架構也跟原規劃不同，見下方更新。</p>
 
     <div style="margin-top:22px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.8;">
-      <b style="color:var(--ok);">待辦事項對應：</b><br>
-      ✅ <b>確認套件體積、執行環境及部署限制</b>——已確認：NeMo 依賴套件（<code>onnxruntime</code>、<code>numpy</code>、<code>openai</code> 等）實測打包<b>277MB</b>；執行環境需要獨立的 Python 容器（Docker），無法直接跑在 Next.js 服務裡；部署限制是現有 Vercel Serverless Function 硬上限 <b>250MB</b>，NeMo 超出 27MB，無法與 nexthappy／nuwa 部署在同一個 Vercel 專案，詳細圖解見下方「為什麼不能沿用現有 Vercel」。<br>
-      ✅ <b>提出可行的部署方案</b>——已確定：評估 Render／Railway／Fly.io／AWS EC2／Google Cloud Run 五個方案後，<b>正式選定 Render 作為階段 2 的部署平台</b>（設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低）；AWS EC2 雖然沒有套件大小上限，但需要自行維運整台伺服器（系統修補、擴展、監控），以目前團隊規模來說維運成本過高，故不採用。完整五階段部署路線圖與平台比較見下方。
+      <b style="color:var(--ok);">實作現況（取代下方「原規劃」的內容）：</b><br>
+      ✅ <b>兩軸分類已用真正的 NeMo 自訂 action 實作</b>——<code>nexthappy-config/actions.py</code> 新增 <code>self_check_extraction</code>（套話風險 high／mid／low 三級）、<code>self_check_topic</code>（主題 relevant／off_topic），<code>rails.co</code> 兩個獨立 flow 依優先順序執行（套話風險 P1 先跑，没問題才跑主題 P3）。套話中風險的反問升級階梯（第1次反問、第2次換句話反問、第3次講白、第3次後升級拒答）也已實作，在 <code>api/guardrail-check.py</code> 用記憶體計數器追蹤。用 4 種真實訊息打真正的 OpenAI API 測試過：relevant／off_topic／extraction mid（4 次連續觸發，驗證階梯 1→2→3→升級 4 個狀態都正確）／extraction high，結果全部正確。<br>
+      ✅ <b>部署方式整個改掉，不走 Render</b>——原規劃以為 Vercel Serverless Function 全部卡在 <b>250MB</b>，但那其實是 <b>Node.js</b> Function 的上限；<b>Python Function 的上限是 500MB</b>，NeMo 依賴套件實測 277MB 完全在範圍內。所以直接用 Vercel 原生 Python Function（<code>api/guardrail-check.py</code>）跑在 nexthappy 自己的 Vercel 專案裡——不需要抽獨立 repo、不需要 Docker 容器、不需要 Render，同網域內部呼叫、連跨服務的網路延遲都省了。下方「為什麼不能沿用現有 Vercel」整節的前提已經不成立，保留原文字是留作紀錄對照，實際狀況以這裡為準。<br>
+      ⏳ <b>還沒做的部分</b>：第 06 節「防護記錄」後台頁面目前還是純草稿畫面（沒有接 DB，不是真資料）；升級階梯的計數器是記憶體內的簡易實作，Vercel serverless 冷啟動會讓它重置，還沒有接 DB 做跨冷啟動持久化；蒸餾攻擊的帳號層級偵測（第 02 節提到的另一項待辦）也還沒動工。
     </div>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
-        <svg viewBox="0 0 920 210" role="img" aria-label="NeMo Guardrails整合架構圖：nexthappy與nuwa是Next.js／TypeScript服務，無法直接使用Python函式庫NeMo Guardrails，必須另外架設一個獨立的Python微服務容器來執行NeMo Guardrails，Next.js後端在原本雙軸分類那一步改成呼叫這個微服務的API，取得判斷結果後繼續原本的對話流程">
+        <svg viewBox="0 0 920 210" role="img" aria-label="實作後的整合架構圖：nexthappy的Next.js對話路由跟api/guardrail-check.py這個Python Serverless Function部署在同一個Vercel專案、同一個網域，不是獨立服務，對話路由透過同網域內部API呼叫取得兩軸分類結果後繼續原本的對話流程">
           <defs>
             <marker id="arrI" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
             </marker>
           </defs>
 
-          <rect x="20" y="60" width="220" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
-          <text x="130" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">nexthappy / nuwa</text>
-          <text x="130" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">Next.js / TypeScript</text>
-          <text x="130" y="128" text-anchor="middle" font-size="10" fill="var(--muted)">原本「雙軸分類」這一步</text>
-          <text x="130" y="146" text-anchor="middle" font-size="9" fill="var(--faint)">改成呼叫右邊的 API，不自己跑</text>
+          <rect x="20" y="30" width="880" height="150" rx="14" fill="none" stroke="var(--ok-line)" stroke-width="1.3" stroke-dasharray="5 4"/>
+          <text x="460" y="20" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--ok)">同一個 Vercel 專案、同一個網域（已實作，取代原本兩個獨立服務的畫法）</text>
 
-          <line x1="240" y1="110" x2="310" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
-          <text x="275" y="100" text-anchor="middle" font-size="9.5" fill="var(--muted)">API 呼叫</text>
+          <rect x="40" y="55" width="220" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="150" y="83" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--ink)">chat / consultant route.ts</text>
+          <text x="150" y="103" text-anchor="middle" font-size="10" fill="var(--muted)">Next.js Node Function</text>
+          <text x="150" y="123" text-anchor="middle" font-size="10" fill="var(--muted)">送出使用者訊息 + session_key</text>
+          <text x="150" y="141" text-anchor="middle" font-size="9" fill="var(--faint)">呼叫失敗／逾時 → fail-open 放行</text>
 
-          <rect x="318" y="40" width="260" height="140" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
-          <text x="448" y="68" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">NeMo Guardrails 微服務</text>
-          <text x="448" y="88" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">獨立的 Python 容器（Docker）</text>
-          <text x="448" y="108" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">跑 config.yml + Colang 規則</text>
-          <text x="448" y="128" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">Input／Output Rail 判斷</text>
-          <text x="448" y="148" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">要另外維運、跟主服務分開部署</text>
-          <text x="448" y="166" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">規則語法要學 Colang</text>
+          <line x1="260" y1="105" x2="330" y2="105" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
+          <text x="295" y="95" text-anchor="middle" font-size="9.5" fill="var(--muted)">同網域<br/>內部呼叫</text>
 
-          <line x1="578" y1="110" x2="648" y2="110" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
-          <text x="613" y="100" text-anchor="middle" font-size="9.5" fill="var(--muted)">判斷結果</text>
+          <rect x="338" y="40" width="260" height="130" rx="12" fill="var(--guard-soft)" stroke="var(--guard-line)" stroke-width="1.4"/>
+          <text x="468" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--guard-ink)">api/guardrail-check.py</text>
+          <text x="468" y="86" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">Vercel Python Function（500MB 上限）</text>
+          <text x="468" y="104" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">① self check extraction（high/mid/low）</text>
+          <text x="468" y="120" text-anchor="middle" font-size="10" fill="var(--guard-ink)" opacity="0.85">② self check topic（relevant/off_topic）</text>
+          <text x="468" y="138" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">mid 風險另查 session_key 的升級階梯計數</text>
+          <text x="468" y="154" text-anchor="middle" font-size="9" fill="var(--guard-ink)" opacity="0.7">NeMo 實測 277MB，在限制內</text>
 
-          <rect x="656" y="60" width="240" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
-          <text x="776" y="88" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">回到原本的對話流程</text>
-          <text x="776" y="108" text-anchor="middle" font-size="10" fill="var(--muted)">relevant／off_topic／套話風險</text>
-          <text x="776" y="128" text-anchor="middle" font-size="10" fill="var(--muted)">接後面的反問升級機制</text>
+          <line x1="598" y1="105" x2="668" y2="105" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrI)"/>
+          <text x="633" y="95" text-anchor="middle" font-size="9.5" fill="var(--muted)">blocked /<br/>refusal_text</text>
+
+          <rect x="676" y="55" width="224" height="100" rx="12" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1.3"/>
+          <text x="788" y="83" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">回到原本的對話流程</text>
+          <text x="788" y="103" text-anchor="middle" font-size="10" fill="var(--muted)">blocked=true → 回 refusal_text</text>
+          <text x="788" y="121" text-anchor="middle" font-size="10" fill="var(--muted)">blocked=false → 照常呼叫 OpenAI</text>
         </svg>
       </div>
-      <figcaption>關鍵差異：現在是「一次 API 呼叫自己的輕量邏輯」，換成 NeMo 之後是「呼叫另一個要自己維運的服務」——多一層基礎設施，不是改幾行程式碼而已。</figcaption>
+      <figcaption>跟原規劃的關鍵差異：不是「另一個要自己維運的獨立服務」，是同一個 Vercel 專案裡的另一個 Function——push 就一起部署，不用多一條部署管線。</figcaption>
     </figure>
 
     <div class="distill-note" style="margin-top:4px;">
       <b>導入前提醒：</b>NeMo 自己內建的越獄偵測模型（NemoGuard JailbreakDetect）實測有 <b>65% 的機率被繞過</b>（見學習文件），不是裝了就高枕無憂。兩軸用的是 <code>self_check_input</code> 這種「直接問 LLM、照 prompt 判斷」的機制，不是依賴那個容易被繞過的黑盒模型——prompt 寫得好不好，還是決定判斷品質的關鍵。
     </div>
 
-    <h3 style="font-size:15.5px;margin-top:40px;">NeMo 微服務內部處理流程</h3>
-    <p class="sec-dek">架構圖畫的是「nexthappy ↔ NeMo」這一層，但 NeMo 收到 API 請求之後內部實際怎麼跑，拆開來看是以下八個步驟。</p>
+    <h3 style="font-size:15.5px;margin-top:40px;">NeMo 微服務內部處理流程<span class="chip ok" style="margin-left:8px;">以下為實作後的真實流程</span></h3>
+    <p class="sec-dek">架構圖畫的是「route.ts ↔ api/guardrail-check.py」這一層，實際內部處理拆開來看是以下八個步驟（已用真實 API 呼叫驗證過）。</p>
 
     <table class="ladder" style="margin-top:20px;">
       <thead><tr><th style="width:8%">步驟</th><th>內容</th></tr></thead>
       <tbody>
         <tr>
           <td class="step">1</td>
-          <td>nexthappy 把使用者訊息打包成 <code>POST /v1/check</code> 請求，呼叫 NeMo 微服務。</td>
+          <td><code>chat/route.ts</code> 或 <code>consultant/route.ts</code> 把使用者訊息打包成 <code>POST /api/guardrail-check</code> 請求（同網域內部呼叫），一併帶上 <code>session_key</code>（例如 <code>&lt;userId&gt;:chat</code>）供套話中風險的升級階梯計數用。</td>
         </tr>
         <tr>
           <td class="step">2</td>
-          <td>NeMo 讀取 <code>config.yml</code>，解析 <code>rails: input: flows</code> 清單，決定這則訊息要跑哪幾個 Input Rail。</td>
+          <td>NeMo 讀取 <code>config.yml</code> 的 <code>rails: input: flows</code> 清單，<b>先跑 <code>self check extraction</code>、再跑 <code>self check topic</code></b>——套話風險（P1）優先於主題相關性（P3）。</td>
         </tr>
         <tr>
           <td class="step">3</td>
-          <td>依序觸發 <code>self check topic</code>、<code>self check extraction</code> 兩個 Colang flow（<code>rails.co</code> 定義的流程）。</td>
+          <td><code>self check extraction</code> 呼叫 <code>actions.py</code> 的自訂 action <code>self_check_extraction</code>，用 <code>prompts.yml</code> 的 prompt 問 <code>gpt-4o-mini</code>，解析出 <b>high／mid／low</b> 三級（不是二元 Yes/No）。</td>
         </tr>
         <tr>
           <td class="step">4</td>
-          <td>每個 flow 各自從 <code>prompts.yml</code> 取對應的 prompt 範本，套入使用者訊息，呼叫 <code>gpt-4o-mini</code>。</td>
+          <td>若為 <code>high</code> 或 <code>mid</code>，<code>rails.co</code> 送出對應的 <code>GUARDRAIL_EXTRACTION_HIGH</code>／<code>GUARDRAIL_EXTRACTION_MID</code> 標記字串並中止——套話風險優先，不再繼續跑主題檢查；只有 <code>low</code> 才會繼續下一步。</td>
         </tr>
         <tr>
           <td class="step">5</td>
-          <td>LLM 依 prompt 規定的格式回答（例如「只回答 Yes 或 No」），NeMo 解析這個回答。</td>
+          <td><code>self check topic</code> 呼叫自訂 action <code>self_check_topic</code>，問 <code>gpt-4o-mini</code> 這則訊息是否完全離題（二元 Yes/No），判定離題送出 <code>GUARDRAIL_OFF_TOPIC</code>。</td>
         </tr>
         <tr>
           <td class="step">6</td>
-          <td>兩個 rail 的判斷結果彙整：任一 rail 判定需要攔截，整體結果即為攔截；<code>rails.co</code> 的 <code>bot refuse to respond</code> 會送出約定好的 <code>GUARDRAIL_BLOCKED</code> 字串。</td>
+          <td>兩個 rail 都沒攔下 → LLM 正常生成原本該有的對話回覆內容（不是標記字串）。</td>
         </tr>
         <tr>
           <td class="step">7</td>
-          <td><code>service/main.py</code> 檢查回應內容是否以 <code>GUARDRAIL_BLOCKED</code> 開頭，轉成 <code>{"blocked": true/false}</code> 回傳給 nexthappy。</td>
+          <td><code>api/guardrail-check.py</code> 檢查回應內容對應哪一種標記（或完全沒有標記＝放行），轉成 <code>{"blocked", "refusal_text", "outcome"}</code>；<code>mid</code> 風險會額外查、更新記憶體內以 <code>session_key</code> 為鍵的升級計數器，決定回哪一句反問、還是該升級成拒答。</td>
         </tr>
         <tr>
           <td class="step">8</td>
-          <td>nexthappy 的 <code>checkGuardrail()</code> 收到結果，依第 02、03 節的雙軸／反問邏輯決定怎麼回應使用者；呼叫失敗或逾時一律 fail-open 放行，不擋真實對話。</td>
+          <td><code>route.ts</code> 收到結果：<code>blocked=true</code> 就直接用 <code>refusal_text</code> 當小羽的回覆、不呼叫 OpenAI；呼叫失敗或逾時一律 <b>fail-open</b> 放行，不擋真實對話。</td>
         </tr>
       </tbody>
     </table>
 
-    <p class="sec-dek" style="margin-top:14px;">步驟 1 到 7 大約耗時 200–400ms，對應第 08 節思考狀態提示裡「正在檢測中…」要覆蓋的那段等待時間。</p>
+    <p class="sec-dek" style="margin-top:14px;">步驟 1 到 7 大約耗時 200–400ms，對應第 08 節思考狀態提示裡「正在檢測中…」要覆蓋的那段等待時間（這個耗時估計沿用原規劃，還沒在 Vercel 正式環境實測）。</p>
 
-    <h3 style="font-size:15.5px;margin-top:40px;">部署路線圖</h3>
-    <p class="sec-dek">從「本機驗證可行」到「正式雲端服務」分五個階段，每個階段完成才進下一個，避免中途卡在一半兩頭不是。</p>
+    <h3 style="font-size:15.5px;margin-top:40px;">部署路線圖<span class="chip ok" style="margin-left:8px;">階段 0-3 已完成</span></h3>
+    <p class="sec-dek">原規劃是「本機驗證 → 抽獨立 repo → 部署到 Render → 接上正式環境 → 監控迭代」五個階段；實際動工時發現 Vercel 可以直接用（見下方更新），階段 1-3 的做法整個改掉，但最終效果一樣——對話路由已經接上真正的 NeMo 兩軸分類。</p>
 
     <table class="ladder" style="margin-top:20px;">
       <thead><tr><th style="width:16%">階段</th><th style="width:46%">內容</th><th>現況</th></tr></thead>
       <tbody>
         <tr style="background:var(--ok-soft);">
           <td class="step" style="color:var(--ok);">0 · 本機驗證</td>
-          <td><code>self_check_input</code> rail 接上 <code>nexthappy-nemo-local</code>，用真實對話情境測過判斷品質；前端思考狀態提示也已整合測試。</td>
+          <td>兩軸分類（<code>self check extraction</code> + <code>self check topic</code>）用真實 OpenAI API 呼叫測過 4 種結果（relevant／off_topic／extraction mid 的 4 步升級階梯／extraction high）全部正確；前端思考狀態提示另外已整合測試。</td>
+          <td><b>已完成</b></td>
+        </tr>
+        <tr style="background:var(--ok-soft);">
+          <td class="step" style="color:var(--ok);">1 · 整合進既有 repo</td>
+          <td>原規劃是抽成獨立 repo 準備推上 Render；<b>改成直接把 <code>nexthappy-config/</code> 複製進 nexthappy 自己的 repo</b>，新增 <code>api/guardrail-check.py</code> 當 Vercel Python Function，不需要獨立 repo。</td>
+          <td><b>已完成（不再需要獨立 repo）</b></td>
+        </tr>
+        <tr style="background:var(--ok-soft);">
+          <td class="step" style="color:var(--ok);">2 · 選平台、正式部署</td>
+          <td>原規劃選 Render；<b>改用 Vercel 原生 Python Function</b>（見下方「為什麼其實可以沿用 Vercel」），程式碼已 push 到 nexthappy 的 repo，等下一次 Vercel 自動部署生效。</td>
+          <td><b>已完成，待 Vercel 部署後手動驗證冷啟動</b></td>
+        </tr>
+        <tr style="background:var(--ok-soft);">
+          <td class="step" style="color:var(--ok);">3 · 接上正式環境</td>
+          <td><code>chat/route.ts</code>、<code>consultant/route.ts</code> 都已接上 <code>/api/guardrail-check</code>；<b>fail-open 設計維持不變</b>，服務異常時不擋真實對話。若要啟用 <code>GUARDRAIL_SERVICE_SECRET</code> 驗證，需要去 Vercel 專案設定加這個環境變數。</td>
           <td><b>已完成</b></td>
         </tr>
         <tr>
-          <td class="step">1 · 抽成獨立 repo</td>
-          <td>把 <code>nexthappy-config/</code>、<code>service/</code>、<code>Dockerfile</code> 從 NVIDIA 原始 repo 裡抽出來，另立一個乾淨、可以推上 GitHub 的獨立 repo。</td>
-          <td>下一步</td>
-        </tr>
-        <tr>
-          <td class="step">2 · 選平台、正式部署</td>
-          <td>Vercel 放不下（見下方圖解），改用支援 Docker 的 PaaS——<b>已確定選用 Render</b>（見下方平台比較），上線對外的 <code>/v1/check</code> API。</td>
-          <td>平台已確定，部署待排程</td>
-        </tr>
-        <tr>
-          <td class="step">3 · 接上正式環境</td>
-          <td><code>checkGuardrail()</code> 的 <code>GUARDRAIL_SERVICE_URL</code> 從 <code>localhost</code> 換成雲端網址；<b>fail-open 設計維持不變</b>，微服務異常時不擋真實對話。</td>
-          <td>待排程</td>
-        </tr>
-        <tr>
           <td class="step">4 · 上線後監控迭代</td>
-          <td>後台「防護記錄」接真實資料、依誤判率調整 <code>self_check_input</code> prompt，評估要不要再加 Dialog Rail 等進階機制。</td>
+          <td>後台「防護記錄」接真實資料（目前第 06 節還是純畫面草稿，沒有接 DB）、依誤判率調整 prompt、評估要不要再加 Output Rail（見第 08 節 LLM05）；升級階梯計數器也還只是記憶體內簡易實作，要評估是否需要接 DB 做跨冷啟動持久化。</td>
           <td>待排程</td>
         </tr>
       </tbody>
     </table>
 
-    <h3 style="font-size:15.5px;margin-top:40px;">為什麼不能沿用現有 Vercel，要另外選平台</h3>
-    <p class="sec-dek">階段 2 不能直接部署在 nexthappy / nuwa 現有的 Vercel 專案上——不是設定問題，是平台大小上限擋住了。</p>
+    <h3 style="font-size:15.5px;margin-top:40px;">為什麼其實可以沿用 Vercel——原規劃的前提搞錯了<span class="chip ok" style="margin-left:8px;">已更正</span></h3>
+    <p class="sec-dek">下面原本整節在講「Vercel 放不下，一定要另外選平台」，<b>這個前提是錯的</b>：250MB 是 <b>Node.js</b> Serverless Function 的上限，不是整個 Vercel 平台的上限。Vercel 的 <b>Python</b> Serverless Function 上限是 <b>500MB</b>，NeMo 依賴套件實測 277MB 完全在範圍內，直接用 <code>api/guardrail-check.py</code> 當 Python Function 就能跑在 nexthappy 現有的 Vercel 專案裡，不用另外找平台。下面保留原本的錯誤前提跟圖，只是對照紀錄，不是現在的結論。</p>
 
     <figure class="figure-wide">
       <div class="diagram-frame">
-        <svg viewBox="0 0 760 260" role="img" aria-label="長條圖：NeMo Guardrails所需依賴套件實測打包大小277MB，超過Vercel Serverless Function的250MB硬上限，超出的27MB以紅色標示為放不進去">
+        <svg viewBox="0 0 760 260" role="img" aria-label="長條圖：NeMo Guardrails所需依賴套件實測打包大小277MB，在Vercel Python Serverless Function的500MB上限之內，有充足餘裕，用綠色標示為放得進去；原本以為的250MB其實是Node.js Function的上限，不適用於Python Function">
           <defs>
             <marker id="arrSize" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 Z" fill="currentColor"/>
@@ -643,29 +651,32 @@
 
           <line x1="70" y1="220" x2="690" y2="220" stroke="var(--line-strong)" stroke-width="1.3"/>
 
-          <rect x="300" y="50" width="130" height="170" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.3"/>
-          <rect x="300" y="50" width="130" height="17" fill="var(--crit-soft)" stroke="var(--crit)" stroke-width="1.3"/>
+          <rect x="300" y="88" width="130" height="132" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.3"/>
 
-          <line x1="90" y1="67" x2="670" y2="67" stroke="var(--faint)" stroke-width="1.3" stroke-dasharray="5 4"/>
-          <text x="670" y="57" text-anchor="end" font-size="11" fill="var(--muted)" class="mono">Vercel Serverless Function 上限 250MB</text>
+          <line x1="90" y1="105" x2="670" y2="105" stroke="var(--faint)" stroke-width="1.3" stroke-dasharray="5 4"/>
+          <text x="670" y="95" text-anchor="end" font-size="11" fill="var(--muted)" class="mono">Python Function 上限 500MB（實際用的）</text>
 
-          <text x="365" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)" class="mono">277MB</text>
+          <line x1="90" y1="67" x2="670" y2="67" stroke="var(--crit)" stroke-width="1" stroke-dasharray="2 3" opacity="0.6"/>
+          <text x="670" y="59" text-anchor="end" font-size="9.5" fill="var(--crit)" opacity="0.8" class="mono">Node.js Function 上限 250MB（原本誤用的對照線）</text>
+
+          <text x="365" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)" class="mono">277MB</text>
           <text x="365" y="240" text-anchor="middle" font-size="11.5" fill="var(--muted)">NeMo 依賴套件實測打包大小</text>
           <text x="365" y="256" text-anchor="middle" font-size="9.5" fill="var(--faint)">onnxruntime 48MB＋numpy／openai／nemoguardrails 等</text>
 
-          <path d="M 436 58 L 468 58" stroke="currentColor" stroke-width="1" marker-end="url(#arrSize)"/>
-          <text x="474" y="62" font-size="10.5" fill="var(--crit)">超過 27MB，無法部署</text>
+          <path d="M 436 96 L 468 96" stroke="currentColor" stroke-width="1" marker-end="url(#arrSize)"/>
+          <text x="474" y="100" font-size="10.5" fill="var(--ok)">在 500MB 範圍內，可以部署</text>
         </svg>
       </div>
-      <figcaption>依賴套件實測 <b>277MB</b>，超過 Vercel Serverless Function <b>250MB</b> 的硬上限——這不是設定能調整的，是平台本身的限制，所以階段 2 一定要另外找支援 Docker 的平台。</figcaption>
+      <figcaption>依賴套件實測 <b>277MB</b>，在 Vercel <b>Python</b> Function <b>500MB</b> 上限內還有 223MB 餘裕——原本畫的「超過 250MB」是拿 <b>Node.js</b> Function 的上限去比，兩種 runtime 的上限不一樣，比錯了。</figcaption>
     </figure>
 
-    <h3 style="font-size:15.5px;margin-top:36px;">PaaS 平台比較（已確定：Render）</h3>
+    <h3 style="font-size:15.5px;margin-top:36px;">PaaS 平台比較<span class="chip" style="margin-left:8px;background:var(--surface-2);color:var(--faint);border:1px solid var(--line);">備查用，非採用方案</span></h3>
+    <p class="sec-dek">下面這份比較是在「以為一定要搬出 Vercel」的前提下做的，<b>現在不需要用到</b>——保留是因為萬一以後套件變得比現在更大（例如加裝更多模型、超出 Python Function 500MB 上限），這份比較還有參考價值。</p>
     <table class="risk-table" style="margin-top:20px;">
       <thead><tr><th style="width:16%">平台</th><th style="width:42%">特色</th><th>要注意的地方</th></tr></thead>
       <tbody>
-        <tr class="top" style="background:var(--ok-soft);">
-          <td class="name">Render<br><span style="font-weight:700;font-size:11.5px;color:var(--ok);">✅ 已確定方案</span></td>
+        <tr class="top">
+          <td class="name">Render</td>
           <td>原生支援 Docker，設定方式跟 Vercel 接近直覺，Web Service 從 GitHub repo 一鍵部署。</td>
           <td>免費方案閒置一段時間會「睡眠」，下一次請求要重新啟動、第一次會變慢——正式用途建議升付費方案避免這個延遲。</td>
         </tr>
@@ -677,52 +688,34 @@
         <tr>
           <td class="name">AWS EC2</td>
           <td>完全沒有套件或容器大小限制，整台伺服器全權自主控制。</td>
-          <td>要自己維運整台伺服器——系統修補、擴容、監控、安全群組設定全部自己來，對目前團隊規模維運負擔過高，<b>評估後不採用</b>。</td>
+          <td>要自己維運整台伺服器——系統修補、擴容、監控、安全群組設定全部自己來，對目前團隊規模維運負擔過高。</td>
         </tr>
       </tbody>
     </table>
-    <p class="sec-dek" style="margin-top:14px;">三個都能解決「Vercel 放不下」的問題，差異主要在維運手感跟計費模式。<b>評估結果：正式採用 Render</b>——設定方式最接近現在熟悉的 Vercel 流程，維運負擔最低；AWS EC2 雖然完全不受套件大小限制，但需要自行維運整台伺服器，維運成本與團隊規模不成比例，故不採用。</p>
-
-    <h3 style="font-size:15.5px;margin-top:40px;">白話版：為什麼選 Render，不選別的？</h3>
-    <p class="sec-dek">把這件事想成「搬家」會比較好懂：小羽的防護系統（NeMo Guardrails）東西太多，裝不進原來住的公寓（Vercel，限重 250MB，但行李有 277MB），一定要搬到別的地方住。問題是，搬到哪一家？</p>
-
-    <table class="ex-table" style="margin-top:18px;">
-      <thead><tr><th style="width:18%">選項</th><th>白話講，就是……</th></tr></thead>
-      <tbody>
-        <tr style="background:var(--ok-soft);">
-          <td class="name">Render<br><span style="font-weight:700;font-size:11.5px;color:var(--ok);">✅ 選這個</span></td>
-          <td>像是「代管公寓」——有專人幫你收信、修水電，你只要負責把家具（程式）搬進去，上傳到 GitHub 就自動幫你佈置好，跟現在住的 Vercel 感覺最像，不用重新學一套新規則。</td>
-        </tr>
-        <tr>
-          <td class="name">Railway</td>
-          <td>也是代管公寓，但「租之前一定要先刷卡押金」——連最便宜的方案也要先綁信用卡，而且住久了東西變多，房東會另外跟你加收費用，費用長怎麼樣比較難預先算準。</td>
-        </tr>
-        <tr>
-          <td class="name">AWS EC2</td>
-          <td>等於直接「買一整棟樓」自己當房東——行李再多都裝得下，完全沒有限重，但水電、保全、修繕全部要自己來。以現在團隊人力，請不起專職管理員，所以沒選這個。</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="priority-box" style="margin-top:18px;border-color:var(--ok-line);background:var(--ok-soft);">
-      <b style="color:var(--ok);">白話版結論：</b>選 Render，是因為它最像「續住原本熟悉的管理公司，只是換一間比較大的房間」——不用學新東西、交接成本最低。AWS EC2 雖然空間無限，但要自己當房東太累，團隊目前養不起，所以不選。
-    </div>
+    <p class="sec-dek" style="margin-top:14px;">這份比較<b>沒有被採用</b>——實際走的是上方「原生 Vercel Python Function」，不需要任何外部 PaaS，也就不需要在 Render／Railway／AWS EC2 之間選一個。</p>
 
     <h3 style="font-size:15.5px;margin-top:40px;">如果不想另外部署，還有什麼方法？</h3>
-    <p class="sec-dek">「找另一個 PaaS」不是唯一解法，也評估過不需要獨立部署的替代做法，整理成以下兩個方向。</p>
+    <p class="sec-dek">原本評估過三個方向，最後走的是方法三。</p>
 
     <div class="decision">
-      <h3>方法一 · 獨立微服務＋API 呼叫<span class="verdict-pill in" style="margin-left:10px;">已確定採用</span></h3>
+      <h3>方法一 · 獨立微服務（Render）＋API 呼叫<span class="verdict-pill gray" style="margin-left:10px;">原規劃，已改用方法三</span></h3>
       <div class="branch-row"><div class="opt">做法</div><div class="out">把 NeMo Guardrails 整包獨立成一個服務，架在 Render 上，nexthappy 的 Vercel 主程式透過 API 呼叫它（送出對話內容，拿到「要不要攔」的判斷結果）。</div></div>
-      <div class="branch-row"><div class="opt">優點</div><div class="out">NeMo 套件不用動，完整功能都保留。</div></div>
-      <div class="branch-row"><div class="opt">缺點</div><div class="out">多一個要維運的服務、多一次網路呼叫的延遲。</div></div>
+      <div class="branch-row"><div class="opt">優點</div><div class="out">NeMo 套件不用動，完整功能都保留；跟主程式完全分開部署，互不影響。</div></div>
+      <div class="branch-row"><div class="opt">缺點</div><div class="out">多一個要維運的服務、多一次跨服務網路呼叫的延遲——實際動工後發現這個缺點是可以避免的（見方法三），所以沒有採用。</div></div>
     </div>
 
     <div class="decision">
       <h3>方法二 · 繞過 NeMo 套件本身，直接用 LLM API 重寫邏輯<span class="verdict-pill gray" style="margin-left:10px;">備選方案</span></h3>
       <div class="branch-row"><div class="opt">做法</div><div class="out"><code>self_check_input</code>／<code>self_check_output</code> 這些 rail，本質上只是「把對話內容丟給 LLM，問它這段話有沒有問題」。這段邏輯可以直接用 TypeScript 呼叫 OpenAI API 重寫一次，完全不需要安裝 NeMo Guardrails 這個 Python 套件（也就不會有 onnxruntime、numpy 那 277MB 的問題）。</div></div>
       <div class="branch-row"><div class="opt">優點</div><div class="out">不用多一個服務、不用面對容量限制，直接留在 Vercel 裡。</div></div>
-      <div class="branch-row"><div class="opt">缺點</div><div class="out">等於自己重新做一套簡化版的判斷邏輯，可能失去 NeMo 框架內建的一些進階功能（像更複雜的 Dialog Rail）。</div></div>
+      <div class="branch-row"><div class="opt">缺點</div><div class="out">等於自己重新做一套簡化版的判斷邏輯，可能失去 NeMo 框架內建的一些進階功能（像更複雜的 Dialog Rail）；方法三已經用 NeMo 本身解決容量問題，不需要放棄 NeMo 換這個方案。</div></div>
+    </div>
+
+    <div class="decision">
+      <h3>方法三 · Vercel 原生 Python Function（NeMo 原封不動，直接整合進既有專案）<span class="verdict-pill in" style="margin-left:10px;">已採用</span></h3>
+      <div class="branch-row"><div class="opt">做法</div><div class="out">把 NeMo Guardrails 包成 Vercel <b>Python</b> Serverless Function（<code>api/guardrail-check.py</code>），跟 nexthappy 的 Next.js 程式碼放在同一個 repo、同一個 Vercel 專案、同一個網域——關鍵是 Python Function 的上限是 <b>500MB</b>，不是 Node.js Function 的 250MB，NeMo 實測 277MB 完全在範圍內，不需要另外的 PaaS。</div></div>
+      <div class="branch-row"><div class="opt">優點</div><div class="out">不用多維運一個服務；同網域內部呼叫，不是跨服務網路請求；部署流程跟現有 nexthappy 完全一樣，push 到同一個 repo 就自動一起部署；NeMo 套件功能完全不用打折。</div></div>
+      <div class="branch-row"><div class="opt">缺點</div><div class="out">Python Function 跟 Node Function 共用同一個 Vercel 專案的額度跟限制，以後套件再變大仍有 500MB 天花板；冷啟動時間、記憶體用量目前只在本機 <code>.venv</code> 測過（2.44 秒冷載），還沒有在 Vercel 正式環境實測過，部署後要手動驗證一次。</div></div>
     </div>
   </section>
 
@@ -786,7 +779,7 @@
       <h3>LLM07 · System Prompt Leakage（系統提示詞洩漏）<span class="verdict-pill in" style="margin-left:10px;">高</span></h3>
       <div class="branch-row"><div class="opt">字面<br>意思</div><div class="out">System Prompt＝系統提示詞（開發者寫給 AI、規定它該怎麼表現的「幕後指令」）；Leakage＝洩漏。合起來：「幕後指令被洩漏出去」。</div></div>
       <div class="branch-row"><div class="opt">官方<br>定義</div><div class="out">使用者透過各種手法，誘導 AI 把原本不該讓使用者看到的系統層級指令、內部規則或機密邏輯講出來。</div></div>
-      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out"><b>這是整份防護提案最核心、優先度最高的防護對象</b>——防止小羽背後的系統設定、21 天課程邏輯被套話問出去。我們設計了完整的三階段升級機制：第一次婉轉帶開、第二次換句話再帶開、第三次明確劃清界線，還不放棄才會直接拒答並記錄下來。</div></div>
+      <div class="branch-row"><div class="opt">現有<br>防護</div><div class="out"><b>這是整份防護提案最核心、優先度最高的防護對象</b>——防止小羽背後的系統設定、21 天課程邏輯被套話問出去。三階段升級機制（第一次婉轉帶開、第二次換句話再帶開、第三次明確劃清界線，還不放棄才升級成直接拒答）<b>已經是真的寫進 <code>api/guardrail-check.py</code> 的程式碼、不只是設計</b>，用真實 OpenAI API 呼叫測過完整的 4 步升級序列都正確。目前拒答這一步沒有留存訊息原文（見第 10 節待決策），只有記憶體內的計數狀態。</div></div>
       <div class="branch-row"><div class="opt">下一步<br>規劃</div><div class="out">目前顧得很完整的是「同一次對話裡的套話」。但如果有人刻意分散成很多次、用很多不同帳號，每次只問一點點、慢慢拼湊出完整資訊（業界叫「蒸餾攻擊」），因為每一句話單獨看都很正常，現有的對話層機制擋不住，這個要靠帳號層級的用量異常偵測，已列為已知缺口、排在下一輪處理，見第 02 節。</div></div>
     </div>
 
@@ -870,25 +863,25 @@
 
   <section id="open">
     <div class="sec-head"><span class="sec-num">10</span><h2>待決策</h2></div>
-    <p class="sec-dek">兩條軸的邏輯方向跟反問升級機制已經定了，這幾個細節你來拍板。</p>
+    <p class="sec-dek">兩條軸的邏輯方向跟反問升級機制已經定了；下面 5 個細節裡，<b>前 3 個在實作時已經直接採用「建議」選項並寫進程式碼</b>，如果你覺得應該選另一個，之後再調整 prompt／文案即可，不是不能改。後 2 個還是真的待決策。</p>
 
     <div class="decision">
-      <h3>攔下離題訊息時，怎麼回應使用者？</h3>
-      <div class="branch-row"><div class="opt">委婉引導<br>（建議）</div><div class="out">不直接說「我不能回答」，改成「這裡比較適合聊關係方面的事，你今天有沒有什麼想聊的？」——保持陪伴的語氣，不製造被拒絕的感覺。</div></div>
-      <div class="branch-row"><div class="opt">明確說明<br>範圍</div><div class="out">直接告知「我只能協助關係諮詢相關的問題」。更清楚但比較生硬，適合如果你們發現使用者一直搞不懂它的定位。</div></div>
+      <h3>攔下離題訊息時，怎麼回應使用者？<span class="verdict-pill in" style="margin-left:10px;">已採用「委婉引導」</span></h3>
+      <div class="branch-row"><div class="opt">委婉引導<br>（已採用）</div><div class="out">沒有直接說「我不能回答」，實作用的是「這裡比較適合聊關係方面的事——你今天有沒有什麼想聊的？」（<code>api/guardrail-check.py</code> 的 <code>OFF_TOPIC_REPLY</code>）——保持陪伴的語氣，不製造被拒絕的感覺。</div></div>
+      <div class="branch-row"><div class="opt">明確說明<br>範圍</div><div class="out">直接告知「我只能協助關係諮詢相關的問題」。更清楚但比較生硬，如果之後發現使用者一直搞不懂定位，可以把 <code>OFF_TOPIC_REPLY</code> 改成這個方向。</div></div>
     </div>
 
     <div class="decision">
-      <h3>NeMo 的 <code>self check topic</code> rail，判斷標準要設多嚴？</h3>
+      <h3>NeMo 的 <code>self check topic</code> rail，判斷標準要設多嚴？<span class="verdict-pill in" style="margin-left:10px;">已採用「寬鬆」</span></h3>
       <p style="font-size:12px;color:var(--muted);margin:-4px 0 4px;">改用 NeMo 之後不再是數字門檻（<code>p</code> 值），而是 prompt 裡「什麼算離題」的範例鬆緊——用詞寬鬆或嚴格，判斷標準就跟著變。</p>
-      <div class="branch-row"><div class="opt">寬鬆<br>（建議）</div><div class="out">prompt 裡只列很明確的離題例子（數學作業、寫報告這類），拿不準的一律當 <code>relevant</code> 讓它正常回答。誤攔風險低，使用者體感好。</div></div>
-      <div class="branch-row"><div class="opt">嚴格</div><div class="out">prompt 裡把「講法比較跳的關係話題」也當成離題範例列進去，攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者。建議先走寬鬆版上線，再依後台「防護記錄」的誤判案例，把誤攔的例子補進 prompt 滾動調整。</div></div>
+      <div class="branch-row"><div class="opt">寬鬆<br>（已採用）</div><div class="out"><code>prompts.yml</code> 的 <code>self_check_topic</code> 任務只列很明確的離題例子（數學作業、寫報告這類），並明寫「拿不準也算不離題」。誤攔風險低，使用者體感好。</div></div>
+      <div class="branch-row"><div class="opt">嚴格</div><div class="out">把「講法比較跳的關係話題」也當成離題範例列進去，攔得乾淨，但容易誤攔真的在講關係卡點、只是講法比較跳的使用者。目前走寬鬆版，等第 06 節「防護記錄」接上真實資料後，再依誤判案例調整 prompt。</div></div>
     </div>
 
     <div class="decision">
-      <h3>反問升級到第幾次才講白？第幾次才拒答？</h3>
-      <div class="branch-row"><div class="opt">2 次講白<br>3 次拒答<br>（建議）</div><div class="out">本文件預設值，大部分正常使用者講一兩句就會轉開話題，兩次反問不會打擾到他們，第三次還繼續才需要劃清界線。</div></div>
-      <div class="branch-row"><div class="opt">更保守<br>（1 次／2 次）</div><div class="out">更快進入拒答，防護更緊，但真的只是好奇多問一句的使用者，可能第二句就被講白、體感變差。</div></div>
+      <h3>反問升級到第幾次才講白？第幾次才拒答？<span class="verdict-pill in" style="margin-left:10px;">已採用、已實作</span></h3>
+      <div class="branch-row"><div class="opt">第 3 次講白<br>第 3 次後拒答<br>（已採用）</div><div class="out">對應第 03 節階梯：第 1 次反問、第 2 次換句話反問、第 3 次講白劃界線、第 3 次後仍繼續才升級成拒答。<code>api/guardrail-check.py</code> 已實作這個計數器並用真實訊息測過 1→2→3→升級 4 個狀態都正確。大部分正常使用者講一兩句就會轉開話題，兩次反問不會打擾到他們。</div></div>
+      <div class="branch-row"><div class="opt">更保守<br>（1 次／2 次）</div><div class="out">更快進入拒答，防護更緊，但真的只是好奇多問一句的使用者，可能第二句就被講白、體感變差。如果之後發現有人惡意逼近邊界的情況變多，可以把 <code>_handle_extraction_mid</code> 的階梯縮短。</div></div>
     </div>
 
     <div class="decision">
@@ -907,8 +900,13 @@
   <footer>
     <p>
       本文件為功能提案、非最終規格，對應 10/2 會議「AI 對話護欄與防護機制」決議。核心方向（商業 IP 防護為主線、主題相關性為次要）、
-      兩條獨立訊號軸、反問升級機制已依會議討論推導；NeMo Guardrails 已確定正式導入，目前完成階段 0（本機驗證），
-      部署路線圖見第 07 節；第 08 節補上 10/14 會議指派給全羽的 OWASP Top 10 for LLM 對照矩陣，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；前端思考狀態提示已在本機實作驗證；五項待決策確認後才會往下拆 migration 與開發任務。
+      兩條獨立訊號軸、反問升級機制已依會議討論推導，<b>並已實作完成、用真實 OpenAI API 呼叫測試通過</b>（relevant／off_topic／套話中風險 4 步升級階梯／套話高風險，4 種結果全部正確）：
+      <code>nexthappy-config/actions.py</code> 的 <code>self_check_extraction</code>、<code>self_check_topic</code> 兩個自訂 Colang action，接進 <code>api/guardrail-check.py</code>（Vercel 原生 Python Serverless Function），
+      再接進 <code>chat/route.ts</code> 與 <code>consultant/route.ts</code> 兩支對話路由。部署架構跟第 07 節原規劃不同——
+      不是抽獨立 repo 部署到 Render，是直接整合進 nexthappy 現有的 Vercel 專案，因為 Python Function 上限是 500MB（不是原本誤用的 Node.js 250MB 上限），NeMo 277MB 完全在範圍內；
+      第 07 節已逐段更新對照，原規劃內容保留作紀錄。第 08 節 OWASP Top 10 for LLM 對照矩陣（10/14 會議指派給全羽）維持原評估，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；
+      前端思考狀態提示已在本機實作驗證；第 10 節五項待決策中前 3 項已採用建議值並寫進程式碼，後 2 項（防護記錄存不存原文、蒸餾帳號層級偵測）仍待拍板；
+      第 06 節「防護記錄」後台頁面目前仍是純畫面草稿、尚未接 DB，升級階梯計數器也還是記憶體內簡易實作，兩者都排入第 07 節階段 4「上線後監控迭代」。
     </p>
   </footer>
 </div>

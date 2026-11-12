@@ -34,6 +34,8 @@ const MODEL_NAME = 'gpt-4o';
 import { generateTopicTitle } from '@/lib/ai/autoTitle';
 import type { ChatMessage } from '@/types';
 
+type ConvRecordSlim = { id: string; messages: ChatMessage[]; topic_title: string | null };
+
 // Rate limiting
 const rateLimitMap = new Map<string, { count: number; date: string }>();
 function checkRateLimit(userId: string): boolean {
@@ -76,6 +78,71 @@ async function countPriorModeBAiMessages(userId: string): Promise<number> {
     console.error('[countPriorModeBAiMessages]', err);
     return 0; // fail-soft、回 0 等於採最保守 vernacular 路徑
   }
+}
+
+// =============================================================
+// persistConsultantTurn — 持久化 + autoTitle（success / guardrail-blocked 共用）
+// 邏輯跟原本 POST 內 inline 的版本一致（v1.3.3b），抽出來是因為
+// guardrail blocked 分支要存一模一樣的東西，不想整段複製一次。
+// =============================================================
+
+async function persistConsultantTurn(params: {
+  convRecord: ConvRecordSlim | null;
+  isNewTopic: boolean;
+  userId: string;
+  journeyId: string | null;
+  messages: ChatMessage[];
+  currentUserMessage: string;
+}): Promise<string | null> {
+  const { convRecord, isNewTopic, userId, journeyId, messages, currentUserMessage } = params;
+  let savedConvId: string | null = null;
+
+  if (convRecord && !isNewTopic) {
+    // UPDATE 既有主題
+    await supabaseAdmin
+      .from('conversations')
+      .update({ messages, updated_at: new Date().toISOString() })
+      .eq('id', convRecord.id);
+    savedConvId = convRecord.id;
+  } else {
+    // INSERT 新主題（topic_title 先 NULL、下面 autoTitle 補）
+    const nowIso = new Date().toISOString();
+    const { data: newConv, error: insertError } = await supabaseAdmin
+      .from('conversations')
+      .insert({
+        user_id: userId,
+        journey_id: journeyId,
+        day_number: 0,
+        context_type: 'consultant',
+        messages,
+        topic_title: null,
+        topic_started_at: nowIso,
+      })
+      .select('id')
+      .single();
+    if (insertError) {
+      console.error('[consultant/persist INSERT]', insertError);
+    }
+    savedConvId = newConv?.id || null;
+  }
+
+  // 新主題、或既有主題還沒有標題時，都用「這一句」再試一次下標
+  const needsTitle = isNewTopic || !convRecord?.topic_title;
+  if (savedConvId && needsTitle) {
+    try {
+      const title = await generateTopicTitle(currentUserMessage);
+      if (title) {
+        await supabaseAdmin
+          .from('conversations')
+          .update({ topic_title: title })
+          .eq('id', savedConvId);
+      }
+    } catch (titleErr) {
+      console.error('[consultant/autoTitle]', titleErr);
+    }
+  }
+
+  return savedConvId;
 }
 
 // =============================================================
@@ -212,7 +279,6 @@ export async function POST(request: NextRequest) {
     const userId = session.userId;
 
     // ── 載入既有對話（multi-thread routing）──
-    type ConvRecordSlim = { id: string; messages: ChatMessage[]; topic_title: string | null };
     let convRecord: ConvRecordSlim | null = null;
     let isNewTopic = new_topic === true;
 
@@ -250,6 +316,76 @@ export async function POST(request: NextRequest) {
       content: message,
       timestamp: new Date().toISOString(),
     });
+
+    // Guardrail 對話範疇防護（同 src/app/api/ai/chat/route.ts 的用法）
+    // 兩軸分類：套話風險（P1，商業 IP 防護主線，含反問升級階梯）+ 主題相關性（P3，次要）
+    // 設計決策（fail-open）：呼叫逾時或發生錯誤時放行、照常生成回覆，只記錄錯誤，
+    // 不讓這層防護擋住「我卡住，幫我拆」這個核心諮詢功能。
+    let guardrailBlocked = false;
+    let guardrailRefusalText = '這個話題我這邊沒辦法直接接，我們換個角度聊聊你現在卡住的地方，好嗎？';
+    try {
+      const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.GUARDRAIL_SERVICE_SECRET
+            ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
+            : {}),
+        },
+        body: JSON.stringify({ message, session_key: `${userId}:consultant` }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (guardrailRes.ok) {
+        const guardrailData = await guardrailRes.json();
+        guardrailBlocked = !!guardrailData.blocked;
+        if (guardrailData.refusal_text) {
+          guardrailRefusalText = guardrailData.refusal_text;
+        }
+      } else {
+        console.error('[ai/consultant] guardrail-check 回應非 200，fail-open 放行:', guardrailRes.status);
+      }
+    } catch (err) {
+      console.error('[ai/consultant] guardrail-check 呼叫失敗，fail-open 放行:', err);
+    }
+
+    if (guardrailBlocked) {
+      const refusalText = guardrailRefusalText;
+      messages.push({
+        role: 'assistant',
+        content: refusalText,
+        timestamp: new Date().toISOString(),
+      });
+
+      const savedConvId = await persistConsultantTurn({
+        convRecord,
+        isNewTopic,
+        userId,
+        journeyId: journey?.id || null,
+        messages,
+        currentUserMessage: message,
+      });
+
+      const blockedEncoder = new TextEncoder();
+      const blockedStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(blockedEncoder.encode(`data: ${JSON.stringify({ text: refusalText })}\n\n`));
+          if (savedConvId) {
+            controller.enqueue(blockedEncoder.encode(
+              `data: ${JSON.stringify({ topic_id: savedConvId, is_new_topic: isNewTopic })}\n\n`
+            ));
+          }
+          controller.enqueue(blockedEncoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      });
+      return new NextResponse(blockedStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
 
     // v1.2.1: message-level MBTI extraction
     const allMessageText = messages.map(m => m.content).join(' ');
@@ -313,66 +449,15 @@ export async function POST(request: NextRequest) {
             timestamp: new Date().toISOString(),
           });
 
-          // ── 持久化（v1.3.4：user_id-based、trier + journey 都持久化）──
-          let savedConvId: string | null = null;
-
-          if (convRecord && !isNewTopic) {
-            // UPDATE 既有主題
-            await supabaseAdmin
-              .from('conversations')
-              .update({ messages, updated_at: new Date().toISOString() })
-              .eq('id', convRecord.id);
-            savedConvId = convRecord.id;
-          } else {
-            // INSERT 新主題（topic_title 先 NULL、下面 autoTitle 補）
-            // v1.3.4：永遠 set user_id、journey_id optional（trier 模式 NULL）
-            const nowIso = new Date().toISOString();
-            const { data: newConv, error: insertError } = await supabaseAdmin
-              .from('conversations')
-              .insert({
-                user_id: userId,                          // v1.3.4 canonical owner
-                journey_id: journey?.id || null,          // v1.3.4：optional（trier NULL）
-                day_number: 0,
-                context_type: 'consultant',
-                messages,
-                topic_title: null,
-                topic_started_at: nowIso,
-              })
-              .select('id')
-              .single();
-            if (insertError) {
-              console.error('[consultant/POST INSERT]', insertError);
-            }
-            savedConvId = newConv?.id || null;
-          }
-
-          // ── Auto-title（v1.3.3b；重試機制見下）──
-          //
-          // 原本只在「新主題」時 trigger 一次，用 user 第一句訊息下標。
-          // 問題是第一句常常是「你好」這種沒有內容的開場 —— 模型下不出標題，
-          // 而標題只有那一次機會，之後使用者講了真正的問題也不會再更新。
-          // （正式站上就出現過主題叫「無法判斷諮詢主題」—— 那是模型的解釋文字
-          //   被當成標題寫進去了。）
-          //
-          // 改成：新主題、或既有主題還沒有標題時，都用「這一句」再試一次。
-          // convRecord 本來就 select 了 topic_title，不需要額外查詢。
-          const needsTitle = isNewTopic || !convRecord?.topic_title;
-          if (savedConvId && needsTitle) {
-            try {
-              const title = await generateTopicTitle(message);
-              // null = 這句沒東西可下標。維持 topic_title = NULL，
-              // 前端 fallback 顯示「新主題」，下一句還會再試。
-              if (title) {
-                await supabaseAdmin
-                  .from('conversations')
-                  .update({ topic_title: title })
-                  .eq('id', savedConvId);
-              }
-            } catch (titleErr) {
-              console.error('[consultant/autoTitle]', titleErr);
-              // 失敗不影響主流程、保持 topic_title=NULL（前端顯示「新主題」fallback）
-            }
-          }
+          // ── 持久化 + Auto-title（v1.3.4 user_id-based；共用 persistConsultantTurn）──
+          const savedConvId = await persistConsultantTurn({
+            convRecord,
+            isNewTopic,
+            userId,
+            journeyId: journey?.id || null,
+            messages,
+            currentUserMessage: message,
+          });
 
           // 傳回 topic_id 給 client（用於 sidebar 即時更新 / continuation）
           if (savedConvId) {

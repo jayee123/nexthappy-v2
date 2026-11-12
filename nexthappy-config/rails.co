@@ -1,2 +1,23 @@
-define bot refuse to respond
-  "GUARDRAIL_BLOCKED"
+define flow self check extraction
+  $extraction_result = execute self_check_extraction
+  if $extraction_result == "high"
+    bot refuse extraction high
+    stop
+  else if $extraction_result == "mid"
+    bot refuse extraction mid
+    stop
+
+define flow self check topic
+  $topic_result = execute self_check_topic
+  if $topic_result == "off_topic"
+    bot refuse off topic
+    stop
+
+define bot refuse extraction high
+  "GUARDRAIL_EXTRACTION_HIGH"
+
+define bot refuse extraction mid
+  "GUARDRAIL_EXTRACTION_MID"
+
+define bot refuse off topic
+  "GUARDRAIL_OFF_TOPIC"

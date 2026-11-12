@@ -41,3 +41,7 @@ next-env.d.ts
 # Test artifacts
 /test-results/
 /playwright-report/
+
+# Python (guardrail check function)
+__pycache__/
+*.pyc
