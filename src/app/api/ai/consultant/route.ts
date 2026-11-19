@@ -29,6 +29,7 @@ import {
   extractMbtiCodes,
 } from '@/lib/ai/buildContext';
 import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
+import { logGuardrailEventIfNeeded } from '@/lib/ai/guardrailLog';
 
 const MODEL_NAME = 'gpt-4o';
 import { generateTopicTitle } from '@/lib/ai/autoTitle';
@@ -323,6 +324,7 @@ export async function POST(request: NextRequest) {
     // 不讓這層防護擋住「我卡住，幫我拆」這個核心諮詢功能。
     let guardrailBlocked = false;
     let guardrailRefusalText = '這個話題我這邊沒辦法直接接，我們換個角度聊聊你現在卡住的地方，好嗎？';
+    const guardrailSessionKey = `${userId}:consultant`;
     try {
       const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
         method: 'POST',
@@ -332,7 +334,7 @@ export async function POST(request: NextRequest) {
             ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
             : {}),
         },
-        body: JSON.stringify({ message, session_key: `${userId}:consultant` }),
+        body: JSON.stringify({ message, session_key: guardrailSessionKey }),
         signal: AbortSignal.timeout(8000),
       });
       if (guardrailRes.ok) {
@@ -340,6 +342,17 @@ export async function POST(request: NextRequest) {
         guardrailBlocked = !!guardrailData.blocked;
         if (guardrailData.refusal_text) {
           guardrailRefusalText = guardrailData.refusal_text;
+        }
+        // 中高風險（套話 mid/high）才記 log 供人工審查，off_topic/relevant 不記
+        if (typeof guardrailData.outcome === 'string') {
+          void logGuardrailEventIfNeeded({
+            outcome: guardrailData.outcome,
+            userId,
+            sessionKey: guardrailSessionKey,
+            route: 'consultant',
+            message,
+            refusalText: guardrailBlocked ? guardrailRefusalText : null,
+          });
         }
       } else {
         console.error('[ai/consultant] guardrail-check 回應非 200，fail-open 放行:', guardrailRes.status);

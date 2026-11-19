@@ -5,6 +5,7 @@ import { getSessionFromRequest } from '@/lib/auth';
 import { buildContextData, buildSystemPrompt } from '@/lib/ai/buildContext';
 import { addPoints, POINT_RULES } from '@/lib/points';
 import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
+import { logGuardrailEventIfNeeded } from '@/lib/ai/guardrailLog';
 import type { ChatMessage, ContextType } from '@/types';
 
 const MODEL_NAME = 'gpt-4o';
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
     // 不讓這層防護擋住整個聊天功能。
     let guardrailBlocked = false;
     let guardrailRefusalText = '這個話題我目前沒辦法直接回應，我們換個角度聊聊你今天的心情，或是今天的練習內容好嗎？';
+    const guardrailSessionKey = `${session.userId}:chat`;
     try {
       const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
         method: 'POST',
@@ -108,7 +110,7 @@ export async function POST(request: NextRequest) {
             ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
             : {}),
         },
-        body: JSON.stringify({ message, session_key: `${session.userId}:chat` }),
+        body: JSON.stringify({ message, session_key: guardrailSessionKey }),
         signal: AbortSignal.timeout(8000),
       });
       if (guardrailRes.ok) {
@@ -116,6 +118,17 @@ export async function POST(request: NextRequest) {
         guardrailBlocked = !!guardrailData.blocked;
         if (guardrailData.refusal_text) {
           guardrailRefusalText = guardrailData.refusal_text;
+        }
+        // 中高風險（套話 mid/high）才記 log 供人工審查，off_topic/relevant 不記
+        if (typeof guardrailData.outcome === 'string') {
+          void logGuardrailEventIfNeeded({
+            outcome: guardrailData.outcome,
+            userId: session.userId,
+            sessionKey: guardrailSessionKey,
+            route: 'chat',
+            message,
+            refusalText: guardrailBlocked ? guardrailRefusalText : null,
+          });
         }
       } else {
         console.error('[ai/chat] guardrail-check 回應非 200，fail-open 放行:', guardrailRes.status);
