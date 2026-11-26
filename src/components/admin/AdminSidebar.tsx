@@ -30,6 +30,8 @@ const NAV = [
   { href: '/admin/usage', icon: '📈', label: '用量 / 成本' },
   { href: '/admin/spec', icon: '📜', label: '規格文件' },
   { href: '/admin/roadmap', icon: '🗓', label: '未來規劃' },
+  // 緊鄰「未來規劃」：guardrail-plan.html 是規劃文件、這頁是真正落地的 log 資料，放一起方便對照
+  { href: '/admin/guardrail-logs', icon: '🛡', label: '防護記錄' },
   { href: '/admin/prompts', icon: '🤖', label: 'AI Prompt 程式碼' },
   { href: '/admin/settings', icon: '⚙️', label: '系統設定' },
 ];
