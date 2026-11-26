@@ -27,6 +27,7 @@ interface GuardrailLogItem {
   refusal_text: string | null;
   reviewed: boolean;
   reviewer_note: string | null;
+  verdict: 'correct' | 'false_positive' | null;
 }
 
 type RiskFilter = 'all' | 'mid' | 'high';
@@ -137,7 +138,11 @@ export default function AdminGuardrailLogsPage() {
     setNoteDrafts(prev => ({ ...prev, [log.id]: prev[log.id] ?? log.reviewer_note ?? '' }));
   }
 
-  async function saveReview(log: GuardrailLogItem, reviewed: boolean) {
+  async function saveReview(
+    log: GuardrailLogItem,
+    changes: { reviewed?: boolean; verdict?: 'correct' | 'false_positive' | null }
+  ) {
+    const reviewed = changes.reviewed ?? log.reviewed;
     setSavingId(log.id);
     try {
       const res = await fetch(`/api/admin/guardrail-logs/${log.id}`, {
@@ -146,6 +151,7 @@ export default function AdminGuardrailLogsPage() {
         body: JSON.stringify({
           reviewed,
           reviewer_note: noteDrafts[log.id] ?? log.reviewer_note ?? '',
+          ...(changes.verdict !== undefined ? { verdict: changes.verdict } : {}),
         }),
       });
       const json = await res.json();
@@ -287,6 +293,11 @@ export default function AdminGuardrailLogsPage() {
                     >
                       {log.reviewed ? '已審查' : '待審查'}
                     </span>
+                    {log.verdict === 'false_positive' && (
+                      <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                        🔁 已回饋 AI
+                      </span>
+                    )}
                   </button>
 
                   {isExpanded && (
@@ -319,10 +330,55 @@ export default function AdminGuardrailLogsPage() {
                           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-400"
                         />
                       </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">
+                          審查結論——標「這是誤判」會真的回頭影響 AI 之後的判斷
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => saveReview(log, { reviewed: true, verdict: 'correct' })}
+                            disabled={savingId === log.id}
+                            className={`px-3 py-1.5 text-sm rounded-md disabled:opacity-50 ${
+                              log.verdict === 'correct'
+                                ? 'bg-green-600 text-white'
+                                : 'border border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            ✅ 判斷正確
+                          </button>
+                          <button
+                            onClick={() => saveReview(log, { reviewed: true, verdict: 'false_positive' })}
+                            disabled={savingId === log.id}
+                            className={`px-3 py-1.5 text-sm rounded-md disabled:opacity-50 ${
+                              log.verdict === 'false_positive'
+                                ? 'bg-blue-600 text-white'
+                                : 'border border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            ⚠️ 這是誤判
+                          </button>
+                          {log.verdict && (
+                            <button
+                              onClick={() => saveReview(log, { verdict: null })}
+                              disabled={savingId === log.id}
+                              className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600"
+                            >
+                              清除結論
+                            </button>
+                          )}
+                        </div>
+                        {log.verdict === 'false_positive' && (
+                          <p className="text-xs text-blue-600 mt-1.5">
+                            這句話會被挑進 AI 分類 prompt 的糾正範例（最多保留最近 5 筆），幾分鐘內生效。
+                          </p>
+                        )}
+                      </div>
+
                       <div className="flex gap-2">
                         {!log.reviewed ? (
                           <button
-                            onClick={() => saveReview(log, true)}
+                            onClick={() => saveReview(log, { reviewed: true })}
                             disabled={savingId === log.id}
                             className="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
                           >
@@ -330,7 +386,7 @@ export default function AdminGuardrailLogsPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => saveReview(log, false)}
+                            onClick={() => saveReview(log, { reviewed: false })}
                             disabled={savingId === log.id}
                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-md hover:bg-gray-100 disabled:opacity-50"
                           >
@@ -338,7 +394,7 @@ export default function AdminGuardrailLogsPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => saveReview(log, log.reviewed)}
+                          onClick={() => saveReview(log, {})}
                           disabled={savingId === log.id}
                           className="px-3 py-1.5 text-sm border border-gray-200 rounded-md hover:bg-gray-100 disabled:opacity-50"
                         >

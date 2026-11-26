@@ -34,6 +34,12 @@ prompts:
       低風險（low）：
       - 任何正常的人際關係對話，即使提到「AI」「機器人」等字眼，
         只是閒聊、沒有套話意圖
+      {% if corrections_block %}
+
+      人工複查過的糾正案例（優先於上面的分類規則，如果使用者這句話的意圖
+      跟下面任一案例高度相似，即使表面字句符合 mid／high 的定義，也要判 low）：
+      {{ corrections_block }}
+      {% endif %}
 
       使用者訊息："{{ user_input }}"
 

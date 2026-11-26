@@ -24,6 +24,16 @@
 # 寫進 happy.guardrail_logs（見 supabase/migrations/020_guardrail_logs.sql），
 # 供人工事後審查誤判、回饋打磨 prompt——這支函式本身不碰 DB，保持單純分類器。
 #
+# 人工審查的結論要「真的」影響下一次判斷，不是存著好看：
+# 呼叫端在打這支 API 之前，會先查最近幾筆被標記 verdict='false_positive'
+# 的案例（見 src/lib/ai/guardrailCorrections.ts、
+# supabase/migrations/021_guardrail_logs_verdict.sql），放進 req.corrections
+# 一起傳進來。這支函式把它們轉成 NeMo 的 {"role": "context", ...} message，
+# 讓 nexthappy-config/actions.py 的 self_check_extraction 讀到、塞進分類
+# prompt 當 few-shot 糾正範例（見 nexthappy-config/prompts.yml）。
+# 已用真實 OpenAI API 驗證：同一句話，沒有 corrections 時判 mid，
+# 帶上對應的 false_positive 案例後就不再判成 mid/high。
+#
 # 為什麼可以直接放進 Vercel 而不用另外找 Render：
 # Vercel 的 Python Serverless Function 上限是 500MB（Node.js 上限才 250MB），
 # NeMo Guardrails 實測打包約 277MB，在這個限制之下。真正跑起來後的
@@ -105,9 +115,20 @@ async def _generate_confirm_question(message: str, fallback: str) -> str:
 _escalation_counters: dict[str, int] = {}
 
 
+class Correction(BaseModel):
+    message: str
+    note: Optional[str] = None
+    risk_tier: str
+
+
 class CheckRequest(BaseModel):
     message: str
     session_key: Optional[str] = None
+    # 人工在 /admin/guardrail-logs 標記過「這是誤判」的案例（見
+    # src/lib/ai/guardrailCorrections.ts），由呼叫端（chat/route.ts、
+    # consultant/route.ts）查好再傳進來——這支函式本身仍然不碰 DB，
+    # 保持單純分類器，只是多吃一個已經準備好的糾正範例清單。
+    corrections: Optional[list[Correction]] = None
 
 
 class CheckResponse(BaseModel):
@@ -149,9 +170,22 @@ async def check_message(
 ) -> CheckResponse:
     _verify_auth(authorization)
 
-    result = await _rails.generate_async(
-        messages=[{"role": "user", "content": req.message}]
-    )
+    messages: list[dict] = []
+    if req.corrections:
+        # NeMo 的 {"role": "context", ...} message 會變成 ContextUpdate 事件、
+        # 合併進 Colang 的 context dict，讓宣告了 context 參數的 action
+        # （見 nexthappy-config/actions.py 的 self_check_extraction）讀得到。
+        messages.append(
+            {
+                "role": "context",
+                "content": {
+                    "guardrail_corrections": [c.model_dump() for c in req.corrections]
+                },
+            }
+        )
+    messages.append({"role": "user", "content": req.message})
+
+    result = await _rails.generate_async(messages=messages)
     content = result.get("content", "") if isinstance(result, dict) else str(result)
     content = content.strip()
 

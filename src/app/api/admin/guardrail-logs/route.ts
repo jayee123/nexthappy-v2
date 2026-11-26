@@ -30,6 +30,7 @@ interface GuardrailLogListItem {
   refusal_text: string | null;
   reviewed: boolean;
   reviewer_note: string | null;
+  verdict: 'correct' | 'false_positive' | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from('guardrail_logs')
-      .select('id, created_at, user_id, session_key, route, message, outcome, risk_tier, refusal_text, reviewed, reviewer_note')
+      .select('id, created_at, user_id, session_key, route, message, outcome, risk_tier, refusal_text, reviewed, reviewer_note, verdict')
       .order('created_at', { ascending: false })
       .limit(limit + 1); // 多撈 1 筆判斷 hasMore
 
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
         refusal_text: r.refusal_text,
         reviewed: r.reviewed,
         reviewer_note: r.reviewer_note,
+        verdict: r.verdict,
       };
     });
 

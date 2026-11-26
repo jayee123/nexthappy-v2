@@ -1,9 +1,12 @@
 // 放置路徑：src/app/api/admin/guardrail-logs/[id]/route.ts
 //
 // PATCH /api/admin/guardrail-logs/<id>
-//   Body: { reviewed?: boolean; reviewer_note?: string | null }
+//   Body: { reviewed?: boolean; reviewer_note?: string | null; verdict?: 'correct' | 'false_positive' | null }
 //
 // 給人工標記「這筆是不是誤判」、留備註，用於後續打磨 guardrail prompt。
+// verdict='false_positive' 的案例會被 api/guardrail-check.py 動態撈出來
+// （見 src/lib/ai/guardrailCorrections.ts），塞進分類 prompt 當 few-shot
+// 糾正範例——人工複查的結論會真的回頭影響下一次 AI 的判斷。
 // 寫 audit log（before/after diff），同 users/[id] PATCH 的慣例。
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -40,7 +43,7 @@ export async function PATCH(
 
     const { data: currentLog, error: fetchError } = await supabaseAdmin
       .from('guardrail_logs')
-      .select('id, reviewed, reviewer_note')
+      .select('id, reviewed, reviewer_note, verdict')
       .eq('id', logId)
       .maybeSingle();
 
@@ -70,6 +73,20 @@ export async function PATCH(
       }
     }
 
+    if (body.verdict !== undefined) {
+      if (body.verdict !== null && body.verdict !== 'correct' && body.verdict !== 'false_positive') {
+        return NextResponse.json<ApiResponse>(
+          { data: null, error: 'verdict 必須是 correct、false_positive 或 null', timestamp: new Date().toISOString() },
+          { status: 400 }
+        );
+      }
+      if (body.verdict !== currentLog.verdict) {
+        updates.verdict = body.verdict;
+        before.verdict = currentLog.verdict;
+        after.verdict = body.verdict;
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json<ApiResponse>(
         { data: null, error: '沒有任何欄位要更新', timestamp: new Date().toISOString() },
@@ -81,7 +98,7 @@ export async function PATCH(
       .from('guardrail_logs')
       .update(updates)
       .eq('id', logId)
-      .select('id, created_at, user_id, session_key, route, message, outcome, risk_tier, refusal_text, reviewed, reviewer_note')
+      .select('id, created_at, user_id, session_key, route, message, outcome, risk_tier, refusal_text, reviewed, reviewer_note, verdict')
       .single();
 
     if (updateError || !updatedLog) {

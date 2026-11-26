@@ -3,13 +3,31 @@
 # library 的 run_self_check_task 工具函式（跟內建 self_check_input 用同一套），
 # 但自己解析 LLM 的原始回覆文字，而不是套用內建的二元 is_content_safe parser。
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from nemoguardrails import RailsConfig
 from nemoguardrails.actions.actions import action
 from nemoguardrails.library.self_check.utils import run_self_check_task
 from nemoguardrails.llm.taskmanager import LLMTaskManager
 from nemoguardrails.types import LLMModel
+
+# 人工在 /admin/guardrail-logs 標記「這是誤判」的案例，由呼叫端
+# （api/guardrail-check.py）透過 {"role": "context", ...} message 傳進來，
+# 格式見 src/lib/ai/guardrailCorrections.ts 的 GuardrailCorrection。
+# 這裡把它們轉成 few-shot 糾正範例、塞進 self_check_extraction 的 prompt
+# （見 prompts.yml 的 {{ corrections_block }}），讓人工複查的結論
+# 真的回頭影響下一次 AI 的判斷，不是只存著給人看。
+def _format_corrections_block(corrections: Optional[List[dict]]) -> str:
+    if not corrections:
+        return ""
+    lines = []
+    for c in corrections[:5]:
+        message = (c.get("message") or "").strip()
+        if not message:
+            continue
+        note = (c.get("note") or "").strip() or "人工確認這其實是正常的人際關係對話"
+        lines.append(f'- 使用者說：「{message}」→ 人工複查結論：這不是套話，原因：{note}')
+    return "\n".join(lines)
 
 
 @action(is_system_action=True)
@@ -54,10 +72,12 @@ async def self_check_extraction(
     if not user_input:
         return "low"
 
+    corrections_block = _format_corrections_block(context.get("guardrail_corrections"))
+
     # 丟掉 run_self_check_task 回傳的二元 is_safe，自己解析原始文字拿三級結果
     _, response = await run_self_check_task(
         task="self_check_extraction",
-        prompt_context={"user_input": user_input},
+        prompt_context={"user_input": user_input, "corrections_block": corrections_block},
         llms=llms,
         default_task="self_check_extraction",
         main_llm=llm,

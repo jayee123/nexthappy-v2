@@ -6,6 +6,7 @@ import { buildContextData, buildSystemPrompt } from '@/lib/ai/buildContext';
 import { addPoints, POINT_RULES } from '@/lib/points';
 import { checkQuotaAvailable, recordUsage } from '@/lib/billing/quotas';
 import { logGuardrailEventIfNeeded } from '@/lib/ai/guardrailLog';
+import { getRecentGuardrailCorrections } from '@/lib/ai/guardrailCorrections';
 import type { ChatMessage, ContextType } from '@/types';
 
 const MODEL_NAME = 'gpt-4o';
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest) {
     let guardrailRefusalText = '這個話題我目前沒辦法直接回應，我們換個角度聊聊你今天的心情，或是今天的練習內容好嗎？';
     const guardrailSessionKey = `${session.userId}:chat`;
     try {
+      const corrections = await getRecentGuardrailCorrections();
       const guardrailRes = await fetch(new URL('/api/guardrail-check', request.url), {
         method: 'POST',
         headers: {
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
             ? { Authorization: `Bearer ${process.env.GUARDRAIL_SERVICE_SECRET}` }
             : {}),
         },
-        body: JSON.stringify({ message, session_key: guardrailSessionKey }),
+        body: JSON.stringify({ message, session_key: guardrailSessionKey, corrections }),
         signal: AbortSignal.timeout(8000),
       });
       if (guardrailRes.ok) {

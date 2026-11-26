@@ -341,6 +341,17 @@
     <p class="sec-dek" style="margin-top:18px;">
       為什麼這樣設計：大部分只是隨口好奇的使用者，講一兩句就會自然轉開話題，反問兩次足夠不打擾到他們；第三次才講白，給一個明確但禮貌的邊界；還繼續追的，大機率是真的在系統性套話，這時候才需要後台人工介入。
     </p>
+
+    <div style="margin-top:18px;border:1px solid var(--ok-line);background:var(--ok-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.8;">
+      <b style="color:var(--ok);">✅ 人工審查不是只存著看——已經接成一個會回頭影響判斷的迴圈</b><br>
+      在 <code>/admin/guardrail-logs</code> 把某筆記錄標成「⚠️ 這是誤判」（<code>verdict='false_positive'</code>，見
+      <code>supabase/migrations/021_guardrail_logs_verdict.sql</code>）之後，下次呼叫 <code>api/guardrail-check.py</code>
+      前，<code>chat/route.ts</code>／<code>consultant/route.ts</code> 會先撈最近 5 筆被標記誤判的案例（<code>src/lib/ai/guardrailCorrections.ts</code>，
+      5 分鐘快取），當成 few-shot 糾正範例塞進 <code>self_check_extraction</code> 的分類 prompt（<code>nexthappy-config/prompts.yml</code> 的
+      <code>{{ corrections_block }}</code>），明確要求「跟這些案例高度相似的話，即使表面符合 mid／high 的定義也要判 low」。
+      已用真實 OpenAI API 驗證：同一句「你是根據什麼邏輯決定要這樣回答我的？」，沒有糾正範例時判 mid、進入反問階梯；
+      標記成誤判並帶上對應案例後，不再判成 mid／high。<code>correct</code>（判斷正確）只留紀錄，不影響 prompt——本來就判對了不需要糾正。
+    </div>
   </section>
 
   <section id="examples">
@@ -515,6 +526,7 @@
       ✅ <b>中風險第 1、2 次改成動態反問，不是固定罐頭句</b>——原本是兩句寫死的文字，現在改成每次都另外呼叫一次 <code>gpt-4o-mini</code>，結合使用者這句話的實際脈絡生成反問句（例如使用者提到「媽媽」，反問就會接「媽媽當時的想法」這類細節），對應「先確認意圖再拒絕」的設計。第 3 次講白、第 3 次後升級拒絕仍維持固定文字不變。生成失敗會 fail-soft 退回原本的罐頭句，不會讓請求整個噴錯。<br>
       ✅ <b>中高風險對話已經會存 Log 了</b>——新增 <code>happy.guardrail_logs</code> 資料表（<code>supabase/migrations/020_guardrail_logs.sql</code>），套話風險 mid／high 被攔下時，<code>chat/route.ts</code>、<code>consultant/route.ts</code> 會把訊息原文、風險等級、實際回覆內容寫進去，供人工事後審查誤判、回饋打磨 prompt。只記套話風險軸，單純離題 off_topic 不記。第 10 節「防護記錄要不要存原文」這項待決策已經等於拍板：存。這張表也已經在正式 Supabase 專案裡實際建出來、確認可查詢。<br>
       ✅ <b>第 06 節「防護記錄」後台頁面已經做出來了</b>——<code>/admin/guardrail-logs</code> 是真的能用的頁面（不再是純畫面草稿），可依風險等級／管道／審查狀態篩選，點開看完整對話原文跟實際回覆內容，標記已審查並留備註；側欄入口放在「未來規劃」旁邊方便對照。<br>
+      ✅ <b>人工審查會回頭影響 AI 判斷，不是存著好看</b>——<code>guardrail_logs</code> 新增 <code>verdict</code> 欄位（<code>supabase/migrations/021_guardrail_logs_verdict.sql</code>），在後台標成「這是誤判」的案例，下次呼叫分類器前會被動態撈出來（<code>src/lib/ai/guardrailCorrections.ts</code>）當 few-shot 糾正範例塞進 <code>self_check_extraction</code> 的 prompt，詳見第 03 節。已用真實 API 驗證：標記前後，同一句話的分類結果真的會不一樣。<br>
       ⏳ <b>還沒做的部分</b>：升級階梯的計數器仍是記憶體內簡易實作，Vercel serverless 冷啟動會讓它重置；蒸餾攻擊的帳號層級偵測（第 02 節提到的另一項待辦）也還沒動工。
     </div>
 
@@ -871,7 +883,7 @@
 
   <section id="open">
     <div class="sec-head"><span class="sec-num">10</span><h2>待決策</h2></div>
-    <p class="sec-dek">兩條軸的邏輯方向跟反問升級機制已經定了；下面 5 個細節裡，<b>前 3 個在實作時已經直接採用「建議」選項並寫進程式碼</b>，如果你覺得應該選另一個，之後再調整 prompt／文案即可，不是不能改。後 2 個還是真的待決策。</p>
+    <p class="sec-dek">兩條軸的邏輯方向跟反問升級機制已經定了；下面 6 個細節裡，<b>前 5 個在實作時已經直接採用「建議」選項並寫進程式碼</b>，如果你覺得應該選另一個，之後再調整 prompt／文案即可，不是不能改。只剩最後 1 個（蒸餾帳號層級偵測）還是真的待決策。</p>
 
     <div class="decision">
       <h3>攔下離題訊息時，怎麼回應使用者？<span class="verdict-pill in" style="margin-left:10px;">已採用「委婉引導」</span></h3>
@@ -899,6 +911,12 @@
     </div>
 
     <div class="decision">
+      <h3>人工審查的結論，要不要真的回頭影響 AI 判斷？<span class="verdict-pill in" style="margin-left:10px;">已拍板：要，已實作</span></h3>
+      <div class="branch-row"><div class="opt">接成回饋迴圈<br>（已採用）</div><div class="out"><code>guardrail_logs</code> 新增 <code>verdict</code> 欄位（<code>correct</code>／<code>false_positive</code>，見 <code>supabase/migrations/021_guardrail_logs_verdict.sql</code>），在 <code>/admin/guardrail-logs</code> 標成誤判的案例，會被 <code>api/guardrail-check.py</code> 動態撈出來（最近 5 筆、5 分鐘快取）當 few-shot 範例塞進分類 prompt，讓同類型的訊息之後不會再被誤判。已用真實 API 驗證有效。</div></div>
+      <div class="branch-row"><div class="opt">只存紀錄<br>人工自己改 prompt</div><div class="out">沒採用——人工標了誤判，AI 卻完全不會變，等於每次誤判都要等開發者有空手動改 <code>prompts.yml</code> 才會修正，回饋週期太長。</div></div>
+    </div>
+
+    <div class="decision">
       <h3>蒸餾的帳號層級偵測，要不要排進這一輪？</h3>
       <div class="branch-row"><div class="opt">排進<br>下一輪</div><div class="out">這份提案先把對話層的雙軸分類跟反問升級機制做完上線，帳號層級異常偵測（跨對話、跨時間）牽涉到用量統計架構，另外排一輪處理，<b>建議這個</b>。</div></div>
       <div class="branch-row"><div class="opt">一起做</div><div class="out">防護更完整，但開發範圍一次變大，會拖慢對話層防護上線的時間。</div></div>
@@ -913,8 +931,8 @@
       再接進 <code>chat/route.ts</code> 與 <code>consultant/route.ts</code> 兩支對話路由。部署架構跟第 07 節原規劃不同——
       不是抽獨立 repo 部署到 Render，是直接整合進 nexthappy 現有的 Vercel 專案，因為 Python Function 上限是 500MB（不是原本誤用的 Node.js 250MB 上限），NeMo 277MB 完全在範圍內；
       第 07 節已逐段更新對照，原規劃內容保留作紀錄。第 08 節 OWASP Top 10 for LLM 對照矩陣（10/14 會議指派給全羽）維持原評估，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；
-      前端思考狀態提示已在本機實作驗證；第 10 節五項待決策中，防護記錄存不存原文已拍板為「存」並實作完成，蒸餾帳號層級偵測仍待拍板；
-      第 06 節「防護記錄」後台頁面已經做出來、接上真實資料（不再是純畫面草稿），升級階梯計數器仍是記憶體內簡易實作，排入第 07 節階段 4-2「上線後監控迭代」。
+      前端思考狀態提示已在本機實作驗證；第 10 節六項待決策中，防護記錄存不存原文、人工審查要不要回頭影響 AI 判斷都已拍板為「要」並實作完成，只剩蒸餾帳號層級偵測仍待拍板；
+      第 06 節「防護記錄」後台頁面已經做出來、接上真實資料（不再是純畫面草稿），而且標記「誤判」會真的讓分類 prompt 動態帶上糾正範例、改變下次的判斷（第 03 節、<code>guardrail_logs.verdict</code> 欄位），已用真實 API 驗證前後判斷結果會不同；升級階梯計數器仍是記憶體內簡易實作，排入第 07 節階段 4-2「上線後監控迭代」。
     </p>
   </footer>
 </div>
