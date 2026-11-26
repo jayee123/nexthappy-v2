@@ -323,8 +323,14 @@ export async function POST(request: NextRequest) {
     // 兩軸分類：套話風險（P1，商業 IP 防護主線，含反問升級階梯）+ 主題相關性（P3，次要）
     // 設計決策（fail-open）：呼叫逾時或發生錯誤時放行、照常生成回覆，只記錄錯誤，
     // 不讓這層防護擋住「我卡住，幫我拆」這個核心諮詢功能。
+    //
+    // 中風險第 1~3 次不是完全拒答：guardrailBlocked 維持 false，照常往下走正常的
+    // AI 生成流程，只是額外帶上 guardrailConfirmQuestion，在下面串流完真實回覆後
+    // 再接一句確認意圖的反問——先回答使用者的問題，不是只晾著一句反問。
+    // 只有第 3 次後仍追問、或直接踩到高風險，才會 guardrailBlocked=true 完全拒答。
     let guardrailBlocked = false;
     let guardrailRefusalText = '這個話題我這邊沒辦法直接接，我們換個角度聊聊你現在卡住的地方，好嗎？';
+    let guardrailConfirmQuestion: string | null = null;
     const guardrailSessionKey = `${userId}:consultant`;
     try {
       const corrections = await getRecentGuardrailCorrections();
@@ -345,6 +351,9 @@ export async function POST(request: NextRequest) {
         if (guardrailData.refusal_text) {
           guardrailRefusalText = guardrailData.refusal_text;
         }
+        if (typeof guardrailData.confirm_question === 'string' && guardrailData.confirm_question) {
+          guardrailConfirmQuestion = guardrailData.confirm_question;
+        }
         // 中高風險（套話 mid/high）才記 log 供人工審查，off_topic/relevant 不記
         if (typeof guardrailData.outcome === 'string') {
           void logGuardrailEventIfNeeded({
@@ -353,7 +362,7 @@ export async function POST(request: NextRequest) {
             sessionKey: guardrailSessionKey,
             route: 'consultant',
             message,
-            refusalText: guardrailBlocked ? guardrailRefusalText : null,
+            refusalText: guardrailBlocked ? guardrailRefusalText : guardrailConfirmQuestion,
           });
         }
       } else {
@@ -456,6 +465,13 @@ export async function POST(request: NextRequest) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.text })}\n\n`));
             }
             if (chunk.usage) usage = chunk.usage;
+          }
+
+          // 套話中風險第 1~3 次：先回答完使用者的問題，再接一句確認意圖的反問
+          if (guardrailConfirmQuestion) {
+            const appendText = `\n\n${guardrailConfirmQuestion}`;
+            fullResponse += appendText;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: appendText })}\n\n`));
           }
 
           messages.push({

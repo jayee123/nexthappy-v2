@@ -9,11 +9,13 @@
 # 這支函式負責：把兩軸的分類結果換算成「要不要攔、攔的話回什麼話」，
 # 其中套話中風險走「先確認意圖再拒絕」的反問升級階梯，對應
 # roadmap/guardrail-plan.html §03 的設計：
-#   第1、2次（模糊臨界區）→ 不直接拒絕，動態生成一句結合對話脈絡的反問句
-#     確認意圖（例：使用者提到「媽媽」，反問就接「媽媽當時的想法」這類細節，
-#     不是固定罐頭句），使用者如果確認是人際情境就繼續正常對話
-#   第3次 → 講白一次、劃清界線但不是拒答
-#   第3次後仍繼續／直接踩到高風險 → 升級成嚴格拒絕，不再反問或解釋
+#   第1、2、3次（模糊臨界區）→ 不完全拒答，blocked=False，讓呼叫端照常
+#     生成一個實質回答原問題的真實回覆，只是額外帶上 confirm_question
+#     （第1、2次是動態生成、結合對話脈絡的反問句；第3次是固定的劃界句），
+#     呼叫端把這句接在真實回覆後面一起顯示——先回答、再確認意圖，
+#     不是只給一句反問就晾著使用者
+#   第3次後仍繼續／直接踩到高風險 → blocked=True，升級成嚴格拒絕，
+#     不生成真實回覆、不再反問或解釋
 #
 # 升級階梯的計數器是記憶體內的簡易實作（跟 src/app/api/ai/chat/route.ts、
 # consultant/route.ts 原有的 rateLimitMap 同樣取捨）：Vercel serverless
@@ -134,6 +136,9 @@ class CheckRequest(BaseModel):
 class CheckResponse(BaseModel):
     blocked: bool
     refusal_text: Optional[str] = None
+    # 中風險第 1~3 次專用：blocked=False，呼叫端照常生成真實回覆，
+    # 再把這句接在後面一起顯示（不是取代真實回覆、也不是另外單獨拒答）
+    confirm_question: Optional[str] = None
     outcome: str
 
 
@@ -145,7 +150,13 @@ def _verify_auth(authorization: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
-async def _handle_extraction_mid(message: str, session_key: Optional[str]) -> tuple[str, str]:
+async def _handle_extraction_mid(message: str, session_key: Optional[str]) -> tuple[str, str, bool]:
+    """回傳 (text, outcome, escalated)。
+
+    escalated=False（第 1~3 次）：text 是要接在真實回覆後面的 confirm_question，
+    不是取代真實回覆的拒答文字。
+    escalated=True（第 3 次後仍繼續）：text 是完整拒答文字，不生成真實回覆。
+    """
     key = session_key or "_default"
     step = _escalation_counters.get(key, 0) + 1
     _escalation_counters[key] = step
@@ -153,14 +164,14 @@ async def _handle_extraction_mid(message: str, session_key: Optional[str]) -> tu
     # 第 1、2 次：先確認意圖，不直接拒絕——動態生成結合對話脈絡的反問句
     if step == 1:
         question = await _generate_confirm_question(message, EXTRACTION_MID_FALLBACK_DEFLECTIONS[0])
-        return question, "extraction_mid_1"
+        return question, "extraction_mid_1", False
     if step == 2:
         question = await _generate_confirm_question(message, EXTRACTION_MID_FALLBACK_DEFLECTIONS[1])
-        return question, "extraction_mid_2"
+        return question, "extraction_mid_2", False
     if step == 3:
-        return EXTRACTION_BOUNDARY_REPLY, "extraction_mid_3"
+        return EXTRACTION_BOUNDARY_REPLY, "extraction_mid_3", False
     # 第 3 次後仍繼續 → 升級成高風險處理，不再反問或解釋
-    return EXTRACTION_HIGH_REPLY, "extraction_mid_escalated"
+    return EXTRACTION_HIGH_REPLY, "extraction_mid_escalated", True
 
 
 @app.post("/api/guardrail-check")
@@ -197,8 +208,11 @@ async def check_message(
         return CheckResponse(blocked=True, refusal_text=EXTRACTION_HIGH_REPLY, outcome="extraction_high")
 
     if content.startswith(EXTRACTION_MID_MARKER):
-        refusal_text, outcome = await _handle_extraction_mid(req.message, req.session_key)
-        return CheckResponse(blocked=True, refusal_text=refusal_text, outcome=outcome)
+        text, outcome, escalated = await _handle_extraction_mid(req.message, req.session_key)
+        if escalated:
+            return CheckResponse(blocked=True, refusal_text=text, outcome=outcome)
+        # 第 1~3 次：不擋，讓呼叫端照常生成真實回覆，把 confirm_question 接在後面
+        return CheckResponse(blocked=False, confirm_question=text, outcome=outcome)
 
     if content.startswith(OFF_TOPIC_MARKER):
         # 離題跟套話風險是獨立的兩軸，離題不影響套話計數器
