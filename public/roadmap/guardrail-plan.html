@@ -446,8 +446,8 @@
   </section>
 
   <section id="admin-ui">
-    <div class="sec-head"><span class="sec-num">06</span><h2>後台介面草稿</h2></div>
-    <p class="sec-dek">新增一個「<span class="chip guard">防護記錄</span>」頁面，管理者能看到被攔下、反問、拒答的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。</p>
+    <div class="sec-head"><span class="sec-num">06</span><h2>後台介面草稿</h2><span class="chip ok">已實作，真實頁面在 /admin/guardrail-logs</span></div>
+    <p class="sec-dek">新增一個「<span class="chip guard">防護記錄</span>」頁面，管理者能看到被攔下、反問、拒答的對話，用來微調規則、也用來確認沒有誤攔正常的關係問題。下方是最初畫的草稿，<b>實際落地的網址是 <code>/admin/guardrail-logs</code></b>（不是草稿裡寫的 <code>/admin/guardrail</code>），功能跟草稿大致對應：可篩選風險等級／管道／審查狀態，點開看完整對話原文與回覆內容，標記已審查並留備註。</p>
 
     <div class="mock-frame">
       <div class="mock-bar"><span></span><span></span><span></span><span class="url">nexthappy-v2.vercel.app/admin/guardrail</span></div>
@@ -513,8 +513,9 @@
       <b style="color:var(--ok);">實作現況（取代下方「原規劃」的內容）：</b><br>
       ✅ <b>部署方式整個改掉，不走 Render</b>——原規劃以為 Vercel Serverless Function 全部卡在 <b>250MB</b>，但那其實是 <b>Node.js</b> Function 的上限；<b>Python Function 的上限是 500MB</b>，NeMo 依賴套件實測 277MB 完全在範圍內。所以直接用 Vercel 原生 Python Function（<code>api/guardrail-check.py</code>）跑在 nexthappy 自己的 Vercel 專案裡——不需要抽獨立 repo、不需要 Docker 容器、不需要 Render，同網域內部呼叫、連跨服務的網路延遲都省了。下方「為什麼不能沿用現有 Vercel」整節的前提已經不成立，保留原文字是留作紀錄對照，實際狀況以這裡為準。<br>
       ✅ <b>中風險第 1、2 次改成動態反問，不是固定罐頭句</b>——原本是兩句寫死的文字，現在改成每次都另外呼叫一次 <code>gpt-4o-mini</code>，結合使用者這句話的實際脈絡生成反問句（例如使用者提到「媽媽」，反問就會接「媽媽當時的想法」這類細節），對應「先確認意圖再拒絕」的設計。第 3 次講白、第 3 次後升級拒絕仍維持固定文字不變。生成失敗會 fail-soft 退回原本的罐頭句，不會讓請求整個噴錯。<br>
-      ✅ <b>中高風險對話已經會存 Log 了</b>——新增 <code>happy.guardrail_logs</code> 資料表（<code>supabase/migrations/020_guardrail_logs.sql</code>），套話風險 mid／high 被攔下時，<code>chat/route.ts</code>、<code>consultant/route.ts</code> 會把訊息原文、風險等級、實際回覆內容寫進去，供人工事後審查誤判、回饋打磨 prompt。只記套話風險軸，單純離題 off_topic 不記。第 10 節「防護記錄要不要存原文」這項待決策已經等於拍板：存。<br>
-      ⏳ <b>還沒做的部分</b>：第 06 節「防護記錄」後台頁面本身（讀 <code>guardrail_logs</code> 這張表、給人工標記誤判用）還是純畫面草稿，還沒接上真的資料表；升級階梯的計數器仍是記憶體內簡易實作，Vercel serverless 冷啟動會讓它重置；蒸餾攻擊的帳號層級偵測（第 02 節提到的另一項待辦）也還沒動工。
+      ✅ <b>中高風險對話已經會存 Log 了</b>——新增 <code>happy.guardrail_logs</code> 資料表（<code>supabase/migrations/020_guardrail_logs.sql</code>），套話風險 mid／high 被攔下時，<code>chat/route.ts</code>、<code>consultant/route.ts</code> 會把訊息原文、風險等級、實際回覆內容寫進去，供人工事後審查誤判、回饋打磨 prompt。只記套話風險軸，單純離題 off_topic 不記。第 10 節「防護記錄要不要存原文」這項待決策已經等於拍板：存。這張表也已經在正式 Supabase 專案裡實際建出來、確認可查詢。<br>
+      ✅ <b>第 06 節「防護記錄」後台頁面已經做出來了</b>——<code>/admin/guardrail-logs</code> 是真的能用的頁面（不再是純畫面草稿），可依風險等級／管道／審查狀態篩選，點開看完整對話原文跟實際回覆內容，標記已審查並留備註；側欄入口放在「未來規劃」旁邊方便對照。<br>
+      ⏳ <b>還沒做的部分</b>：升級階梯的計數器仍是記憶體內簡易實作，Vercel serverless 冷啟動會讓它重置；蒸餾攻擊的帳號層級偵測（第 02 節提到的另一項待辦）也還沒動工。
     </div>
 
     <figure class="figure-wide">
@@ -631,9 +632,14 @@
           <td><code>chat/route.ts</code>、<code>consultant/route.ts</code> 都已接上 <code>/api/guardrail-check</code>；<b>fail-open 設計維持不變</b>，服務異常時不擋真實對話。若要啟用 <code>GUARDRAIL_SERVICE_SECRET</code> 驗證，需要去 Vercel 專案設定加這個環境變數。</td>
           <td><b>已完成</b></td>
         </tr>
+        <tr style="background:var(--ok-soft);">
+          <td class="step" style="color:var(--ok);">4-1 · 後台「防護記錄」頁面</td>
+          <td><code>/admin/guardrail-logs</code> 已經做出來、接真實資料（不再是第 06 節的純畫面草稿），可篩選、展開看原文、標記審查、留備註。</td>
+          <td><b>已完成</b></td>
+        </tr>
         <tr>
-          <td class="step">4 · 上線後監控迭代</td>
-          <td>後台「防護記錄」接真實資料（目前第 06 節還是純畫面草稿，沒有接 DB）、依誤判率調整 prompt、評估要不要再加 Output Rail（見第 08 節 LLM05）；升級階梯計數器也還只是記憶體內簡易實作，要評估是否需要接 DB 做跨冷啟動持久化。</td>
+          <td class="step">4-2 · 上線後監控迭代</td>
+          <td>依誤判率調整 prompt、評估要不要再加 Output Rail（見第 08 節 LLM05）；升級階梯計數器也還只是記憶體內簡易實作，要評估是否需要接 DB 做跨冷啟動持久化；蒸餾攻擊的帳號層級偵測也排在這裡。</td>
           <td>待排程</td>
         </tr>
       </tbody>
@@ -888,7 +894,7 @@
 
     <div class="decision">
       <h3>防護記錄要不要存訊息原文？<span class="verdict-pill in" style="margin-left:10px;">已拍板：存，已實作</span></h3>
-      <div class="branch-row"><div class="opt">存原文<br>（已採用）</div><div class="out">新增 <code>happy.guardrail_logs</code> 表（<code>supabase/migrations/020_guardrail_logs.sql</code>），套話風險 mid／high 被攔下時存訊息原文、風險等級、實際回覆內容、對應的 <code>session_key</code>，供人工（語者2）事後截圖、審查誤判、回饋打磨 prompt。只記套話風險軸，單純離題 off_topic 不記，降低不必要的隱私留存範圍。目前還沒有設留存期限或自動清除機制，也還沒有讀取這張表的後台頁面（第 06 節「防護記錄」畫面還是草稿）。</div></div>
+      <div class="branch-row"><div class="opt">存原文<br>（已採用）</div><div class="out">新增 <code>happy.guardrail_logs</code> 表（<code>supabase/migrations/020_guardrail_logs.sql</code>），套話風險 mid／high 被攔下時存訊息原文、風險等級、實際回覆內容、對應的 <code>session_key</code>，供人工（語者2）事後截圖、審查誤判、回饋打磨 prompt。只記套話風險軸，單純離題 off_topic 不記，降低不必要的隱私留存範圍。這張表已經在正式 Supabase 建出來，讀取這張表的後台頁面（<code>/admin/guardrail-logs</code>）也已經做出來、不再是第 06 節的畫面草稿；目前還沒有設留存期限或自動清除機制。</div></div>
       <div class="branch-row"><div class="opt">只存分類結果</div><div class="out">沒採用——人工要回饋誤判案例，沒有原文幾乎沒辦法判斷是不是真的誤判。</div></div>
     </div>
 
@@ -907,8 +913,8 @@
       再接進 <code>chat/route.ts</code> 與 <code>consultant/route.ts</code> 兩支對話路由。部署架構跟第 07 節原規劃不同——
       不是抽獨立 repo 部署到 Render，是直接整合進 nexthappy 現有的 Vercel 專案，因為 Python Function 上限是 500MB（不是原本誤用的 Node.js 250MB 上限），NeMo 277MB 完全在範圍內；
       第 07 節已逐段更新對照，原規劃內容保留作紀錄。第 08 節 OWASP Top 10 for LLM 對照矩陣（10/14 會議指派給全羽）維持原評估，10 項中 7 項已有防護、2 項達正式上線水準，其餘 3 項已排入下一階段規劃；
-      前端思考狀態提示已在本機實作驗證；第 10 節五項待決策中前 3 項已採用建議值並寫進程式碼，後 2 項（防護記錄存不存原文、蒸餾帳號層級偵測）仍待拍板；
-      第 06 節「防護記錄」後台頁面目前仍是純畫面草稿、尚未接 DB，升級階梯計數器也還是記憶體內簡易實作，兩者都排入第 07 節階段 4「上線後監控迭代」。
+      前端思考狀態提示已在本機實作驗證；第 10 節五項待決策中，防護記錄存不存原文已拍板為「存」並實作完成，蒸餾帳號層級偵測仍待拍板；
+      第 06 節「防護記錄」後台頁面已經做出來、接上真實資料（不再是純畫面草稿），升級階梯計數器仍是記憶體內簡易實作，排入第 07 節階段 4-2「上線後監控迭代」。
     </p>
   </footer>
 </div>
