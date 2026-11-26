@@ -5,9 +5,12 @@
 // 回饋給 nexthappy-config/actions.py 打磨 guardrail prompt 用。
 //
 // 功能：
-//   - 過濾：風險等級 (全部/mid/high)、管道 (全部/chat/consultant)、審查狀態 (全部/待審查/已審查)
+//   - 過濾：風險等級 (全部/mid/high)、審查狀態 (全部/待審查/已審查)
 //   - cursor pagination
 //   - 點一列展開看完整訊息 + 回覆內容，標記已審查 + 留備註
+//
+// 不分管道（chat／consultant）篩選，統一看成一份記錄——兩邊共用同一套
+// guardrail 邏輯，人工審查誤判、回饋打磨 prompt 時不需要分開看。
 
 'use client';
 
@@ -31,7 +34,6 @@ interface GuardrailLogItem {
 }
 
 type RiskFilter = 'all' | 'mid' | 'high';
-type RouteFilter = 'all' | 'chat' | 'consultant';
 type ReviewedFilter = 'all' | 'false' | 'true';
 
 const RISK_BADGE: Record<string, { label: string; cls: string }> = {
@@ -64,7 +66,6 @@ export default function AdminGuardrailLogsPage() {
   const [unreviewedCount, setUnreviewedCount] = useState(0);
 
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
-  const [routeFilter, setRouteFilter] = useState<RouteFilter>('all');
   const [reviewedFilter, setReviewedFilter] = useState<ReviewedFilter>('false');
 
   const [cursorStack, setCursorStack] = useState<string[]>([]);
@@ -79,7 +80,7 @@ export default function AdminGuardrailLogsPage() {
   useEffect(() => {
     setCursorStack([]);
     setCurrentCursor(null);
-  }, [riskFilter, routeFilter, reviewedFilter]);
+  }, [riskFilter, reviewedFilter]);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -87,7 +88,6 @@ export default function AdminGuardrailLogsPage() {
     try {
       const params = new URLSearchParams();
       if (riskFilter !== 'all') params.set('risk_tier', riskFilter);
-      if (routeFilter !== 'all') params.set('route', routeFilter);
       if (reviewedFilter !== 'all') params.set('reviewed', reviewedFilter);
       if (currentCursor) params.set('cursor', currentCursor);
       params.set('limit', '50');
@@ -107,7 +107,7 @@ export default function AdminGuardrailLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [riskFilter, routeFilter, reviewedFilter, currentCursor]);
+  }, [riskFilter, reviewedFilter, currentCursor]);
 
   useEffect(() => {
     fetchLogs();
@@ -203,25 +203,6 @@ export default function AdminGuardrailLogsPage() {
               onClick={() => setRiskFilter(opt.value)}
               className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
                 riskFilter === opt.value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {([
-            { value: 'all', label: '全部管道' },
-            { value: 'chat', label: '晨晚間' },
-            { value: 'consultant', label: 'Mode B 諮詢' },
-          ] as { value: RouteFilter; label: string }[]).map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setRouteFilter(opt.value)}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                routeFilter === opt.value
                   ? 'bg-primary-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}

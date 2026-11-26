@@ -2,7 +2,9 @@
 //
 // GET /api/admin/guardrail-logs
 //   ?risk_tier=mid|high        (optional)
-//   ?route=chat|consultant     (optional)
+//   ?route=chat|consultant     (optional，前端目前不開放這個篩選，統一看成一份記錄——
+//                                兩邊共用同一套 guardrail 邏輯，人工審查不需要分管道看。
+//                                API 保留支援，之後要分開看還是可以直接打網址查)
 //   ?reviewed=true|false       (optional，不給 = 全部)
 //   ?cursor=<ISO ts>           (optional, created_at < cursor)
 //   ?limit=50                  (default 50, max 200)
